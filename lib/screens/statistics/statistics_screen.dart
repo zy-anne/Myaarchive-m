@@ -4,6 +4,7 @@ import '../../models/metadata.dart';
 import '../../models/series.dart';
 import '../../providers/app_providers.dart';
 import '../../theme/colors.dart';
+import '../../widgets/radar_chart.dart';
 
 /// Reading Statistics screen mirroring the web app's comprehensive analytics view.
 class StatisticsScreen extends ConsumerStatefulWidget {
@@ -166,28 +167,23 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
               children: [
-                // 1. Annual Milestone & Goal Hero Card
                 _buildMilestoneHero(seriesList, goal),
                 const SizedBox(height: 16),
-
-                // 2. Quick Stat Cards (Active, Queued, Finished, Avg Rating)
                 _buildQuickStatsGrid(seriesList),
                 const SizedBox(height: 20),
-
-                // 3. Status Breakdown
+                _buildReadingTimelineCard(seriesList),   // new
+                const SizedBox(height: 20),
                 _buildStatusDistributionCard(seriesList),
                 const SizedBox(height: 20),
-
-                // 4. Rating Distribution
                 _buildRatingDistributionCard(seriesList),
                 const SizedBox(height: 20),
-
-                // 5. Formats / Book Types Breakdown
                 _buildFormatDistributionCard(seriesList),
                 const SizedBox(height: 20),
-
-                // 6. Top Genres & Tags Breakdown
                 _buildTopGenresCard(seriesList),
+                const SizedBox(height: 20),
+                _buildTopTagsCard(seriesList),           // new
+                const SizedBox(height: 20),
+                _buildRadarCard(seriesList),             // new
               ],
             ),
           );
@@ -202,13 +198,30 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     );
   }
 
+  int? _yearOf(String? dateStr) {
+    if (dateStr == null || dateStr.trim().isEmpty) return null;
+    final s = dateStr.trim();
+
+    // Try standard ISO parse first (handles "2026-09-15", "2026-09-15T..." etc.)
+    final iso = DateTime.tryParse(s);
+    if (iso != null) return iso.year;
+
+    // Fallback: grabs the first 4-digit run, for hand-typed dates like "9/15/2026"
+    final match = RegExp(r'(\d{4})').firstMatch(s);
+    if (match != null) {
+      return int.tryParse(match.group(1)!);
+    }
+
+    return null;
+  }
+
   // ─── 1. Annual Milestone Hero ──────────────────────────────────────────
 
   Widget _buildMilestoneHero(List<Series> allSeries, int? goal) {
-    // Count finished series
-    final completedCount = allSeries
-        .where((s) => s.status.toLowerCase() == 'finished')
-        .length;
+    final completedCount = allSeries.where((s) {
+      if (s.status != ReadingStatus.finished) return false;
+      return _yearOf(s.dateFinished) == _selectedYear;
+    }).length;
 
     final progressPct = goal != null && goal > 0
         ? (completedCount / goal).clamp(0.0, 1.0)
@@ -406,10 +419,10 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     int ratedCount = 0;
 
     for (final s in allSeries) {
-      final st = s.status.toLowerCase();
-      if (st == 'reading') readingCount++;
-      if (st == 'planning') planningCount++;
-      if (st == 'finished') completedCount++;
+      final st = s.status;
+      if (st == ReadingStatus.reading) readingCount++;
+      if (st == ReadingStatus.planning) planningCount++;
+      if (st == ReadingStatus.finished) completedCount++;
 
       if (s.rating != null && s.rating! > 0) {
         ratingSum += s.rating!;
@@ -497,7 +510,205 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     );
   }
 
-  // ─── 3. Status Distribution ────────────────────────────────────────────
+  // 3. Reading Timeline (monthly bar chart)
+
+  Map<int, int> _monthlyFinishedCounts(List<Series> allSeries, int year) {
+    final counts = <int, int>{for (var m = 1; m <= 12; m++) m: 0};
+    for (final s in allSeries) {
+      if (s.status != ReadingStatus.finished) continue;
+      final y = _yearOf(s.dateFinished);
+      if (y != year) continue;
+      final f = s.dateFinished;
+      final parts = f?.split('-');
+      final m = (parts != null && parts.length > 1) ? int.tryParse(parts[1]) : null;
+      if (m != null && m >= 1 && m <= 12) {
+        counts[m] = (counts[m] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }
+
+  List<int> _availableYears(List<Series> allSeries) {
+    final years = <int>{DateTime.now().year};
+    for (final s in allSeries) {
+      final f = s.dateFinished;
+      if (f != null && f.length >= 4) {
+        final y = int.tryParse(f.substring(0, 4));
+        if (y != null) years.add(y);
+      }
+    }
+    return (years.toList()..sort((a, b) => b.compareTo(a)));
+  }
+
+  Widget _buildReadingTimelineCard(List<Series> allSeries) {
+    final counts = _monthlyFinishedCounts(allSeries, _selectedYear);
+    final maxCount = counts.values.fold<int>(0, (a, b) => a > b ? a : b);
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.darkSurfaceLight,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.darkBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('READING TIMELINE',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold,
+                      letterSpacing: 0.8, color: AppColors.darkTextMuted)),
+              DropdownButton<int>(
+                value: _selectedYear,
+                dropdownColor: AppColors.darkSurfaceLight,
+                underline: const SizedBox.shrink(),
+                style: const TextStyle(color: AppColors.primaryLight,
+                    fontSize: 12, fontWeight: FontWeight.w600),
+                items: _availableYears(allSeries)
+                    .map((y) => DropdownMenuItem(value: y, child: Text('$y')))
+                    .toList(),
+                onChanged: (y) { if (y != null) setState(() => _selectedYear = y); },
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          SizedBox(
+            height: 150,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: List.generate(12, (i) {
+                final month = i + 1;
+                final count = counts[month] ?? 0;
+                final isPeak = maxCount > 0 && count == maxCount;
+                return Expanded(
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        height: 14,
+                        child: count > 0
+                            ? Center(
+                                child: Text('$count',
+                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
+                                        color: isPeak ? AppColors.primaryLight : AppColors.darkTextMuted)))
+                            : null,
+                      ),
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.bottomCenter,
+                          child: FractionallySizedBox(
+                            heightFactor: maxCount > 0
+                                ? (count / maxCount).clamp(0.04, 1.0)
+                                : 0.02,
+                            child: Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 3),
+                              decoration: BoxDecoration(
+                                color: isPeak
+                                    ? AppColors.primaryLight
+                                    : AppColors.primary.withValues(alpha: count > 0 ? 0.55 : 0.12),
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(months[i], style: const TextStyle(fontSize: 9, color: AppColors.darkTextMuted)),
+                    ],
+                  ),
+                );
+              }),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 4. Top Tags
+
+  Widget _buildTopTagsCard(List<Series> allSeries) {
+    final tagCounts = <String, int>{};
+    for (final s in allSeries) {
+      for (final t in s.tags) {
+        tagCounts[t.name] = (tagCounts[t.name] ?? 0) + 1;
+      }
+    }
+    if (tagCounts.isEmpty) return const SizedBox.shrink();
+
+    final sorted = tagCounts.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    final top = sorted.take(8).toList();
+
+    return Container(
+    padding: const EdgeInsets.all(18),
+    decoration: BoxDecoration(
+      color: AppColors.darkSurfaceLight,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: AppColors.darkBorder),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('TOP TAGS',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold,
+                letterSpacing: 0.8, color: AppColors.darkTextMuted)),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: top.map((entry) => Chip(
+            backgroundColor: AppColors.darkBackground,
+            label: Text('${entry.key} (${entry.value})',
+                style: const TextStyle(fontSize: 12, color: AppColors.darkText)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: const BorderSide(color: AppColors.darkBorder),
+            ),
+          )).toList(),
+        ),
+      ],
+    ),
+    );
+  }
+
+  // 5. Radar
+
+  Widget _buildRadarCard(List<Series> allSeries) {
+    final genreCounts = <String, int>{};
+    for (final s in allSeries) {
+      for (final g in s.genres) {
+        genreCounts[g.name] = (genreCounts[g.name] ?? 0) + 1;
+      }
+    }
+    if (genreCounts.length < 3) return const SizedBox.shrink();
+
+    final top = (genreCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value))).take(6);
+    final radarData = top.map((e) => RadarChartData(e.key, e.value.toDouble())).toList();
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.darkSurfaceLight,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.darkBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('READING PROFILE',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold,
+                  letterSpacing: 0.8, color: AppColors.darkTextMuted)),
+          const SizedBox(height: 12),
+          Center(child: RadarChart(data: radarData)),
+        ],
+      ),
+    );
+  }
+
+  // ─── 6. Status Distribution ────────────────────────────────────────────
 
   Widget _buildStatusDistributionCard(List<Series> allSeries) {
     final statusCounts = <String, int>{};
@@ -600,7 +811,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     );
   }
 
-  // ─── 4. Rating Distribution ────────────────────────────────────────────
+  // ─── 7. Rating Distribution ────────────────────────────────────────────
 
   Widget _buildRatingDistributionCard(List<Series> allSeries) {
     final ratingCounts = {5: 0, 4: 0, 3: 0, 2: 0, 1: 0};
@@ -686,7 +897,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     );
   }
 
-  // ─── 5. Format Distribution ────────────────────────────────────────────
+  // ─── 8. Format Distribution ────────────────────────────────────────────
 
   Widget _buildFormatDistributionCard(List<Series> allSeries) {
     final formatCounts = <String, int>{};

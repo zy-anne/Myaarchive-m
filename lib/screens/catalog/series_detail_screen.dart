@@ -112,7 +112,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
       dateStarted: isStarted ? today : series.dateStarted,
       dateFinished: isFinished ? today : series.dateFinished,
       status: isFinished
-          ? ReadingStatus.completed
+          ? ReadingStatus.finished
           : (isStarted ? ReadingStatus.reading : series.status),
     );
 

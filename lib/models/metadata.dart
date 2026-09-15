@@ -107,14 +107,14 @@ class ContentWarning {
 /// Reading status options used across the app.
 class ReadingStatus {
   static const String reading = 'Reading';
-  static const String completed = 'Finished';
+  static const String finished = 'Finished';
   static const String onHold = 'On Hold';
   static const String planning = 'Planning';
   static const String dropped = 'Dropped';
 
   static const List<String> all = [
     reading,
-    completed,
+    finished,
     onHold,
     planning,
     dropped,
@@ -123,17 +123,17 @@ class ReadingStatus {
   static Color colorFor(String status) {
     switch (status) {
       case reading:
-        return const Color(0xFF9B7EDE); // Primary purple
-      case completed:
-        return const Color(0xFF7FC9A0); // Soft green
+        return const Color(0xFF9B7EDE);
+      case finished:
+        return const Color(0xFF7FC9A0);
       case onHold:
-        return const Color(0xFFE8C15C); // Gold / amber
+        return const Color(0xFFE8C15C);
       case planning:
-        return const Color(0xFF6FA8DC); // Soft blue
+        return const Color(0xFF6FA8DC);
       case dropped:
-        return const Color(0xFFDD7A6E); // Rust / coral
+        return const Color(0xFFDD7A6E);
       default:
-        return const Color(0xFFB9BEC7); // Gray
+        return const Color(0xFFB9BEC7);
     }
   }
 }
