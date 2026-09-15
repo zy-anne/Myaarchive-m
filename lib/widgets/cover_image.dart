@@ -77,8 +77,10 @@ class CoverImage extends ConsumerWidget {
           return _buildShimmer(context, radius);
         }
         if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
+          debugPrint('CoverImage: failed to resolve R2 url for key "$path": ${snapshot.error}');
           return _buildPlaceholder(context, radius);
         }
+        debugPrint('CoverImage: resolved "$path" -> ${snapshot.data}');
         return ClipRRect(
           borderRadius: radius,
           child: CachedNetworkImage(
@@ -87,8 +89,10 @@ class CoverImage extends ConsumerWidget {
             height: height,
             fit: fit,
             placeholder: (context, url) => _buildShimmer(context, radius),
-            errorWidget: (context, url, error) =>
-                _buildPlaceholder(context, radius),
+            errorWidget: (context, url, error) {
+              debugPrint('CoverImage: CachedNetworkImage failed for $url: $error');
+              return _buildPlaceholder(context, radius);
+            },
           ),
         );
       },

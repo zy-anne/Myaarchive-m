@@ -207,7 +207,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
   Widget _buildMilestoneHero(List<Series> allSeries, int? goal) {
     // Count finished series
     final completedCount = allSeries
-        .where((s) => s.status.toLowerCase() == 'completed')
+        .where((s) => s.status.toLowerCase() == 'finished')
         .length;
 
     final progressPct = goal != null && goal > 0
@@ -409,7 +409,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
       final st = s.status.toLowerCase();
       if (st == 'reading') readingCount++;
       if (st == 'planning') planningCount++;
-      if (st == 'completed') completedCount++;
+      if (st == 'finished') completedCount++;
 
       if (s.rating != null && s.rating! > 0) {
         ratingSum += s.rating!;

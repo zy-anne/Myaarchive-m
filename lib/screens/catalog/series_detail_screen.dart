@@ -110,7 +110,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     final updated = series.copyWith(
       dateStarted: isStarted ? today : series.dateStarted,
       dateFinished: isFinished ? today : series.dateFinished,
-      status: isFinished ? 'Finished' : (isStarted ? 'Reading' : series.status),
+      status: isFinished
+          ? ReadingStatus.completed
+          : (isStarted ? ReadingStatus.reading : series.status),
     );
 
     try {

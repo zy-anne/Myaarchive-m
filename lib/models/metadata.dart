@@ -107,7 +107,7 @@ class ContentWarning {
 /// Reading status options used across the app.
 class ReadingStatus {
   static const String reading = 'Reading';
-  static const String completed = 'Completed';
+  static const String completed = 'Finished';
   static const String onHold = 'On Hold';
   static const String planning = 'Planning';
   static const String dropped = 'Dropped';
