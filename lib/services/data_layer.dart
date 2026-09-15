@@ -286,6 +286,40 @@ class DataLayer {
           await _turso.execute('ALTER TABLE characters ADD COLUMN ${f[0]} ${f[1]}');
         }
       }
+
+      // ── series_groups / series_group_items migration ──────────
+      final infoGroups = await _turso.execute('PRAGMA table_info(series_groups)');
+      final existingGroupCols =
+          infoGroups.rows.map((r) => r['name']?.toString()).toSet();
+      if (existingGroupCols.isNotEmpty) {
+        final groupFields = [
+          ['group_type', "TEXT DEFAULT 'Series Group'"],
+          ['description', 'TEXT'],
+          ['position', 'INTEGER NOT NULL DEFAULT 0'],
+        ];
+        for (final f in groupFields) {
+          if (!existingGroupCols.contains(f[0])) {
+            await _turso.execute('ALTER TABLE series_groups ADD COLUMN ${f[0]} ${f[1]}');
+          }
+        }
+      }
+
+      final infoGroupItems =
+          await _turso.execute('PRAGMA table_info(series_group_items)');
+      final existingGroupItemCols =
+          infoGroupItems.rows.map((r) => r['name']?.toString()).toSet();
+      if (existingGroupItemCols.isNotEmpty) {
+        final groupItemFields = [
+          ['group_role', "TEXT DEFAULT 'Main Story'"],
+          ['position', 'INTEGER NOT NULL DEFAULT 0'],
+        ];
+        for (final f in groupItemFields) {
+          if (!existingGroupItemCols.contains(f[0])) {
+            await _turso.execute(
+                'ALTER TABLE series_group_items ADD COLUMN ${f[0]} ${f[1]}');
+          }
+        }
+      }
     } catch (_) {}
   }
 

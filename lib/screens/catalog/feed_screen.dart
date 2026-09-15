@@ -183,201 +183,213 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
         child: const Icon(Icons.add_rounded),
       ),
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── 1. Top Horizontal Category Tabs (Wireframe) ─────────────
-            _buildCategoryTabs(librariesAsync, selectedLibId),
-            const SizedBox(height: 14),
-
-            // ── 2. Library Header Title & Count ──────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    libraryTitle,
-                    style: const TextStyle(
-                      fontFamily: 'Outfit',
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                      letterSpacing: 0.3,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  seriesAsync.when(
-                    data: (list) {
-                      final count = _filteredList(list).length;
-                      return Text(
-                        '$count ${count == 1 ? 'entry' : 'entries'}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF8A93A6),
-                          fontWeight: FontWeight.w400,
-                        ),
-                      );
-                    },
-                    loading: () => const Text(
-                      'Loading entries...',
-                      style: TextStyle(fontSize: 13, color: Color(0xFF8A93A6)),
-                    ),
-                    error: (_, __) => const Text(
-                      '0 entries',
-                      style: TextStyle(fontSize: 13, color: Color(0xFF8A93A6)),
-                    ),
-                  ),
-                ],
+        child: RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(seriesListProvider);
+            ref.invalidate(librariesProvider);
+            if (selectedLibId != null) {
+              ref.invalidate(seriesGroupsProvider(selectedLibId));
+            }
+          },
+          color: AppColors.primaryLight,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              // ── 1. Top Horizontal Category Tabs (Wireframe) ─────────────
+              SliverToBoxAdapter(
+                child: _buildCategoryTabs(librariesAsync, selectedLibId),
               ),
-            ),
-            const SizedBox(height: 14),
+              const SliverToBoxAdapter(child: SizedBox(height: 14)),
 
-            // ── 3. Search Bar + Purple Filter Button ─────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18.0),
-              child: Row(
-                children: [
-                  // Search Text Input
-                  Expanded(
-                    child: Container(
-                      height: 46,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF141926),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: const Color(0xFF232B40),
-                          width: 1.2,
-                        ),
-                      ),
-                      child: TextField(
-                        controller: _searchController,
-                        onChanged: (val) {
-                          ref.read(seriesFilterProvider.notifier).state =
-                              filter.copyWith(search: val);
-                        },
+              // ── 2. Library Header Title & Count ──────────────────────────
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        libraryTitle,
                         style: const TextStyle(
+                          fontFamily: 'Outfit',
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
                           color: Colors.white,
-                          fontSize: 14,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'Search title, author, fandom...',
-                          hintStyle: const TextStyle(
-                            color: Color(0xFF6B7589),
-                            fontSize: 13.5,
-                          ),
-                          prefixIcon: const Icon(
-                            Icons.search_rounded,
-                            color: Color(0xFF6B7589),
-                            size: 20,
-                          ),
-                          suffixIcon: _searchController.text.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(
-                                    Icons.close_rounded,
-                                    size: 18,
-                                    color: Color(0xFF6B7589),
-                                  ),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    ref
-                                        .read(seriesFilterProvider.notifier)
-                                        .state = filter.copyWith(search: '');
-                                  },
-                                )
-                              : null,
-                          border: InputBorder.none,
-                          contentPadding:
-                              const EdgeInsets.symmetric(vertical: 12),
+                          letterSpacing: 0.3,
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-
-                  // Purple Filter Square Button
-                  Container(
-                    height: 46,
-                    width: 46,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary, // Vibrant purple from wireframe
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.35),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
+                      const SizedBox(height: 3),
+                      seriesAsync.when(
+                        data: (list) {
+                          final count = _filteredList(list).length;
+                          return Text(
+                            '$count ${count == 1 ? 'entry' : 'entries'}',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF8A93A6),
+                              fontWeight: FontWeight.w400,
+                            ),
+                          );
+                        },
+                        loading: () => const Text(
+                          'Loading entries...',
+                          style: TextStyle(fontSize: 13, color: Color(0xFF8A93A6)),
                         ),
-                      ],
-                    ),
-                    child: IconButton(
-                      icon: const Icon(
-                        Icons.filter_alt_rounded,
-                        color: Colors.white,
-                        size: 22,
+                        error: (_, __) => const Text(
+                          '0 entries',
+                          style: TextStyle(fontSize: 13, color: Color(0xFF8A93A6)),
+                        ),
                       ),
-                      tooltip: 'Sort & Filters',
-                      onPressed: _openFilterBottomSheet,
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
+              const SliverToBoxAdapter(child: SizedBox(height: 14)),
 
-            // ── 4. Filter Chips Row: All | Status ─────────────────────────
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 18.0),
-              child: Row(
-                children: [
-                  // "All" Pill Chip
-                  _buildStatusChip('All', filter.status == 'All', () {
-                    ref.read(seriesFilterProvider.notifier).state =
-                        filter.copyWith(status: 'All');
-                  }),
-                  const SizedBox(width: 8),
+              // ── 3. Search Bar + Purple Filter Button ─────────────────────
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18.0),
+                  child: Row(
+                    children: [
+                      // Search Text Input
+                      Expanded(
+                        child: Container(
+                          height: 46,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF141926),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: const Color(0xFF232B40),
+                              width: 1.2,
+                            ),
+                          ),
+                          child: TextField(
+                            controller: _searchController,
+                            onChanged: (val) {
+                              ref.read(seriesFilterProvider.notifier).state =
+                                  filter.copyWith(search: val);
+                            },
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: 'Search title, author, fandom...',
+                              hintStyle: const TextStyle(
+                                color: Color(0xFF6B7589),
+                                fontSize: 13.5,
+                              ),
+                              prefixIcon: const Icon(
+                                Icons.search_rounded,
+                                color: Color(0xFF6B7589),
+                                size: 20,
+                              ),
+                              suffixIcon: _searchController.text.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(
+                                        Icons.close_rounded,
+                                        size: 18,
+                                        color: Color(0xFF6B7589),
+                                      ),
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        ref
+                                            .read(seriesFilterProvider.notifier)
+                                            .state = filter.copyWith(search: '');
+                                      },
+                                    )
+                                  : null,
+                              border: InputBorder.none,
+                              contentPadding:
+                                  const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
 
-                  // Status Chips (Reading, Completed, On Hold, Planning, Dropped)
-                  ...ReadingStatus.all.map((status) {
-                    final isSelected = filter.status == status;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
-                      child: _buildStatusChip(status, isSelected, () {
+                      // Purple Filter Square Button
+                      Container(
+                        height: 46,
+                        width: 46,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary, // Vibrant purple from wireframe
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primary.withValues(alpha: 0.35),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.filter_alt_rounded,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                          tooltip: 'Sort & Filters',
+                          onPressed: _openFilterBottomSheet,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 12)),
+
+              // ── 4. Filter Chips Row: All | Status ─────────────────────────
+              SliverToBoxAdapter(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 18.0),
+                  child: Row(
+                    children: [
+                      // "All" Pill Chip
+                      _buildStatusChip('All', filter.status == 'All', () {
                         ref.read(seriesFilterProvider.notifier).state =
-                            filter.copyWith(status: status);
+                            filter.copyWith(status: 'All');
                       }),
-                    );
-                  }),
-                ],
+                      const SizedBox(width: 8),
+
+                      // Status Chips (Reading, Completed, On Hold, Planning, Dropped)
+                      ...ReadingStatus.all.map((status) {
+                        final isSelected = filter.status == status;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8.0),
+                          child: _buildStatusChip(status, isSelected, () {
+                            ref.read(seriesFilterProvider.notifier).state =
+                                filter.copyWith(status: status);
+                          }),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: 14),
+              const SliverToBoxAdapter(child: SizedBox(height: 14)),
 
-            // ── 5. Series Groups (umbrella / shared-universe cards) ──────
-            if (selectedLibId != null) _buildGroupsSection(selectedLibId),
+              // ── 5. Series Groups (umbrella / shared-universe cards) ──────
+              if (selectedLibId != null)
+                SliverToBoxAdapter(child: _buildGroupsSection(selectedLibId)),
 
-            // ── 6. Series Grid (2-Column Wireframe) ──────────────────────
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: () async {
-                  ref.invalidate(seriesListProvider);
-                  ref.invalidate(librariesProvider);
-                  if (selectedLibId != null) {
-                    ref.invalidate(seriesGroupsProvider(selectedLibId));
+              // ── 6. Series Grid (2-Column Wireframe) ──────────────────────
+              seriesAsync.when(
+                data: (seriesList) {
+                  final items = _filteredList(seriesList);
+
+                  if (items.isEmpty) {
+                    return SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: _buildEmptyState(context),
+                    );
                   }
-                },
-                color: AppColors.primaryLight,
-                child: seriesAsync.when(
-                  data: (seriesList) {
-                    final items = _filteredList(seriesList);
 
-                    if (items.isEmpty) {
-                      return _buildEmptyState(context);
-                    }
-
-                    return GridView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+                  return SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+                    sliver: SliverGrid(
                       gridDelegate:
                           const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 2,
@@ -385,22 +397,30 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         crossAxisSpacing: 12,
                         mainAxisSpacing: 12,
                       ),
-                      itemCount: items.length,
-                      itemBuilder: (context, index) {
-                        final item = items[index];
-                        return SeriesCard(
-                          series: item,
-                          isGrid: true,
-                          onTap: () => context.push('/series/${item.id}'),
-                        );
-                      },
-                    );
-                  },
-                  loading: () => const Center(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final item = items[index];
+                          return SeriesCard(
+                            series: item,
+                            isGrid: true,
+                            onTap: () => context.push('/series/${item.id}'),
+                          );
+                        },
+                        childCount: items.length,
+                      ),
+                    ),
+                  );
+                },
+                loading: () => const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
                     child: CircularProgressIndicator(
                         color: AppColors.primaryLight),
                   ),
-                  error: (err, _) => Center(
+                ),
+                error: (err, _) => SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24.0),
                       child: Text(
@@ -412,8 +432,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -648,15 +668,18 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   ),
                 ),
               ),
-            SizedBox(
-              height: 168,
-              child: ListView.separated(
+            IntrinsicHeight(
+              child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                itemCount: group.items.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 10),
-                itemBuilder: (context, i) =>
-                    _buildSubBookCard(group.items[i]),
+                child: Row(
+                  children: [
+                    for (int i = 0; i < group.items.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 10),
+                      _buildSubBookCard(group.items[i]),
+                    ],
+                  ],
+                ),
               ),
             ),
           ],
@@ -1132,63 +1155,41 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     );
   }
 
-  Widget _buildEmptyState(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) => SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: constraints.maxHeight),
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(32.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.menu_book_rounded,
-                      size: 32,
-                      color: AppColors.primaryLight,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'No Entries Found',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'No series match your current filter. Try selecting "All" or add a new book.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      color: Color(0xFF8A93A6),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton.icon(
-                    onPressed: () => context.push('/series/add'),
-                    icon: const Icon(Icons.add_rounded, size: 18),
-                    label: const Text('Add Entry'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ],
+    Widget _buildEmptyState(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
               ),
+              child: const Icon(Icons.menu_book_rounded, size: 32, color: AppColors.primaryLight),
             ),
-          ),
+            const SizedBox(height: 16),
+            const Text(
+              'No Entries Found',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'No series match your current filter. Try selecting "All" or add a new book.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12.5, color: Color(0xFF8A93A6)),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () => context.push('/series/add'),
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('Add Entry'),
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+            ),
+          ],
         ),
       ),
     );
