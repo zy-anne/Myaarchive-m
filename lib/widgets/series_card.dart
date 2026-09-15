@@ -25,211 +25,171 @@ class SeriesCard extends StatelessWidget {
   }
 
   Widget _buildGridCard(BuildContext context) {
-    final statusColor = ReadingStatus.colorFor(series.status);
-    final String bookType = series.bookType ?? 'Manga';
-    final String kindLabel = series.kind == 'series' ? 'Series' : 'Standalone';
+  final statusColor = ReadingStatus.colorFor(series.status);
+  final String formatLabel = (series.bookType ?? 'Manga').toUpperCase();
 
-    // Chapter or volume count label
-    String? countLabel;
-    if (series.standaloneChapterCount != null &&
-        series.standaloneChapterCount! > 0) {
-      countLabel = '${series.standaloneChapterCount} Chs';
-    } else if (series.volumeCount > 0) {
-      countLabel = '${series.volumeCount} Vols';
-    }
+  // Chapter or volume count label
+  String? countLabel;
+  if (series.standaloneChapterCount != null &&
+      series.standaloneChapterCount! > 0) {
+    countLabel = '${series.standaloneChapterCount} CH';
+  } else if (series.volumeCount > 0) {
+    countLabel = '${series.volumeCount} VOL';
+  }
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFF141926), // Deep midnight card from wireframe
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: const Color(0xFF232B40),
-            width: 1.2,
+  return GestureDetector(
+    onTap: onTap,
+    child: Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF141926), // Deep midnight card
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.35),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Top: Status Badge & Chapter Count ────────────────────────
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Full-bleed cover with overlay tag badges ─────────────
+          Expanded(
+            child: Stack(
+              fit: StackFit.expand,
               children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1B2338),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: statusColor.withValues(alpha: 0.4),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: statusColor,
-                          shape: BoxShape.circle,
+                series.coverImagePath != null &&
+                        series.coverImagePath!.trim().isNotEmpty
+                    ? CoverImage(
+                        imagePath: series.coverImagePath,
+                        fit: BoxFit.cover,
+                        borderRadius: BorderRadius.zero,
+                      )
+                    : Container(
+                        color: AppColors.darkSurfaceLight,
+                        child: Center(
+                          child: Icon(
+                            Icons.menu_book_rounded,
+                            size: 42,
+                            color:
+                                AppColors.darkTextMuted.withValues(alpha: 0.35),
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 5),
-                      Text(
-                        series.status,
+                Positioned(
+                  left: 8,
+                  top: 8,
+                  child: _buildOverlayTag(
+                    formatLabel,
+                    Colors.black.withValues(alpha: 0.62),
+                    Colors.white,
+                  ),
+                ),
+                if (series.isNsfw)
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: _buildOverlayTag(
+                      'NSFW',
+                      AppColors.error,
+                      Colors.white,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+          // ── Title / author / status row ───────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  series.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.bold,
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  series.author ?? 'Unknown Author',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppColors.roseHighlight.withValues(alpha: 0.85),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: statusColor.withValues(alpha: 0.6)),
+                      ),
+                      child: Text(
+                        series.status.toUpperCase(),
                         style: TextStyle(
                           color: statusColor,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ),
+                    if (countLabel != null)
+                      Text(
+                        countLabel,
+                        style: TextStyle(
+                          color: AppColors.roseHighlight.withValues(alpha: 0.85),
                           fontSize: 10.5,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ],
-                  ),
+                  ],
                 ),
               ],
             ),
-            if (countLabel != null) ...[
-              const SizedBox(height: 4),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1B2338),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFF2B3650)),
-                    ),
-                    child: Text(
-                      countLabel,
-                      style: const TextStyle(
-                        color: AppColors.darkTextSecondary,
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-
-            // ── Center: Cover Image or Book Icon (Wireframe) ────────────
-            Expanded(
-              child: Center(
-                child: series.coverImagePath != null &&
-                        series.coverImagePath!.trim().isNotEmpty
-                    ? Container(
-                        margin: const EdgeInsets.symmetric(vertical: 4),
-                        child: AspectRatio(
-                          aspectRatio: 0.72,
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: CoverImage(
-                              imagePath: series.coverImagePath,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                        ),
-                      )
-                    : Icon(
-                        Icons.menu_book_rounded,
-                        size: 46,
-                        color: AppColors.darkTextMuted.withValues(alpha: 0.35),
-                      ),
-              ),
-            ),
-
-            // ── Bottom: Badges row, Title, Author, Rating ────────────────
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 5,
-              runSpacing: 4,
-              children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1C2438),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: const Color(0xFF2C3852)),
-                  ),
-                  child: Text(
-                    bookType,
-                    style: const TextStyle(
-                      color: AppColors.darkTextSecondary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1C2438),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: const Color(0xFF2C3852)),
-                  ),
-                  child: Text(
-                    kindLabel,
-                    style: const TextStyle(
-                      color: AppColors.darkTextSecondary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-
-            // Title (Bold white)
-            Text(
-              series.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 2),
-
-            // Author (Muted)
-            Text(
-              series.author ?? 'Unknown Author',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: AppColors.darkTextMuted.withValues(alpha: 0.75),
-                fontSize: 11,
-              ),
-            ),
-            const SizedBox(height: 6),
-
-            // Rating Stars
-            RatingStars(
-              rating: series.rating ?? 0,
-              size: 13,
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
+
+Widget _buildOverlayTag(String text, Color bg, Color fg) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+    decoration: BoxDecoration(
+      color: bg,
+      borderRadius: BorderRadius.circular(5),
+    ),
+    child: Text(
+      text,
+      style: TextStyle(
+        color: fg,
+        fontSize: 9,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.4,
+      ),
+    ),
+  );
+}
 
   Widget _buildListCard(BuildContext context) {
     return Container(
