@@ -1599,35 +1599,41 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
         children: [
           // Toolbar row
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'ATTACHED RESOURCES',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.8,
-                  color: AppColors.darkTextMuted,
+              Expanded(
+                child: Text(
+                  'ATTACHED RESOURCES',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.8,
+                    color: AppColors.darkTextMuted,
+                  ),
                 ),
               ),
-              Row(
-                children: [
-                  TextButton.icon(
-                    onPressed: () => _showAddLinkDialog(series.id),
-                    icon: const Icon(Icons.link_rounded, size: 16),
-                    label: const Text('+ Link'),
-                  ),
-                  const SizedBox(width: 4),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    ),
-                    onPressed: () => _showAddFileDialog(series.id),
-                    icon: const Icon(Icons.upload_file_rounded, size: 16),
-                    label: const Text('+ File'),
-                  ),
-                ],
+              TextButton.icon(
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                onPressed: () => _showAddLinkDialog(series.id),
+                icon: const Icon(Icons.link_rounded, size: 16),
+                label: const Text('+ Link'),
+              ),
+              const SizedBox(width: 6),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                onPressed: () => _showAddFileDialog(series.id),
+                icon: const Icon(Icons.upload_file_rounded, size: 16),
+                label: const Text('+ File'),
               ),
             ],
           ),

@@ -1081,7 +1081,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
 
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 18.0),
+          padding: const EdgeInsets.fromLTRB(18.0, 14.0, 18.0, 0),
           child: Row(
             children: tabs.map((entry) {
               final isSelected = selectedLibId == entry.key;
