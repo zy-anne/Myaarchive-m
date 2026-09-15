@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:math' as math;
 import '../../models/metadata.dart';
 import '../../models/series.dart';
 import '../../providers/app_providers.dart';
@@ -16,6 +17,7 @@ class StatisticsScreen extends ConsumerStatefulWidget {
 
 class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
   int _selectedYear = DateTime.now().year;
+  int? _selectedMonth;
 
   void _showSetGoalDialog(String? currentGoal) {
     final controller = TextEditingController(text: currentGoal ?? '25');
@@ -541,9 +543,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
   }
 
   Widget _buildReadingTimelineCard(List<Series> allSeries) {
-    final counts = _monthlyFinishedCounts(allSeries, _selectedYear);
-    final maxCount = counts.values.fold<int>(0, (a, b) => a > b ? a : b);
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -561,68 +561,90 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
               const Text('READING TIMELINE',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold,
                       letterSpacing: 0.8, color: AppColors.darkTextMuted)),
-              DropdownButton<int>(
-                value: _selectedYear,
-                dropdownColor: AppColors.darkSurfaceLight,
-                underline: const SizedBox.shrink(),
-                style: const TextStyle(color: AppColors.primaryLight,
-                    fontSize: 12, fontWeight: FontWeight.w600),
-                items: _availableYears(allSeries)
-                    .map((y) => DropdownMenuItem(value: y, child: Text('$y')))
-                    .toList(),
-                onChanged: (y) { if (y != null) setState(() => _selectedYear = y); },
+              Row(
+                children: [
+                  DropdownButton<int>(
+                    value: _selectedYear,
+                    dropdownColor: AppColors.darkSurfaceLight,
+                    underline: const SizedBox.shrink(),
+                    style: const TextStyle(color: AppColors.primaryLight, fontSize: 12, fontWeight: FontWeight.w600),
+                    items: _availableYears(allSeries)
+                        .map((y) => DropdownMenuItem(value: y, child: Text('$y')))
+                        .toList(),
+                    onChanged: (y) { if (y != null) setState(() => _selectedYear = y); },
+                  ),
+                  const SizedBox(width: 10),
+                  DropdownButton<int?>(
+                    value: _selectedMonth,
+                    dropdownColor: AppColors.darkSurfaceLight,
+                    underline: const SizedBox.shrink(),
+                    style: const TextStyle(color: AppColors.primaryLight, fontSize: 12, fontWeight: FontWeight.w600),
+                    items: [
+                      const DropdownMenuItem<int?>(value: null, child: Text('Full Year')),
+                      for (int m = 1; m <= 12; m++)
+                        DropdownMenuItem<int?>(value: m, child: Text(monthNames[m - 1])),
+                    ],
+                    onChanged: (m) => setState(() => _selectedMonth = m),
+                  ),
+                ],
               ),
             ],
           ),
           const SizedBox(height: 18),
-          SizedBox(
-            height: 150,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: List.generate(12, (i) {
-                final month = i + 1;
-                final count = counts[month] ?? 0;
-                final isPeak = maxCount > 0 && count == maxCount;
-                return Expanded(
-                  child: Column(
-                    children: [
-                      SizedBox(
-                        height: 14,
-                        child: count > 0
-                            ? Center(
-                                child: Text('$count',
-                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
-                                        color: isPeak ? AppColors.primaryLight : AppColors.darkTextMuted)))
-                            : null,
-                      ),
-                      Expanded(
-                        child: Align(
-                          alignment: Alignment.bottomCenter,
-                          child: FractionallySizedBox(
-                            heightFactor: maxCount > 0
-                                ? (count / maxCount).clamp(0.04, 1.0)
-                                : 0.02,
-                            child: Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 3),
-                              decoration: BoxDecoration(
-                                color: isPeak
-                                    ? AppColors.primaryLight
-                                    : AppColors.primary.withValues(alpha: count > 0 ? 0.55 : 0.12),
-                                borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
-                              ),
-                            ),
-                          ),
+          _selectedMonth == null
+              ? _buildFullYearBarChart(allSeries)
+              : _buildMonthDrilldown(allSeries, _selectedYear, _selectedMonth!),
+        ],
+      ),
+    );
+  }
+
+// this is the method you pasted — it's the old body, just extracted
+  Widget _buildFullYearBarChart(List<Series> allSeries) {
+    final counts = _monthlyFinishedCounts(allSeries, _selectedYear);
+    final maxCount = counts.values.fold<int>(0, (a, b) => a > b ? a : b);
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    return SizedBox(
+      height: 150,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: List.generate(12, (i) {
+          final month = i + 1;
+          final count = counts[month] ?? 0;
+          final isPeak = maxCount > 0 && count == maxCount;
+          return Expanded(
+            child: Column(
+              children: [
+                SizedBox(
+                  height: 14,
+                  child: count > 0
+                      ? Center(child: Text('$count', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
+                          color: isPeak ? AppColors.primaryLight : AppColors.darkTextMuted)))
+                      : null,
+                ),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: FractionallySizedBox(
+                      heightFactor: maxCount > 0 ? (count / maxCount).clamp(0.04, 1.0) : 0.02,
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        decoration: BoxDecoration(
+                          color: isPeak ? AppColors.primaryLight
+                              : AppColors.primary.withValues(alpha: count > 0 ? 0.55 : 0.12),
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
                         ),
                       ),
-                      const SizedBox(height: 6),
-                      Text(months[i], style: const TextStyle(fontSize: 9, color: AppColors.darkTextMuted)),
-                    ],
+                    ),
                   ),
-                );
-              }),
+                ),
+                const SizedBox(height: 6),
+                Text(months[i], style: const TextStyle(fontSize: 9, color: AppColors.darkTextMuted)),
+              ],
             ),
-          ),
-        ],
+          );
+        }),
       ),
     );
   }
