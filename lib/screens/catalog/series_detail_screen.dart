@@ -8,6 +8,7 @@ import '../../models/character.dart';
 import '../../models/gallery_image.dart';
 import '../../models/glossary_term.dart';
 import '../../models/link_attachment.dart';
+import '../../models/metadata.dart';
 import '../../models/series.dart';
 import '../../models/volume.dart';
 import '../../providers/app_providers.dart';
@@ -1192,45 +1193,45 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                         ),
                         const SizedBox(height: 8),
                         ...rels.map((r) => Container(
-                              margin: const EdgeInsets.only(bottom: 6),
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: AppColors.darkSurfaceLight,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: AppColors.darkBorder),
+                          margin: const EdgeInsets.only(bottom: 6),
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.darkSurfaceLight,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppColors.darkBorder),
+                          ),
+                          child: Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: [
+                              Text(
+                                r.fromCharacterName ?? 'Char #${r.fromCharacterId}',
+                                style: const TextStyle(fontWeight: FontWeight.bold),
                               ),
-                              child: Row(
-                                children: [
-                                  Text(
-                                    r.fromCharacterName ?? 'Char #${r.fromCharacterId}',
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  r.label ?? r.type,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: AppColors.primaryLight,
+                                    fontWeight: FontWeight.w600,
                                   ),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.primary.withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      r.label ?? r.type,
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        color: AppColors.primaryLight,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Icon(Icons.arrow_forward_rounded, size: 14, color: AppColors.darkTextMuted),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    r.toCharacterName ?? 'Char #${r.toCharacterId}',
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                ],
+                                ),
                               ),
-                            )),
+                              const Icon(Icons.arrow_forward_rounded, size: 14, color: AppColors.darkTextMuted),
+                              Text(
+                                r.toCharacterName ?? 'Char #${r.toCharacterId}',
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        )),
                       ],
                     );
                   },
