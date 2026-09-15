@@ -4,9 +4,13 @@ import 'package:go_router/go_router.dart';
 import '../../models/library.dart';
 import '../../models/metadata.dart';
 import '../../models/series.dart';
+import '../../models/series_group.dart';
 import '../../providers/app_providers.dart';
 import '../../theme/colors.dart';
+import '../../widgets/cover_image.dart';
+import '../../widgets/rating_stars.dart';
 import '../../widgets/series_card.dart';
+import '../../widgets/status_badge.dart';
 
 /// Catalog Feed screen matching the wireframe layout.
 class FeedScreen extends ConsumerStatefulWidget {
@@ -18,7 +22,8 @@ class FeedScreen extends ConsumerStatefulWidget {
 
 class _FeedScreenState extends ConsumerState<FeedScreen> {
   final TextEditingController _searchController = TextEditingController();
-  bool _filterSeriesGroup = false;
+  bool _groupsSectionCollapsed = false;
+  final Set<int> _expandedGroupIds = {};
 
   @override
   void dispose() {
@@ -320,71 +325,12 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
             ),
             const SizedBox(height: 12),
 
-            // ── 4. Filter Chips Row: [ ] Series Group ▾ | All | Status ───
+            // ── 4. Filter Chips Row: All | Status ─────────────────────────
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 18.0),
               child: Row(
                 children: [
-                  // Series Group Dropdown / Toggle Chip
-                  GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _filterSeriesGroup = !_filterSeriesGroup;
-                      });
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: _filterSeriesGroup
-                            ? AppColors.primary.withValues(alpha: 0.25)
-                            : const Color(0xFF141926),
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                          color: _filterSeriesGroup
-                              ? AppColors.primaryLight
-                              : const Color(0xFF232B40),
-                          width: 1,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _filterSeriesGroup
-                                ? Icons.check_box_rounded
-                                : Icons.check_box_outline_blank_rounded,
-                            size: 15,
-                            color: _filterSeriesGroup
-                                ? AppColors.primaryLight
-                                : const Color(0xFF8A93A6),
-                          ),
-                          const SizedBox(width: 5),
-                          Text(
-                            'Series Group',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: _filterSeriesGroup
-                                  ? Colors.white
-                                  : const Color(0xFF8A93A6),
-                              fontWeight: _filterSeriesGroup
-                                  ? FontWeight.w600
-                                  : FontWeight.normal,
-                            ),
-                          ),
-                          const SizedBox(width: 3),
-                          const Icon(
-                            Icons.arrow_drop_down_rounded,
-                            size: 16,
-                            color: Color(0xFF8A93A6),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-
                   // "All" Pill Chip
                   _buildStatusChip('All', filter.status == 'All', () {
                     ref.read(seriesFilterProvider.notifier).state =
@@ -408,12 +354,18 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
             ),
             const SizedBox(height: 14),
 
-            // ── 5. Series Grid (2-Column Wireframe) ──────────────────────
+            // ── 5. Series Groups (umbrella / shared-universe cards) ──────
+            if (selectedLibId != null) _buildGroupsSection(selectedLibId),
+
+            // ── 6. Series Grid (2-Column Wireframe) ──────────────────────
             Expanded(
               child: RefreshIndicator(
                 onRefresh: () async {
                   ref.invalidate(seriesListProvider);
                   ref.invalidate(librariesProvider);
+                  if (selectedLibId != null) {
+                    ref.invalidate(seriesGroupsProvider(selectedLibId));
+                  }
                 },
                 color: AppColors.primaryLight,
                 child: seriesAsync.when(
@@ -467,10 +419,628 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     );
   }
 
-  List<Series> _filteredList(List<Series> source) {
-    if (!_filterSeriesGroup) return source;
-    // Filter to series groups only if toggle is enabled
-    return source.where((s) => s.kind == 'group' || s.kind == 'series').toList();
+  List<Series> _filteredList(List<Series> source) => source;
+
+  // ── Series Groups (Umbrella Groups / Shared Universes) ────────────────
+  //
+  // Mirrors the desktop app's collapsible "Series Groups" section: a set
+  // of umbrella cards, each expandable to show its member titles tagged
+  // by group_role (Main Story, Spin-off, Prequel, etc). Library-scoped.
+
+  Widget _buildGroupsSection(int libraryId) {
+    final groupsAsync = ref.watch(seriesGroupsProvider(libraryId));
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF141926),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFF232B40), width: 1.2),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () => setState(
+                  () => _groupsSectionCollapsed = !_groupsSectionCollapsed),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 12),
+                child: Row(
+                  children: [
+                    Icon(
+                      _groupsSectionCollapsed
+                          ? Icons.chevron_right_rounded
+                          : Icons.expand_more_rounded,
+                      color: AppColors.darkTextMuted,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(Icons.workspaces_rounded,
+                        size: 16, color: AppColors.primaryLight),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Series Groups',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.darkText,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    groupsAsync.when(
+                      data: (groups) => Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1B2338),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${groups.length}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.darkTextMuted,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
+                    ),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: () => _showGroupEditorDialog(libraryId),
+                      icon: const Icon(Icons.add_rounded, size: 16),
+                      label: const Text('New Group'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.primaryLight,
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (!_groupsSectionCollapsed)
+              groupsAsync.when(
+                data: (groups) {
+                  if (groups.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.fromLTRB(14, 0, 14, 14),
+                      child: Text(
+                        'No series groups yet — tap "New Group" to link related titles (sequels, spin-offs, shared universes).',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.darkTextMuted,
+                        ),
+                      ),
+                    );
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                    child: Column(
+                      children: groups
+                          .map((g) => _buildUmbrellaGroupCard(g, libraryId))
+                          .toList(),
+                    ),
+                  );
+                },
+                loading: () => const Padding(
+                  padding: EdgeInsets.all(14),
+                  child: Center(
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.primaryLight,
+                      ),
+                    ),
+                  ),
+                ),
+                error: (e, _) => Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                  child: Text(
+                    'Failed to load groups: $e',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.darkTextMuted,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUmbrellaGroupCard(SeriesGroup group, int libraryId) {
+    final isOpen = _expandedGroupIds.contains(group.id);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1B2338),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF2B3650)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => setState(() {
+              if (isOpen) {
+                _expandedGroupIds.remove(group.id);
+              } else {
+                _expandedGroupIds.add(group.id);
+              }
+            }),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  Icon(
+                    isOpen
+                        ? Icons.expand_more_rounded
+                        : Icons.chevron_right_rounded,
+                    size: 18,
+                    color: AppColors.darkTextMuted,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      group.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.darkText,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      group.groupType,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: AppColors.primaryLight,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined, size: 16),
+                    color: AppColors.darkTextMuted,
+                    tooltip: 'Edit Group',
+                    onPressed: () =>
+                        _showGroupEditorDialog(libraryId, existingGroup: group),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (isOpen) ...[
+            if (group.description != null && group.description!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                child: Text(
+                  group.description!,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.darkTextMuted,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            SizedBox(
+              height: 168,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                itemCount: group.items.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 10),
+                itemBuilder: (context, i) =>
+                    _buildSubBookCard(group.items[i]),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSubBookCard(SeriesGroupItem item) {
+    return SizedBox(
+      width: 112,
+      child: GestureDetector(
+        onTap: () => context.push('/series/${item.seriesId}'),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: AspectRatio(
+                    aspectRatio: 0.72,
+                    child: CoverImage(
+                      imagePath: item.coverImagePath,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 4,
+                  top: 4,
+                  right: 4,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.7),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      item.groupRole,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.3,
+                        color: AppColors.primaryLight,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              item.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: AppColors.darkText,
+                height: 1.2,
+              ),
+            ),
+            const SizedBox(height: 3),
+            Row(
+              children: [
+                StatusBadge(status: item.status, compact: true),
+                if (item.kind != 'standalone' && item.volumeCount > 0) ...[
+                  const SizedBox(width: 4),
+                  Text(
+                    '${item.volumeCount}v',
+                    style: const TextStyle(
+                      fontSize: 9.5,
+                      color: AppColors.darkTextMuted,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            if (item.rating != null && item.rating! > 0) ...[
+              const SizedBox(height: 2),
+              RatingStars(rating: item.rating, size: 10),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showGroupEditorDialog(
+    int libraryId, {
+    SeriesGroup? existingGroup,
+  }) async {
+    final nameCtrl = TextEditingController(text: existingGroup?.name ?? '');
+    final typeCtrl = TextEditingController(
+        text: existingGroup?.groupType ?? 'Series Group');
+    final descCtrl =
+        TextEditingController(text: existingGroup?.description ?? '');
+
+    final draftItems = <SeriesGroupDraftItem>[
+      if (existingGroup != null)
+        ...existingGroup.items.map((i) => SeriesGroupDraftItem(
+              seriesId: i.seriesId,
+              title: i.title,
+              groupRole: i.groupRole,
+            )),
+    ];
+
+    // Independent, unfiltered fetch of this library's titles so the "add
+    // book" picker isn't affected by the grid's active search/status filter.
+    final dataLayer = ref.read(dataLayerProvider);
+    final user = ref.read(authStateProvider).value;
+    List<Series> libraryTitles = [];
+    if (user != null) {
+      libraryTitles =
+          await dataLayer.seriesGetAll(user.id, libraryId: libraryId);
+    }
+
+    if (!mounted) return;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final available = libraryTitles
+                .where((s) =>
+                    !draftItems.any((d) => d.seriesId == s.id))
+                .toList();
+            int? selectedToAdd;
+
+            return AlertDialog(
+              backgroundColor: AppColors.darkSurfaceLight,
+              title: Text(existingGroup == null
+                  ? 'New Series Group / Universe'
+                  : 'Edit Series Group / Universe'),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: nameCtrl,
+                        decoration:
+                            const InputDecoration(labelText: 'Group Name *'),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: typeCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Group Type',
+                          hintText: 'e.g. Shared Universe, Spin-off Collection',
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: descCtrl,
+                        maxLines: 2,
+                        decoration:
+                            const InputDecoration(labelText: 'Description'),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'MEMBER TITLES',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.6,
+                          color: AppColors.darkTextMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (draftItems.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 6),
+                          child: Text(
+                            'No titles added yet.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.darkTextMuted,
+                            ),
+                          ),
+                        )
+                      else
+                        ...draftItems.map((item) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  flex: 3,
+                                  child: Text(
+                                    item.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  flex: 3,
+                                  child: DropdownButtonFormField<String>(
+                                    value: item.groupRole,
+                                    isDense: true,
+                                    dropdownColor: AppColors.darkSurfaceLight,
+                                    decoration: const InputDecoration(
+                                      isDense: true,
+                                      contentPadding: EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 8),
+                                    ),
+                                    items: GroupRoles.all
+                                        .map((r) => DropdownMenuItem(
+                                              value: r,
+                                              child: Text(
+                                                r,
+                                                style: const TextStyle(
+                                                    fontSize: 12),
+                                              ),
+                                            ))
+                                        .toList(),
+                                    onChanged: (val) {
+                                      if (val == null) return;
+                                      setDialogState(
+                                          () => item.groupRole = val);
+                                    },
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.close_rounded,
+                                      size: 16),
+                                  color: AppColors.darkTextMuted,
+                                  onPressed: () => setDialogState(() =>
+                                      draftItems.remove(item)),
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<int>(
+                              value: selectedToAdd,
+                              isDense: true,
+                              dropdownColor: AppColors.darkSurfaceLight,
+                              hint: const Text(
+                                '-- Select a title to add --',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                              decoration: const InputDecoration(isDense: true),
+                              items: available
+                                  .map((s) => DropdownMenuItem(
+                                        value: s.id,
+                                        child: Text(
+                                          s.title,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
+                                      ))
+                                  .toList(),
+                              onChanged: (val) =>
+                                  setDialogState(() => selectedToAdd = val),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.add_circle_outline,
+                                color: AppColors.primaryLight),
+                            onPressed: () {
+                              if (selectedToAdd == null) return;
+                              final series = libraryTitles
+                                  .firstWhere((s) => s.id == selectedToAdd);
+                              setDialogState(() {
+                                draftItems.add(SeriesGroupDraftItem(
+                                  seriesId: series.id,
+                                  title: series.title,
+                                ));
+                                selectedToAdd = null;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                if (existingGroup != null)
+                  TextButton(
+                    style: TextButton.styleFrom(foregroundColor: AppColors.error),
+                    onPressed: () async {
+                      final confirmed = await showDialog<bool>(
+                        context: ctx,
+                        builder: (confirmCtx) => AlertDialog(
+                          backgroundColor: AppColors.darkSurfaceLight,
+                          title: const Text('Delete Group?'),
+                          content: Text(
+                            'Delete "${existingGroup.name}"? This won\'t delete the titles in it, just the group.',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () =>
+                                  Navigator.pop(confirmCtx, false),
+                              child: const Text('Cancel'),
+                            ),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.error),
+                              onPressed: () =>
+                                  Navigator.pop(confirmCtx, true),
+                              child: const Text('Delete'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (confirmed == true) {
+                        await ref
+                            .read(dataLayerProvider)
+                            .seriesGroupsDelete(existingGroup.id);
+                        ref.invalidate(seriesGroupsProvider(libraryId));
+                        if (context.mounted) Navigator.pop(ctx);
+                      }
+                    },
+                    child: const Text('Delete'),
+                  ),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary),
+                  onPressed: () async {
+                    final name = nameCtrl.text.trim();
+                    if (name.isEmpty) return;
+
+                    final itemPairs = draftItems
+                        .map((d) => MapEntry(d.seriesId, d.groupRole))
+                        .toList();
+
+                    final dl = ref.read(dataLayerProvider);
+                    if (existingGroup == null) {
+                      await dl.seriesGroupsCreate(
+                        libraryId: libraryId,
+                        name: name,
+                        groupType: typeCtrl.text.trim().isEmpty
+                            ? 'Series Group'
+                            : typeCtrl.text.trim(),
+                        description: descCtrl.text.trim().isEmpty
+                            ? null
+                            : descCtrl.text.trim(),
+                        items: itemPairs,
+                      );
+                    } else {
+                      await dl.seriesGroupsUpdate(
+                        existingGroup.id,
+                        name: name,
+                        groupType: typeCtrl.text.trim().isEmpty
+                            ? 'Series Group'
+                            : typeCtrl.text.trim(),
+                        description: descCtrl.text.trim().isEmpty
+                            ? null
+                            : descCtrl.text.trim(),
+                        items: itemPairs,
+                      );
+                    }
+                    ref.invalidate(seriesGroupsProvider(libraryId));
+                    if (context.mounted) Navigator.pop(ctx);
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   // ── Top Horizontal Categories Bar ────────────────────────────────────────

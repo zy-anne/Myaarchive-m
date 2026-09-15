@@ -10,6 +10,7 @@ import '../models/link_attachment.dart';
 import '../models/metadata.dart';
 import '../models/relationship.dart';
 import '../models/series.dart';
+import '../models/series_group.dart';
 import '../models/user.dart';
 import '../models/volume.dart';
 import '../services/auth_service.dart';
@@ -234,6 +235,22 @@ final seriesGlossaryProvider =
     FutureProvider.family<List<GlossaryTerm>, int>((ref, seriesId) async {
   final dataLayer = ref.watch(dataLayerProvider);
   return dataLayer.glossaryGetBySeries(seriesId);
+});
+
+// ─── Series Groups (Umbrella Groups) Provider ────────────────────────
+//
+// Library-scoped, like on desktop — re-fetched whenever the selected
+// library or the underlying series list changes (a group's member cards
+// show live status/rating/volume-count off the series table).
+
+final seriesGroupsProvider =
+    FutureProvider.family<List<SeriesGroup>, int>((ref, libraryId) async {
+  final dataLayer = ref.watch(dataLayerProvider);
+  // Re-run whenever series are added/edited/removed so member cards
+  // (status, rating, volume count) and the "available to add" list stay
+  // fresh — cheap since it's a couple of indexed queries.
+  ref.watch(seriesListProvider);
+  return dataLayer.seriesGroupsGetAll(libraryId);
 });
 
 // ─── Metadata Lists Providers ────────────────────────────────────────

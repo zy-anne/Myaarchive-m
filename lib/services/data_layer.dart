@@ -7,6 +7,7 @@ import '../models/metadata.dart';
 import '../models/link_attachment.dart';
 import '../models/relationship.dart';
 import '../models/series.dart';
+import '../models/series_group.dart';
 import '../models/volume.dart';
 import 'turso_client.dart';
 
@@ -197,6 +198,29 @@ class DataLayer {
           series_id INTEGER NOT NULL,
           term TEXT NOT NULL,
           definition TEXT
+        )
+      ''', []),
+      // Umbrella "Series Groups" (shared universes) — see app.js's
+      // "Series Groups (Umbrella Groups / Shared Universes)" section on
+      // desktop. Library-scoped; members are linked via series_group_items
+      // with a group_role tag (Main Story, Spin-off, Prequel, etc).
+      const MapEntry('''
+        CREATE TABLE IF NOT EXISTS series_groups (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          library_id INTEGER NOT NULL,
+          name TEXT NOT NULL,
+          group_type TEXT DEFAULT 'Series Group',
+          description TEXT,
+          position INTEGER NOT NULL DEFAULT 0
+        )
+      ''', []),
+      const MapEntry('''
+        CREATE TABLE IF NOT EXISTS series_group_items (
+          group_id INTEGER NOT NULL,
+          series_id INTEGER NOT NULL,
+          group_role TEXT DEFAULT 'Main Story',
+          position INTEGER NOT NULL DEFAULT 0,
+          UNIQUE(group_id, series_id)
         )
       ''', []),
     ]);
@@ -539,6 +563,7 @@ class DataLayer {
       MapEntry('DELETE FROM characters WHERE series_id = ?', [id]),
       MapEntry('DELETE FROM gallery_images WHERE series_id = ?', [id]),
       MapEntry('DELETE FROM link_attachments WHERE series_id = ?', [id]),
+      MapEntry('DELETE FROM series_group_items WHERE series_id = ?', [id]),
       MapEntry('DELETE FROM series WHERE id = ?', [id]),
     ]);
   }
@@ -614,6 +639,98 @@ class DataLayer {
         );
       }
     }
+  }
+
+  // ─── Series Groups (Umbrella Groups / Shared Universes) ────────────
+  //
+  // Mirrors the Electron app's series_groups / series_group_items tables
+  // (see app.js's "Series Groups" section). A group links related series
+  // together (shared universe, main story + spin-offs, prequel/sequel,
+  // etc), library-scoped, with each member tagged by a group_role.
+
+  Future<List<SeriesGroup>> seriesGroupsGetAll(int libraryId) async {
+    final groupsRes = await _turso.execute(
+      'SELECT * FROM series_groups WHERE library_id = ? ORDER BY position, id',
+      [libraryId],
+    );
+
+    final groups = <SeriesGroup>[];
+    for (final g in groupsRes.rows) {
+      final groupId = g['id'];
+      final itemsRes = await _turso.execute('''
+        SELECT s.id, s.title, s.cover_image_path, s.status, s.kind, s.rating,
+          (SELECT COUNT(*) FROM volumes v WHERE v.series_id = s.id) as volume_count,
+          sgi.group_role, sgi.position
+        FROM series_group_items sgi
+        JOIN series s ON sgi.series_id = s.id
+        WHERE sgi.group_id = ?
+        ORDER BY sgi.position
+      ''', [groupId]);
+
+      final items = itemsRes.rows.map((r) => SeriesGroupItem.fromJson(r)).toList();
+      groups.add(SeriesGroup.fromJson(g, items: items));
+    }
+    return groups;
+  }
+
+  /// [items] is (seriesId, groupRole) pairs in display order.
+  Future<int> seriesGroupsCreate({
+    required int libraryId,
+    required String name,
+    String groupType = 'Series Group',
+    String? description,
+    List<MapEntry<int, String>> items = const [],
+  }) async {
+    final maxRes = await _turso.execute(
+      'SELECT MAX(position) as maxPos FROM series_groups WHERE library_id = ?',
+      [libraryId],
+    );
+    int pos = 0;
+    if (maxRes.rows.isNotEmpty && maxRes.rows.first['maxPos'] != null) {
+      pos = (maxRes.rows.first['maxPos'] as int) + 1;
+    }
+
+    final res = await _turso.execute('''
+      INSERT INTO series_groups (library_id, name, group_type, description, position)
+      VALUES (?, ?, ?, ?, ?)
+    ''', [libraryId, name, groupType, description, pos]);
+
+    final groupId = res.lastInsertRowid ?? 0;
+    if (groupId > 0) {
+      await _replaceGroupItems(groupId, items);
+    }
+    return groupId;
+  }
+
+  Future<void> seriesGroupsUpdate(
+    int id, {
+    required String name,
+    String groupType = 'Series Group',
+    String? description,
+    List<MapEntry<int, String>> items = const [],
+  }) async {
+    await _turso.execute('''
+      UPDATE series_groups SET name = ?, group_type = ?, description = ? WHERE id = ?
+    ''', [name, groupType, description, id]);
+    await _replaceGroupItems(id, items);
+  }
+
+  Future<void> _replaceGroupItems(int groupId, List<MapEntry<int, String>> items) async {
+    await _turso.execute('DELETE FROM series_group_items WHERE group_id = ?', [groupId]);
+    for (int i = 0; i < items.length; i++) {
+      final entry = items[i];
+      await _turso.execute('''
+        INSERT INTO series_group_items (group_id, series_id, group_role, position)
+        VALUES (?, ?, ?, ?)
+      ''', [groupId, entry.key, entry.value, i]);
+    }
+  }
+
+  Future<void> seriesGroupsDelete(int id) async {
+    await _turso.batch([
+      MapEntry('DELETE FROM series_group_items WHERE group_id = ?', [id]),
+      MapEntry('DELETE FROM series_groups WHERE id = ?', [id]),
+    ]);
   }
 
   // ─── Volumes ─────────────────────────────────────────────────────────
