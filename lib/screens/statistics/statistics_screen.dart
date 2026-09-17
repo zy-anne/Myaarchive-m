@@ -1,6 +1,6 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'dart:math' as math;
 import '../../models/metadata.dart';
 import '../../models/series.dart';
 import '../../providers/app_providers.dart';
@@ -17,7 +17,7 @@ class StatisticsScreen extends ConsumerStatefulWidget {
 
 class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
   int _selectedYear = DateTime.now().year;
-  int? _selectedMonth;
+  int _selectedMonth = DateTime.now().month;
 
   void _showSetGoalDialog(String? currentGoal) {
     final controller = TextEditingController(text: currentGoal ?? '25');
@@ -215,6 +215,95 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     }
 
     return null;
+  }
+
+  // ─── Data helpers — strict ISO date parsing for day-level accuracy ────
+
+  /// Parses `dateFinished` to an exact calendar day. Unlike [_yearOf], this
+  /// does NOT fall back to a fuzzy year-only regex — streaks, heatmaps, and
+  /// weekly breakdowns need a real day, not just a year guess.
+  DateTime? _parseFullDate(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return null;
+    final d = DateTime.tryParse(raw.trim());
+    return d == null ? null : DateTime(d.year, d.month, d.day);
+  }
+
+  List<Series> _finishedIn(List<Series> allSeries, int year, int? month) {
+    return allSeries.where((s) {
+      if (s.status != ReadingStatus.finished) return false;
+      final d = _parseFullDate(s.dateFinished);
+      if (d == null) return false;
+      if (d.year != year) return false;
+      if (month != null && d.month != month) return false;
+      return true;
+    }).toList();
+  }
+
+  Map<DateTime, int> _dailyFinishCounts(List<Series> allSeries) {
+    final map = <DateTime, int>{};
+    for (final s in allSeries) {
+      if (s.status != ReadingStatus.finished) continue;
+      final d = _parseFullDate(s.dateFinished);
+      if (d == null) continue;
+      map[d] = (map[d] ?? 0) + 1;
+    }
+    return map;
+  }
+
+  // ─── Streak / consistency math (all-time) ──────────────────────────────
+
+  _ConsistencyStats _computeConsistency(Map<DateTime, int> daily) {
+    if (daily.isEmpty) return const _ConsistencyStats(0, 0, 0, 0, 0);
+
+    final activeDays = daily.keys.toList()..sort();
+    int longestStreak = 1, running = 1, longestBreak = 0;
+    for (int i = 1; i < activeDays.length; i++) {
+      final gap = activeDays[i].difference(activeDays[i - 1]).inDays;
+      if (gap == 1) {
+        running++;
+        longestStreak = math.max(longestStreak, running);
+      } else {
+        longestBreak = math.max(longestBreak, gap - 1);
+        running = 1;
+      }
+    }
+
+    final activeSet = activeDays.toSet();
+    final today = DateTime.now();
+    DateTime cursor = DateTime(today.year, today.month, today.day);
+    if (!activeSet.contains(cursor)) {
+      final past = activeDays.where((d) => !d.isAfter(cursor)).toList();
+      if (past.isEmpty) {
+        return _ConsistencyStats(0, longestStreak, longestBreak, activeDays.length, 0);
+      }
+      cursor = past.last;
+    }
+    int currentStreak = 0;
+    while (activeSet.contains(cursor)) {
+      currentStreak++;
+      cursor = cursor.subtract(const Duration(days: 1));
+    }
+
+    final spanDays = activeDays.last.difference(activeDays.first).inDays + 1;
+    final consistencyPct = spanDays > 0 ? (activeDays.length / spanDays) * 100 : 0.0;
+
+    return _ConsistencyStats(currentStreak, longestStreak, longestBreak, activeDays.length, consistencyPct);
+  }
+
+  List<MapEntry<String, int>> _weeklyBreakdown(Map<DateTime, int> daily, int year, int month) {
+    final daysInMonth = DateTime(year, month + 1, 0).day;
+    final weeks = <MapEntry<String, int>>[];
+    int weekNum = 1;
+    for (int start = 1; start <= daysInMonth; start += 7) {
+      final end = math.min(start + 6, daysInMonth);
+      int count = 0;
+      for (int day = start; day <= end; day++) {
+        count += daily[DateTime(year, month, day)] ?? 0;
+      }
+      weeks.add(MapEntry('Week $weekNum (${end - start + 1}d)', count));
+      weekNum++;
+    }
+    return weeks;
   }
 
   // ─── 1. Annual Milestone Hero ──────────────────────────────────────────
@@ -512,7 +601,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     );
   }
 
-  // 3. Reading Timeline (monthly bar chart)
+  // 3. Reading Timeline (monthly bar chart + drilldown)
 
   Map<int, int> _monthlyFinishedCounts(List<Series> allSeries, int year) {
     final counts = <int, int>{for (var m = 1; m <= 12; m++) m: 0};
@@ -542,8 +631,15 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     return (years.toList()..sort((a, b) => b.compareTo(a)));
   }
 
+  static const List<String> _monthNames = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
   Widget _buildReadingTimelineCard(List<Series> allSeries) {
-    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    final counts = _monthlyFinishedCounts(allSeries, _selectedYear);
+    final maxCount = counts.values.fold<int>(0, (a, b) => a > b ? a : b);
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -562,89 +658,264 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold,
                       letterSpacing: 0.8, color: AppColors.darkTextMuted)),
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   DropdownButton<int>(
                     value: _selectedYear,
                     dropdownColor: AppColors.darkSurfaceLight,
                     underline: const SizedBox.shrink(),
-                    style: const TextStyle(color: AppColors.primaryLight, fontSize: 12, fontWeight: FontWeight.w600),
+                    style: const TextStyle(color: AppColors.primaryLight,
+                        fontSize: 12, fontWeight: FontWeight.w600),
                     items: _availableYears(allSeries)
                         .map((y) => DropdownMenuItem(value: y, child: Text('$y')))
                         .toList(),
                     onChanged: (y) { if (y != null) setState(() => _selectedYear = y); },
                   ),
                   const SizedBox(width: 10),
-                  DropdownButton<int?>(
+                  DropdownButton<int>(
                     value: _selectedMonth,
                     dropdownColor: AppColors.darkSurfaceLight,
                     underline: const SizedBox.shrink(),
-                    style: const TextStyle(color: AppColors.primaryLight, fontSize: 12, fontWeight: FontWeight.w600),
-                    items: [
-                      const DropdownMenuItem<int?>(value: null, child: Text('Full Year')),
-                      for (int m = 1; m <= 12; m++)
-                        DropdownMenuItem<int?>(value: m, child: Text(monthNames[m - 1])),
-                    ],
-                    onChanged: (m) => setState(() => _selectedMonth = m),
+                    style: const TextStyle(color: AppColors.primaryLight,
+                        fontSize: 12, fontWeight: FontWeight.w600),
+                    items: List.generate(12, (i) => i + 1)
+                        .map((m) => DropdownMenuItem(
+                              value: m,
+                              child: Text(_monthNames[m - 1]),
+                            ))
+                        .toList(),
+                    onChanged: (m) { if (m != null) setState(() => _selectedMonth = m); },
                   ),
                 ],
               ),
             ],
           ),
           const SizedBox(height: 18),
-          _selectedMonth == null
-              ? _buildFullYearBarChart(allSeries)
-              : _buildMonthDrilldown(allSeries, _selectedYear, _selectedMonth!),
+          SizedBox(
+            height: 150,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: List.generate(12, (i) {
+                final month = i + 1;
+                final count = counts[month] ?? 0;
+                final isPeak = maxCount > 0 && count == maxCount;
+                final isSelected = month == _selectedMonth;
+                return Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => _selectedMonth = month),
+                    child: Column(
+                      children: [
+                        SizedBox(
+                          height: 14,
+                          child: count > 0
+                              ? Center(
+                                  child: Text('$count',
+                                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
+                                          color: isPeak ? AppColors.primaryLight : AppColors.darkTextMuted)))
+                              : null,
+                        ),
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.bottomCenter,
+                            child: FractionallySizedBox(
+                              heightFactor: maxCount > 0
+                                  ? (count / maxCount).clamp(0.04, 1.0)
+                                  : 0.02,
+                              child: Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 3),
+                                decoration: BoxDecoration(
+                                  color: isPeak
+                                      ? AppColors.primaryLight
+                                      : AppColors.primary.withValues(alpha: count > 0 ? 0.55 : 0.12),
+                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
+                                  border: isSelected
+                                      ? Border.all(color: AppColors.primaryLight, width: 1.5)
+                                      : null,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(months[i], style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            color: isSelected ? AppColors.primaryLight : AppColors.darkTextMuted)),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+          const SizedBox(height: 24),
+          const Divider(color: AppColors.darkBorder),
+          const SizedBox(height: 16),
+          _buildMonthDrilldown(allSeries, _selectedYear, _selectedMonth),
         ],
       ),
     );
   }
 
-// this is the method you pasted — it's the old body, just extracted
-  Widget _buildFullYearBarChart(List<Series> allSeries) {
-    final counts = _monthlyFinishedCounts(allSeries, _selectedYear);
-    final maxCount = counts.values.fold<int>(0, (a, b) => a > b ? a : b);
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  // ─── 3b. Month Drilldown (completed count, streaks, weekly, heatmap) ──
 
-    return SizedBox(
-      height: 150,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: List.generate(12, (i) {
-          final month = i + 1;
-          final count = counts[month] ?? 0;
-          final isPeak = maxCount > 0 && count == maxCount;
-          return Expanded(
-            child: Column(
+  Widget _buildMonthDrilldown(List<Series> allSeries, int year, int month) {
+    final monthSeries = _finishedIn(allSeries, year, month);
+    final allDaily = _dailyFinishCounts(allSeries); // all-time, for consistency block
+    final consistency = _computeConsistency(allDaily);
+    final weeks = _weeklyBreakdown(allDaily, year, month);
+    final daysInMonth = DateTime(year, month + 1, 0).day;
+
+    final genresTagged = monthSeries.expand((s) => s.genres.map((g) => g.name)).toSet().length;
+    final activeDaysThisMonth = allDaily.keys.where((d) => d.year == year && d.month == month).length;
+
+    MapEntry<int, int>? peakDay;
+    for (int day = 1; day <= daysInMonth; day++) {
+      final c = allDaily[DateTime(year, month, day)] ?? 0;
+      if (c > 0 && (peakDay == null || c > peakDay!.value)) peakDay = MapEntry(day, c);
+    }
+
+    String? topGenre;
+    final genreCounts = <String, int>{};
+    for (final s in monthSeries) {
+      for (final g in s.genres) genreCounts[g.name] = (genreCounts[g.name] ?? 0) + 1;
+    }
+    if (genreCounts.isNotEmpty) {
+      topGenre = (genreCounts.entries.toList()..sort((a, b) => b.value.compareTo(a.value))).first.key;
+    }
+
+    String? topTag;
+    final tagCounts = <String, int>{};
+    for (final s in monthSeries) {
+      for (final t in s.tags) tagCounts[t.name] = (tagCounts[t.name] ?? 0) + 1;
+    }
+    if (tagCounts.isNotEmpty) {
+      topTag = (tagCounts.entries.toList()..sort((a, b) => b.value.compareTo(a.value))).first.key;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            _miniStat('${monthSeries.length}', 'FINISHED'),
+            const SizedBox(width: 24),
+            _miniStat('$genresTagged', 'GENRES TAGGED'),
+            const SizedBox(width: 24),
+            _miniStat('$activeDaysThisMonth', 'ACTIVE DAYS'),
+          ],
+        ),
+        const SizedBox(height: 20),
+        const Text('READING CONSISTENCY (all-time)',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.6, color: AppColors.darkTextMuted)),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 24,
+          runSpacing: 10,
+          children: [
+            _miniStat('${consistency.currentStreak}d', 'CURRENT STREAK'),
+            _miniStat('${consistency.longestStreak}d', 'LONGEST STREAK'),
+            _miniStat('${consistency.longestBreak}d', 'LONGEST BREAK'),
+            _miniStat('${consistency.totalActiveDays}d', 'TOTAL ACTIVE DAYS'),
+            _miniStat('${consistency.consistencyPct.toStringAsFixed(0)}%', 'CONSISTENCY'),
+          ],
+        ),
+        const SizedBox(height: 20),
+        const Text('WEEKLY BREAKDOWN',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.6, color: AppColors.darkTextMuted)),
+        const SizedBox(height: 10),
+        ...weeks.map((w) {
+          final maxBooks = weeks.fold<int>(1, (a, e) => math.max(a, e.value));
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
               children: [
-                SizedBox(
-                  height: 14,
-                  child: count > 0
-                      ? Center(child: Text('$count', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
-                          color: isPeak ? AppColors.primaryLight : AppColors.darkTextMuted)))
-                      : null,
-                ),
+                SizedBox(width: 90, child: Text(w.key, style: const TextStyle(fontSize: 11, color: AppColors.darkText))),
                 Expanded(
-                  child: Align(
-                    alignment: Alignment.bottomCenter,
-                    child: FractionallySizedBox(
-                      heightFactor: maxCount > 0 ? (count / maxCount).clamp(0.04, 1.0) : 0.02,
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 3),
-                        decoration: BoxDecoration(
-                          color: isPeak ? AppColors.primaryLight
-                              : AppColors.primary.withValues(alpha: count > 0 ? 0.55 : 0.12),
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
-                        ),
-                      ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: w.value / maxBooks,
+                      minHeight: 6,
+                      backgroundColor: AppColors.darkSurfaceLighter,
+                      valueColor: const AlwaysStoppedAnimation(AppColors.primaryLight),
                     ),
                   ),
                 ),
-                const SizedBox(height: 6),
-                Text(months[i], style: const TextStyle(fontSize: 9, color: AppColors.darkTextMuted)),
+                const SizedBox(width: 10),
+                Text('${w.value} books', style: const TextStyle(fontSize: 11, color: AppColors.darkTextMuted)),
               ],
             ),
           );
         }),
+        const SizedBox(height: 20),
+        const Text('DAILY ACTIVITY',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.6, color: AppColors.darkTextMuted)),
+        const SizedBox(height: 10),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 7, crossAxisSpacing: 6, mainAxisSpacing: 6,
+          ),
+          itemCount: daysInMonth,
+          itemBuilder: (context, i) {
+            final day = i + 1;
+            final count = allDaily[DateTime(year, month, day)] ?? 0;
+            final alpha = count == 0 ? 0.08 : (0.3 + (count.clamp(1, 4) * 0.17));
+            return Container(
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: alpha),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              alignment: Alignment.center,
+              child: Text('$day', style: TextStyle(fontSize: 10,
+                  color: count > 0 ? Colors.white : AppColors.darkTextMuted)),
+            );
+          },
+        ),
+        if (peakDay != null || topGenre != null || topTag != null) ...[
+          const SizedBox(height: 20),
+          Wrap(spacing: 12, runSpacing: 12, children: [
+            if (peakDay != null) _highlightCard('MOST ACTIVE DAY', 'Day ${peakDay.key} (${peakDay.value} finished)'),
+            if (topGenre != null) _highlightCard('TOP GENRE THIS MONTH', topGenre),
+            if (topTag != null) _highlightCard('TOP TAG THIS MONTH', topTag),
+          ]),
+        ],
+        const SizedBox(height: 20),
+        if (monthSeries.isNotEmpty) _buildTopGenresCard(monthSeries),
+        if (monthSeries.isNotEmpty) const SizedBox(height: 20),
+        if (monthSeries.isNotEmpty) _buildTopTagsCard(monthSeries),
+      ],
+    );
+  }
+
+  Widget _miniStat(String value, String label) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.darkText)),
+        Text(label, style: const TextStyle(fontSize: 10, color: AppColors.darkTextMuted)),
+      ],
+    );
+  }
+
+  Widget _highlightCard(String label, String value) {
+    return Container(
+      width: 160,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.darkBackground,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.darkBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 9, letterSpacing: 0.5, color: AppColors.darkTextMuted)),
+          const SizedBox(height: 4),
+          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.darkText)),
+        ],
       ),
     );
   }
@@ -1059,4 +1330,14 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
       ),
     );
   }
+}
+
+/// Plain data holder for the all-time streak / consistency block shown in
+/// the timeline drilldown. Not tagged with `[stated]`-style docs since this
+/// is purely derived data, no user input.
+class _ConsistencyStats {
+  final int currentStreak, longestStreak, longestBreak, totalActiveDays;
+  final double consistencyPct;
+  const _ConsistencyStats(this.currentStreak, this.longestStreak, this.longestBreak,
+      this.totalActiveDays, this.consistencyPct);
 }

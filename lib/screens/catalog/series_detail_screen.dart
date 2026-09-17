@@ -1251,133 +1251,439 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
         borderRadius: BorderRadius.circular(12),
         side: const BorderSide(color: AppColors.darkBorder),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: AppColors.darkSurfaceLighter,
-                borderRadius: BorderRadius.circular(25),
-              ),
-              child: c.profileImagePath != null
-                  ? CoverImage(
-                      imagePath: c.profileImagePath,
-                      borderRadius: BorderRadius.circular(25),
-                      fit: BoxFit.cover,
-                    )
-                  : const Center(
-                      child: Icon(Icons.person, color: AppColors.primaryLight),
-                    ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        c.name,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                          color: AppColors.darkText,
-                        ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _showCharacterDetailSheet(c, seriesId),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: AppColors.darkSurfaceLighter,
+                  borderRadius: BorderRadius.circular(25),
+                ),
+                child: c.profileImagePath != null
+                    ? CoverImage(
+                        imagePath: c.profileImagePath,
+                        borderRadius: BorderRadius.circular(25),
+                        fit: BoxFit.cover,
+                      )
+                    : const Center(
+                        child: Icon(Icons.person, color: AppColors.primaryLight),
                       ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          c.role,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AppColors.primaryLight,
-                            fontWeight: FontWeight.w600,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            c.name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: AppColors.darkText,
+                            ),
                           ),
                         ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            c.role,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppColors.primaryLight,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (c.statusRole != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        c.statusRole!,
+                        style: const TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
                       ),
                     ],
-                  ),
-                  if (c.statusRole != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      c.statusRole!,
-                      style: const TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
-                    ),
+                    if (c.personality != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Personality: ${c.personality!}',
+                        style: const TextStyle(fontSize: 12, color: AppColors.darkText),
+                      ),
+                    ],
+                    if (c.notes != null && c.notes!.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        c.notes!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
+                      ),
+                    ],
                   ],
-                  if (c.personality != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      'Personality: ${c.personality!}',
-                      style: const TextStyle(fontSize: 12, color: AppColors.darkText),
-                    ),
-                  ],
-                  if (c.notes != null && c.notes!.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      c.notes!,
-                      style: const TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
-                    ),
-                  ],
-                ],
+                ),
               ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline, size: 18),
-              color: AppColors.darkTextMuted,
-              onPressed: () async {
-                await ref.read(dataLayerProvider).charactersDelete(c.id);
-                ref.invalidate(seriesCharactersProvider(seriesId));
-                ref.invalidate(seriesRelationshipsProvider(seriesId));
-              },
-            ),
-          ],
+              IconButton(
+                icon: const Icon(Icons.delete_outline, size: 18),
+                color: AppColors.darkTextMuted,
+                onPressed: () async {
+                  await ref.read(dataLayerProvider).charactersDelete(c.id);
+                  ref.invalidate(seriesCharactersProvider(seriesId));
+                  ref.invalidate(seriesRelationshipsProvider(seriesId));
+                },
+              ),
+              const Padding(
+                padding: EdgeInsets.only(top: 4.0),
+                child: Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.darkTextMuted),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  void _showAddCharacterDialog(int seriesId) {
-    final nameCtrl = TextEditingController();
-    final roleCtrl = TextEditingController(text: 'Protagonist');
-    final personalityCtrl = TextEditingController();
-    final notesCtrl = TextEditingController();
+  // ─── Character Detail Sheet ─────────────────────────────────────────────
+
+  void _showCharacterDetailSheet(Character c, int seriesId) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.darkSurfaceLight,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.6,
+          minChildSize: 0.35,
+          maxChildSize: 0.92,
+          expand: false,
+          builder: (context, scrollController) {
+            return SingleChildScrollView(
+              controller: scrollController,
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: AppColors.darkBorder,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          color: AppColors.darkSurfaceLighter,
+                          borderRadius: BorderRadius.circular(32),
+                        ),
+                        child: c.profileImagePath != null
+                            ? CoverImage(
+                                imagePath: c.profileImagePath,
+                                borderRadius: BorderRadius.circular(32),
+                                fit: BoxFit.cover,
+                              )
+                            : const Center(
+                                child: Icon(Icons.person,
+                                    color: AppColors.primaryLight, size: 30),
+                              ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              c.name,
+                              style: const TextStyle(
+                                fontFamily: 'Outfit',
+                                fontSize: 19,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.darkText,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    c.role,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: AppColors.primaryLight,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                if (c.statusRole != null && c.statusRole!.isNotEmpty)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.darkSurfaceLighter,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      c.statusRole!,
+                                      style: const TextStyle(
+                                          fontSize: 11, color: AppColors.darkTextMuted),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  if (c.age != null && c.age!.isNotEmpty) _detailRow('Age', c.age!),
+                  if (c.lifeStatus != null && c.lifeStatus!.isNotEmpty)
+                    _detailRow('Life Status', c.lifeStatus!),
+                  if (c.volumeAppearances != null && c.volumeAppearances!.isNotEmpty)
+                    _detailRow('Appears In', c.volumeAppearances!),
+                  if (c.personality != null && c.personality!.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    _detailSection('Personality', c.personality!),
+                  ],
+                  if (c.overallVibes != null && c.overallVibes!.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    _detailSection('Overall Vibes', c.overallVibes!),
+                  ],
+                  if (c.appearsText != null && c.appearsText!.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    _detailSection('How They Appear', c.appearsText!),
+                  ],
+                  if (c.realityText != null && c.realityText!.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    _detailSection('Reality Behind It', c.realityText!),
+                  ],
+                  if (c.notes != null && c.notes!.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    _detailSection('Notes / Bio', c.notes!),
+                  ],
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _showAddCharacterDialog(seriesId, existingCharacter: c);
+                          },
+                          icon: const Icon(Icons.edit_outlined, size: 16),
+                          label: const Text('Edit'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.primaryLight,
+                            side: const BorderSide(color: AppColors.darkBorder),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            await ref.read(dataLayerProvider).charactersDelete(c.id);
+                            ref.invalidate(seriesCharactersProvider(seriesId));
+                            ref.invalidate(seriesRelationshipsProvider(seriesId));
+                            if (mounted) Navigator.pop(ctx);
+                          },
+                          icon: const Icon(Icons.delete_outline,
+                              size: 16, color: AppColors.error),
+                          label: const Text('Delete',
+                              style: TextStyle(color: AppColors.error)),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: AppColors.darkBorder),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.darkTextMuted,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 13, color: AppColors.darkText),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailSection(String title, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title.toUpperCase(),
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.6,
+            color: AppColors.darkTextMuted,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.darkBackground,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.darkBorder),
+          ),
+          child: Text(
+            value,
+            style: const TextStyle(fontSize: 13, height: 1.4, color: AppColors.darkText),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showAddCharacterDialog(int seriesId, {Character? existingCharacter}) {
+    final nameCtrl = TextEditingController(text: existingCharacter?.name ?? '');
+    final roleCtrl = TextEditingController(text: existingCharacter?.role ?? 'Protagonist');
+    final statusRoleCtrl = TextEditingController(text: existingCharacter?.statusRole ?? '');
+    final ageCtrl = TextEditingController(text: existingCharacter?.age ?? '');
+    final lifeStatusCtrl = TextEditingController(text: existingCharacter?.lifeStatus ?? '');
+    final volumeAppearancesCtrl =
+        TextEditingController(text: existingCharacter?.volumeAppearances ?? '');
+    final personalityCtrl = TextEditingController(text: existingCharacter?.personality ?? '');
+    final overallVibesCtrl = TextEditingController(text: existingCharacter?.overallVibes ?? '');
+    final appearsTextCtrl = TextEditingController(text: existingCharacter?.appearsText ?? '');
+    final realityTextCtrl = TextEditingController(text: existingCharacter?.realityText ?? '');
+    final notesCtrl = TextEditingController(text: existingCharacter?.notes ?? '');
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.darkSurfaceLight,
-        title: const Text('Add Character'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(labelText: 'Character Name'),
-              ),
-              TextField(
-                controller: roleCtrl,
-                decoration: const InputDecoration(labelText: 'Role (e.g. Protagonist, Antagonist, Side)'),
-              ),
-              TextField(
-                controller: personalityCtrl,
-                decoration: const InputDecoration(labelText: 'Personality Traits'),
-              ),
-              TextField(
-                controller: notesCtrl,
-                decoration: const InputDecoration(labelText: 'Notes / Bio'),
-                maxLines: 2,
-              ),
-            ],
+        title: Text(existingCharacter == null ? 'Add Character' : 'Edit Character'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(labelText: 'Character Name'),
+                ),
+                TextField(
+                  controller: roleCtrl,
+                  decoration: const InputDecoration(
+                      labelText: 'Role (e.g. Protagonist, Antagonist, Side)'),
+                ),
+                TextField(
+                  controller: statusRoleCtrl,
+                  decoration: const InputDecoration(labelText: 'Status / Title (Optional)'),
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: ageCtrl,
+                        decoration: const InputDecoration(labelText: 'Age'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: lifeStatusCtrl,
+                        decoration: const InputDecoration(labelText: 'Life Status'),
+                      ),
+                    ),
+                  ],
+                ),
+                TextField(
+                  controller: volumeAppearancesCtrl,
+                  decoration:
+                      const InputDecoration(labelText: 'Appears In (Volumes/Chapters)'),
+                ),
+                TextField(
+                  controller: personalityCtrl,
+                  decoration: const InputDecoration(labelText: 'Personality Traits'),
+                ),
+                TextField(
+                  controller: overallVibesCtrl,
+                  decoration: const InputDecoration(labelText: 'Overall Vibes'),
+                  maxLines: 2,
+                ),
+                TextField(
+                  controller: appearsTextCtrl,
+                  decoration: const InputDecoration(labelText: 'How They Appear'),
+                  maxLines: 2,
+                ),
+                TextField(
+                  controller: realityTextCtrl,
+                  decoration: const InputDecoration(labelText: 'Reality Behind It'),
+                  maxLines: 2,
+                ),
+                TextField(
+                  controller: notesCtrl,
+                  decoration: const InputDecoration(labelText: 'Notes / Bio'),
+                  maxLines: 2,
+                ),
+              ],
+            ),
           ),
         ),
         actions: [
@@ -1388,15 +1694,41 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
           ElevatedButton(
             onPressed: () async {
               if (nameCtrl.text.trim().isEmpty) return;
-              final newChar = Character(
-                id: 0,
-                seriesId: seriesId,
-                name: nameCtrl.text.trim(),
-                role: roleCtrl.text.trim(),
-                personality: personalityCtrl.text.isEmpty ? null : personalityCtrl.text,
-                notes: notesCtrl.text.isEmpty ? null : notesCtrl.text,
-              );
-              await ref.read(dataLayerProvider).charactersCreate(newChar);
+              String? orNull(String s) => s.trim().isEmpty ? null : s.trim();
+
+              if (existingCharacter == null) {
+                final newChar = Character(
+                  id: 0,
+                  seriesId: seriesId,
+                  name: nameCtrl.text.trim(),
+                  role: roleCtrl.text.trim(),
+                  statusRole: orNull(statusRoleCtrl.text),
+                  age: orNull(ageCtrl.text),
+                  lifeStatus: orNull(lifeStatusCtrl.text),
+                  volumeAppearances: orNull(volumeAppearancesCtrl.text),
+                  personality: orNull(personalityCtrl.text),
+                  overallVibes: orNull(overallVibesCtrl.text),
+                  appearsText: orNull(appearsTextCtrl.text),
+                  realityText: orNull(realityTextCtrl.text),
+                  notes: orNull(notesCtrl.text),
+                );
+                await ref.read(dataLayerProvider).charactersCreate(newChar);
+              } else {
+                final updated = existingCharacter.copyWith(
+                  name: nameCtrl.text.trim(),
+                  role: roleCtrl.text.trim(),
+                  statusRole: orNull(statusRoleCtrl.text),
+                  age: orNull(ageCtrl.text),
+                  lifeStatus: orNull(lifeStatusCtrl.text),
+                  volumeAppearances: orNull(volumeAppearancesCtrl.text),
+                  personality: orNull(personalityCtrl.text),
+                  overallVibes: orNull(overallVibesCtrl.text),
+                  appearsText: orNull(appearsTextCtrl.text),
+                  realityText: orNull(realityTextCtrl.text),
+                  notes: orNull(notesCtrl.text),
+                );
+                await ref.read(dataLayerProvider).charactersUpdate(updated);
+              }
               ref.invalidate(seriesCharactersProvider(seriesId));
               if (mounted) Navigator.pop(ctx);
             },

@@ -161,6 +161,15 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     final selectedLibId = ref.watch(selectedLibraryIdProvider);
     final filter = ref.watch(seriesFilterProvider);
 
+    // Dynamic reading statuses (Settings → Manage Statuses), falling back
+    // to the built-in 5 while loading or if the user has none.
+    final statusesAsync = ref.watch(readingStatusesProvider);
+    final statusNames = statusesAsync.maybeWhen(
+      data: (list) =>
+          list.isEmpty ? ReadingStatus.all : list.map((s) => s.name).toList(),
+      orElse: () => ReadingStatus.all,
+    );
+
     // Get current selected library name
     String libraryTitle = 'Library';
     if (librariesAsync.hasValue && selectedLibId != null) {
@@ -354,8 +363,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                       }),
                       const SizedBox(width: 8),
 
-                      // Status Chips (Reading, Completed, On Hold, Planning, Dropped)
-                      ...ReadingStatus.all.map((status) {
+                      // Status Chips (dynamic — see Settings → Manage Statuses)
+                      ...statusNames.map((status) {
                         final isSelected = filter.status == status;
                         return Padding(
                           padding: const EdgeInsets.only(right: 8.0),

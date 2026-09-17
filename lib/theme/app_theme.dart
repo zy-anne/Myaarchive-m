@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'app_palette.dart';
+import '../models/app_color_palette.dart';
 
 class AppTheme {
   AppTheme._();
@@ -36,8 +37,11 @@ class AppTheme {
     );
   }
 
-  static ThemeData get light => _build(AppPalette.light(), Brightness.light);
-  static ThemeData get dark => _build(AppPalette.dark(), Brightness.dark);
-  static ThemeData get lightTheme => light;
-  static ThemeData get darkTheme => dark;
+  /// [colorPalette] is the user-selected accent palette (Settings → Color
+  /// Palette). Defaults to Twilight Reading Room when omitted.
+  static ThemeData light([AppColorPalette? colorPalette]) =>
+      _build(AppPalette.light(colorPalette), Brightness.light);
+
+  static ThemeData dark([AppColorPalette? colorPalette]) =>
+      _build(AppPalette.dark(colorPalette), Brightness.dark);
 }

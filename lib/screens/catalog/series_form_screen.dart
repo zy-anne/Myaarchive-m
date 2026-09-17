@@ -308,6 +308,20 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
   Widget build(BuildContext context) {
     final librariesAsync = ref.watch(librariesProvider);
 
+    // Dynamic reading statuses (Settings → Manage Statuses), falling back
+    // to the built-in 5 while loading or if the user has none.
+    final statusesAsync = ref.watch(readingStatusesProvider);
+    final statusNames = statusesAsync.maybeWhen(
+      data: (list) =>
+          list.isEmpty ? ReadingStatus.all : list.map((s) => s.name).toList(),
+      orElse: () => ReadingStatus.all,
+    );
+    if (statusNames.isNotEmpty && !statusNames.contains(_selectedStatus)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _selectedStatus = statusNames.first);
+      });
+    }
+
     return Scaffold(
       backgroundColor: AppColors.darkBackground,
       appBar: AppBar(
@@ -452,16 +466,18 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
                 ),
                 const SizedBox(width: 12),
 
-                // Status dropdown
+                // Status dropdown (dynamic — see Settings → Manage Statuses)
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: _selectedStatus,
+                    value: statusNames.contains(_selectedStatus)
+                        ? _selectedStatus
+                        : (statusNames.isNotEmpty ? statusNames.first : null),
                     dropdownColor: AppColors.darkSurfaceLight,
                     decoration: const InputDecoration(
                       labelText: 'Status',
                       prefixIcon: Icon(Icons.bookmark_rounded),
                     ),
-                    items: ReadingStatus.all
+                    items: statusNames
                         .map((s) => DropdownMenuItem(value: s, child: Text(s)))
                         .toList(),
                     onChanged: (val) {

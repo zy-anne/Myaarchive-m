@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
+import '../models/app_color_palette.dart';
 
 /// Semantic color roles for the app, resolved per-mode from the style guide.
 ///
 /// Light mode:
 ///   bg = white + 3% Frost Fairy · surface = white + 10% Frost Fairy
-///   border = 55% Frost Fairy · text = Mysterious Depths · primary = Twilight
-///   accent = Perrywinkle · danger = #9C4B5A
+///   border = 55% Frost Fairy · text = Mysterious Depths · primary = selected palette
+///   accent = selected palette accent · danger = #9C4B5A
 ///
 /// Dark mode ("lamplight"):
 ///   bg = Mysterious Depths · surface = 82% Depths / 18% Twilight
 ///   border = 62% Twilight / 38% Depths · text = white + 8% Frost Fairy
-///   primary = Sunlight gold (the one deliberate role-swap) · accent = Perrywinkle (constant)
+///   primary = selected palette's dark-mode tone (the "role-swap") · accent = selected palette accent (constant)
 ///   danger = #D98C96 · onSolid = ink navy (since primary is now light)
+///
+/// The primary/accent roles come from an [AppColorPalette] chosen in
+/// Settings → Color Palette; everything else follows the fixed Twilight
+/// Reading Room base regardless of which accent palette is active.
 class AppPalette extends ThemeExtension<AppPalette> {
   final Color bg;
   final Color surface;
@@ -40,7 +45,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
     required this.starEmpty,
   });
 
-  factory AppPalette.light() {
+  factory AppPalette.light([AppColorPalette? colorPalette]) {
+    final p = colorPalette ?? AppColorPalettes.twilightReadingRoom;
     const textMain = BrandColors.mysteriousDepths;
     return AppPalette(
       bg: const Color(0xFFFDFDFF), // white + 3% Frost Fairy
@@ -48,8 +54,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
       border: const Color(0xFFDDE3F9), // 55% Frost Fairy
       textMain: textMain,
       textSecondary: textMain.withValues(alpha: 0.62),
-      primary: BrandColors.twilight,
-      accent: BrandColors.perrywinkle,
+      primary: p.primaryLight,
+      accent: p.accent,
       danger: BrandColors.dangerLight,
       onSolid: BrandColors.white,
       star: BrandColors.champagne,
@@ -57,7 +63,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
     );
   }
 
-  factory AppPalette.dark() {
+  factory AppPalette.dark([AppColorPalette? colorPalette]) {
+    final p = colorPalette ?? AppColorPalettes.twilightReadingRoom;
     const textMain = Color(0xFFFAFBFE); // white + 8% Frost Fairy
     return AppPalette(
       bg: BrandColors.mysteriousDepths,
@@ -65,8 +72,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
       border: const Color(0xFF2E3466), // 62% Twilight / 38% Depths
       textMain: textMain,
       textSecondary: textMain.withValues(alpha: 0.6),
-      primary: BrandColors.sunlight, // deliberate role-swap
-      accent: BrandColors.perrywinkle, // stays constant across modes
+      primary: p.primaryDark, // deliberate role-swap
+      accent: p.accent, // stays constant across modes
       danger: BrandColors.dangerDark,
       onSolid: BrandColors.mysteriousDepths, // flips to ink navy
       star: BrandColors.sunlight,

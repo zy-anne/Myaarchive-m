@@ -5,6 +5,7 @@ import '../models/glossary_term.dart';
 import '../models/library.dart';
 import '../models/metadata.dart';
 import '../models/link_attachment.dart';
+import '../models/reading_status_model.dart';
 import '../models/relationship.dart';
 import '../models/series.dart';
 import '../models/series_group.dart';
@@ -47,6 +48,15 @@ class DataLayer {
     return _tagColorPalette[hash.abs() % _tagColorPalette.length];
   }
 
+  // ─── Default Reading Statuses (seeded for new users) ────────────────
+  static const List<List<String>> _defaultStatuses = [
+    ['Reading', '#9B7EDE'],
+    ['Finished', '#7FC9A0'],
+    ['On Hold', '#E8C15C'],
+    ['Planning', '#6FA8DC'],
+    ['Dropped', '#DD7A6E'],
+  ];
+
   // ─── Schema Initialization ─────────────────────────────────────────
 
   Future<void> ensureSchema() async {
@@ -82,6 +92,16 @@ class DataLayer {
           owner_id TEXT NOT NULL,
           name TEXT NOT NULL COLLATE NOCASE,
           color TEXT DEFAULT '#4a90e2',
+          UNIQUE(owner_id, name)
+        )
+      ''', []),
+      const MapEntry('''
+        CREATE TABLE IF NOT EXISTS reading_statuses (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          owner_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          color TEXT DEFAULT '#B9BEC7',
+          position INTEGER NOT NULL DEFAULT 0,
           UNIQUE(owner_id, name)
         )
       ''', []),
@@ -416,11 +436,16 @@ class DataLayer {
     List<String>? genres,
     String sortBy = 'title',
     bool sortAsc = true,
+    bool includeNsfw = true,
   }) async {
     final whereClauses = <String>[
       's.library_id IN (SELECT id FROM libraries WHERE owner_id = ?)'
     ];
     final args = <dynamic>[ownerId];
+
+    if (!includeNsfw) {
+      whereClauses.add('s.is_nsfw = 0');
+    }
 
     if (libraryId != null && libraryId > 0) {
       whereClauses.add('s.library_id = ?');
@@ -1054,6 +1079,23 @@ class DataLayer {
     return res.rows.map((r) => Tag.fromJson(r)).toList();
   }
 
+  /// Renames and/or recolors a tag. Since every use of the tag joins on
+  /// `tag_id`, no cascading update is needed elsewhere.
+  Future<void> tagsUpdate(Tag tag) async {
+    await _turso.execute(
+      'UPDATE tags SET name = ?, color = ? WHERE id = ?',
+      [tag.name, tag.color, tag.id],
+    );
+  }
+
+  /// Deletes a tag and removes it from every title currently using it.
+  Future<void> tagsDelete(int id) async {
+    await _turso.batch([
+      MapEntry('DELETE FROM series_tags WHERE tag_id = ?', [id]),
+      MapEntry('DELETE FROM tags WHERE id = ?', [id]),
+    ]);
+  }
+
   Future<List<Genre>> genresGetAll() async {
     final res = await _turso.execute(
       'SELECT * FROM genres ORDER BY name COLLATE NOCASE',
@@ -1067,6 +1109,85 @@ class DataLayer {
       [ownerId],
     );
     return res.rows.map((r) => ContentWarning.fromJson(r)).toList();
+  }
+
+  // ─── Reading Statuses ───────────────────────────────────────────────
+  //
+  // Backs Settings → "Manage Statuses". Statuses are per-user, seeded with
+  // the 5 defaults (Reading, Finished, On Hold, Planning, Dropped) the
+  // first time they're read — mirrors librariesGetAll's default library.
+
+  Future<List<ReadingStatusItem>> statusesGetAll(String ownerId) async {
+    final res = await _turso.execute(
+      'SELECT * FROM reading_statuses WHERE owner_id = ? ORDER BY position, id',
+      [ownerId],
+    );
+
+    if (res.rows.isEmpty) {
+      for (int i = 0; i < _defaultStatuses.length; i++) {
+        await _turso.execute(
+          'INSERT OR IGNORE INTO reading_statuses (owner_id, name, color, position) VALUES (?, ?, ?, ?)',
+          [ownerId, _defaultStatuses[i][0], _defaultStatuses[i][1], i],
+        );
+      }
+      final seeded = await _turso.execute(
+        'SELECT * FROM reading_statuses WHERE owner_id = ? ORDER BY position, id',
+        [ownerId],
+      );
+      return seeded.rows.map((r) => ReadingStatusItem.fromJson(r)).toList();
+    }
+
+    return res.rows.map((r) => ReadingStatusItem.fromJson(r)).toList();
+  }
+
+  Future<int> statusesCreate(String ownerId, String name, String color) async {
+    final maxRes = await _turso.execute(
+      'SELECT MAX(position) as maxPos FROM reading_statuses WHERE owner_id = ?',
+      [ownerId],
+    );
+    int pos = 0;
+    if (maxRes.rows.isNotEmpty && maxRes.rows.first['maxPos'] != null) {
+      pos = (maxRes.rows.first['maxPos'] as int) + 1;
+    }
+    final res = await _turso.execute(
+      'INSERT INTO reading_statuses (owner_id, name, color, position) VALUES (?, ?, ?, ?)',
+      [ownerId, name, color, pos],
+    );
+    return res.lastInsertRowid ?? 0;
+  }
+
+  /// Updates a status's name/color. If [previousName] differs from the new
+  /// name, cascades the rename onto every series currently using it so
+  /// existing entries keep their status instead of falling back to blank.
+  Future<void> statusesUpdate(
+    ReadingStatusItem status, {
+    String? previousName,
+  }) async {
+    await _turso.execute(
+      'UPDATE reading_statuses SET name = ?, color = ? WHERE id = ?',
+      [status.name, status.color, status.id],
+    );
+    if (previousName != null && previousName != status.name) {
+      await _turso.execute(
+        'UPDATE series SET status = ? WHERE status = ?',
+        [status.name, previousName],
+      );
+    }
+  }
+
+  /// Deletes a status. Any series currently using it fall back to
+  /// [fallbackName] ("Planning" by default) rather than being left blank.
+  Future<void> statusesDelete(
+    int id,
+    String name,
+    String ownerId, {
+    String fallbackName = 'Planning',
+  }) async {
+    await _turso.execute('''
+      UPDATE series SET status = ?
+      WHERE status = ? AND library_id IN (SELECT id FROM libraries WHERE owner_id = ?)
+    ''', [fallbackName, name, ownerId]);
+    await _turso.execute('DELETE FROM reading_statuses WHERE id = ?', [id]);
   }
 
   // ─── App Settings ───────────────────────────────────────────────────

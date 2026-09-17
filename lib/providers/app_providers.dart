@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/app_config.dart';
+import '../models/app_color_palette.dart';
 import '../models/attachment.dart';
 import '../models/character.dart';
 import '../models/gallery_image.dart';
@@ -8,6 +9,7 @@ import '../models/glossary_term.dart';
 import '../models/library.dart';
 import '../models/link_attachment.dart';
 import '../models/metadata.dart';
+import '../models/reading_status_model.dart';
 import '../models/relationship.dart';
 import '../models/series.dart';
 import '../models/series_group.dart';
@@ -53,6 +55,39 @@ final dataLayerProvider = Provider<DataLayer>((ref) {
 // ─── Theme Mode Provider ─────────────────────────────────────────────
 
 final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.dark);
+
+// ─── Color Palette & Content Providers ───────────────────────────────
+//
+// These back the "Color Palette" picker and "Show NSFW Content" toggle in
+// Settings. Their live values are plain StateProviders (so the UI reacts
+// instantly); [themeInitProvider] seeds them from the persisted
+// `app_settings` row once a user is signed in.
+
+final colorPaletteIdProvider =
+    StateProvider<String>((ref) => AppColorPalettes.twilightReadingRoom.id);
+
+final showNsfwProvider = StateProvider<bool>((ref) => true);
+
+/// Loads persisted theme/content settings once and seeds
+/// [colorPaletteIdProvider] / [showNsfwProvider] from them. Watch this
+/// (ignoring its value) anywhere early in the widget tree — e.g. the
+/// Settings screen — so it fires as soon as a user is available.
+final themeInitProvider = FutureProvider<void>((ref) async {
+  final user = ref.watch(authStateProvider).value;
+  if (user == null) return;
+  final dataLayer = ref.watch(dataLayerProvider);
+  final settings = await dataLayer.settingsGetAll(user.id);
+
+  final storedPalette = settings['colorPaletteId'];
+  if (storedPalette != null) {
+    ref.read(colorPaletteIdProvider.notifier).state = storedPalette;
+  }
+
+  final storedNsfw = settings['showNsfwContent'];
+  if (storedNsfw != null) {
+    ref.read(showNsfwProvider.notifier).state = storedNsfw == '1';
+  }
+});
 
 // ─── Auth State Provider ─────────────────────────────────────────────
 
@@ -176,6 +211,7 @@ final seriesListProvider = FutureProvider<List<Series>>((ref) async {
   final dataLayer = ref.watch(dataLayerProvider);
   final selectedLib = ref.watch(selectedLibraryIdProvider);
   final filter = ref.watch(seriesFilterProvider);
+  final showNsfw = ref.watch(showNsfwProvider);
 
   return dataLayer.seriesGetAll(
     user.id,
@@ -184,6 +220,7 @@ final seriesListProvider = FutureProvider<List<Series>>((ref) async {
     search: filter.search,
     sortBy: filter.sortBy,
     sortAsc: filter.sortAsc,
+    includeNsfw: showNsfw,
   );
 });
 
@@ -275,13 +312,29 @@ final userContentWarningsProvider =
   return dataLayer.contentWarningsGetAll(user.id);
 });
 
+// ─── Reading Statuses Provider ───────────────────────────────────────
+//
+// Backs "Manage Statuses" in Settings, and the status dropdown/filter
+// chips elsewhere in the app. Seeded with the 5 defaults (Reading,
+// Finished, On Hold, Planning, Dropped) the first time it's read for a
+// given user, same pattern as [librariesProvider]'s default library.
+
+final readingStatusesProvider =
+    FutureProvider<List<ReadingStatusItem>>((ref) async {
+  final user = ref.watch(authStateProvider).value;
+  if (user == null) return [];
+  final dataLayer = ref.watch(dataLayerProvider);
+  return dataLayer.statusesGetAll(user.id);
+});
+
 // ─── Stats & Global Settings Providers ───────────────────────────────
 
 final allSeriesForStatsProvider = FutureProvider<List<Series>>((ref) async {
   final user = ref.watch(authStateProvider).value;
   if (user == null) return [];
   final dataLayer = ref.watch(dataLayerProvider);
-  return dataLayer.seriesGetAll(user.id);
+  final showNsfw = ref.watch(showNsfwProvider);
+  return dataLayer.seriesGetAll(user.id, includeNsfw: showNsfw);
 });
 
 final appSettingsProvider =

@@ -7,6 +7,8 @@ import '../screens/auth/sign_up_screen.dart';
 import '../screens/catalog/series_detail_screen.dart';
 import '../screens/catalog/series_form_screen.dart';
 import '../screens/home/home_screen.dart';
+import '../screens/settings/manage_statuses_screen.dart';
+import '../screens/settings/manage_tags_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
@@ -61,6 +63,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
           return SeriesDetailScreen(seriesId: id);
         },
+      ),
+      GoRoute(
+        path: '/settings/tags',
+        builder: (context, state) => const ManageTagsScreen(),
+      ),
+      GoRoute(
+        path: '/settings/statuses',
+        builder: (context, state) => const ManageStatusesScreen(),
       ),
     ],
   );

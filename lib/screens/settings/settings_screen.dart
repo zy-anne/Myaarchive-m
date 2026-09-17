@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../models/app_color_palette.dart';
 import '../../providers/app_providers.dart';
 import '../../theme/colors.dart';
 
-/// User settings, cloud sync status, library management, and account options.
+/// User settings, cloud sync status, library management, theme/content
+/// preferences, and account options.
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
@@ -157,10 +159,40 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  Future<void> _selectPalette(AppColorPalette palette) async {
+    ref.read(colorPaletteIdProvider.notifier).state = palette.id;
+    final user = ref.read(authStateProvider).value;
+    if (user != null) {
+      await ref
+          .read(dataLayerProvider)
+          .settingsSet(user.id, 'colorPaletteId', palette.id);
+    }
+  }
+
+  Future<void> _toggleNsfw(bool val) async {
+    ref.read(showNsfwProvider.notifier).state = val;
+    final user = ref.read(authStateProvider).value;
+    if (user != null) {
+      await ref
+          .read(dataLayerProvider)
+          .settingsSet(user.id, 'showNsfwContent', val ? '1' : '0');
+    }
+    ref.invalidate(seriesListProvider);
+    ref.invalidate(allSeriesForStatsProvider);
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Fire-and-forget: seeds colorPaletteIdProvider / showNsfwProvider from
+    // persisted app_settings as soon as a user is available. Settings is
+    // always mounted (home's IndexedStack keeps all 3 tabs alive), so this
+    // runs early regardless of which tab is visible.
+    ref.watch(themeInitProvider);
+
     final user = ref.watch(authStateProvider).value;
     final themeMode = ref.watch(themeModeProvider);
+    final selectedPaletteId = ref.watch(colorPaletteIdProvider);
+    final showNsfw = ref.watch(showNsfwProvider);
     final librariesAsync = ref.watch(librariesProvider);
 
     return Scaffold(
@@ -341,9 +373,76 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const SizedBox(height: 20),
 
-          // Appearance Section
+          // ── Color Theme ──────────────────────────────────────────────
           const Text(
-            'APPEARANCE & THEME',
+            'COLOR THEME',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.8,
+              color: AppColors.darkTextMuted,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Switch between Light Mode and Dark Mode reading palettes.',
+            style: TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _buildThemePill(
+                  label: 'DARK MODE',
+                  selected: themeMode == ThemeMode.dark,
+                  onTap: () =>
+                      ref.read(themeModeProvider.notifier).state = ThemeMode.dark,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _buildThemePill(
+                  label: 'LIGHT MODE',
+                  selected: themeMode == ThemeMode.light,
+                  onTap: () =>
+                      ref.read(themeModeProvider.notifier).state = ThemeMode.light,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // ── Color Palette ────────────────────────────────────────────
+          const Text(
+            'COLOR PALETTE',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.8,
+              color: AppColors.darkTextMuted,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Pick an accent palette — it applies to both Light and Dark Mode.',
+            style: TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: AppColorPalettes.all.map((palette) {
+              return _buildPaletteCard(
+                palette,
+                palette.id == selectedPaletteId,
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 24),
+
+          // ── Content ──────────────────────────────────────────────────
+          const Text(
+            'CONTENT',
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.bold,
@@ -359,14 +458,81 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               side: BorderSide(color: AppColors.darkBorder),
             ),
             child: SwitchListTile(
-              title: const Text('Twilight Dark Mode'),
-              subtitle: const Text('Midnight purple reading room palette'),
-              value: themeMode == ThemeMode.dark,
+              title: const Text('Show NSFW Content'),
+              subtitle: const Text(
+                "When off, titles marked NSFW are hidden from your library "
+                "entirely. This is separate from the NSFW filter in More "
+                "Filters, which only searches within what's shown here.",
+              ),
+              value: showNsfw,
               activeColor: AppColors.primaryLight,
-              onChanged: (val) {
-                ref.read(themeModeProvider.notifier).state =
-                    val ? ThemeMode.dark : ThemeMode.light;
-              },
+              onChanged: _toggleNsfw,
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // ── Reading Statuses ────────────────────────────────────────
+          const Text(
+            'READING STATUSES',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.8,
+              color: AppColors.darkTextMuted,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Card(
+            color: AppColors.darkSurfaceLight,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: BorderSide(color: AppColors.darkBorder),
+            ),
+            child: ListTile(
+              leading:
+                  const Icon(Icons.bookmark_outline_rounded, color: AppColors.primaryLight),
+              title: const Text('Manage Statuses'),
+              subtitle: const Text(
+                'Add, rename, recolor, or delete the reading statuses used '
+                'across your library.',
+              ),
+              trailing: OutlinedButton(
+                onPressed: () => context.push('/settings/statuses'),
+                child: const Text('Manage...'),
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // ── Tags ─────────────────────────────────────────────────────
+          const Text(
+            'TAGS',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.8,
+              color: AppColors.darkTextMuted,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Card(
+            color: AppColors.darkSurfaceLight,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: BorderSide(color: AppColors.darkBorder),
+            ),
+            child: ListTile(
+              leading: const Icon(Icons.sell_outlined, color: AppColors.primaryLight),
+              title: const Text('Manage Tags'),
+              subtitle: const Text(
+                'Rename, recolor, or delete tags — fix typos or clean up '
+                'ones you no longer use. Deleting a tag removes it from '
+                'every title currently using it.',
+              ),
+              trailing: OutlinedButton(
+                onPressed: () => context.push('/settings/tags'),
+                child: const Text('Manage...'),
+              ),
             ),
           ),
           const SizedBox(height: 20),
@@ -419,6 +585,82 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const SizedBox(height: 40),
         ],
+      ),
+    );
+  }
+
+  Widget _buildThemePill({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary : AppColors.darkSurfaceLight,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? AppColors.primaryLight : AppColors.darkBorder,
+            width: 1.2,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.6,
+            color: selected ? Colors.white : AppColors.darkTextMuted,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaletteCard(AppColorPalette palette, bool selected) {
+    return GestureDetector(
+      onTap: () => _selectPalette(palette),
+      child: Container(
+        width: 134,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.darkSurfaceLight,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? AppColors.primaryLight : AppColors.darkBorder,
+            width: selected ? 1.6 : 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: palette.swatches
+                  .map((c) => Padding(
+                        padding: const EdgeInsets.only(right: 4),
+                        child: Container(
+                          width: 16,
+                          height: 16,
+                          decoration:
+                              BoxDecoration(color: c, shape: BoxShape.circle),
+                        ),
+                      ))
+                  .toList(),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              palette.label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.darkText,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
