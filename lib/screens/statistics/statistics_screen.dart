@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/metadata.dart';
 import '../../models/series.dart';
 import '../../providers/app_providers.dart';
-import '../../theme/colors.dart';
+import '../../theme/app_palette.dart';
 import '../../widgets/radar_chart.dart';
 
 /// Reading Statistics screen mirroring the web app's comprehensive analytics view.
@@ -19,13 +19,13 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
   int _selectedYear = DateTime.now().year;
   int _selectedMonth = DateTime.now().month;
 
-  void _showSetGoalDialog(String? currentGoal) {
+  void _showSetGoalDialog(String? currentGoal, AppPalette palette) {
     final controller = TextEditingController(text: currentGoal ?? '25');
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.darkSurfaceLight,
+        backgroundColor: palette.surfaceLight,
         title: Text('Annual Reading Goal ($_selectedYear)'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -33,7 +33,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
           children: [
             Text(
               'Set target number of books/manga to complete this year:',
-              style: TextStyle(color: AppColors.darkTextMuted, fontSize: 13),
+              style: TextStyle(color: palette.textSecondary, fontSize: 13),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -41,7 +41,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
               keyboardType: TextInputType.number,
               autofocus: true,
               style: TextStyle(
-                color: AppColors.darkText,
+                color: palette.textMain,
                 fontWeight: FontWeight.bold,
                 fontSize: 18,
               ),
@@ -49,7 +49,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                 labelText: 'Target Works',
                 suffixText: 'books',
                 filled: true,
-                fillColor: AppColors.darkBackground,
+                fillColor: palette.bg,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -64,7 +64,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
+              backgroundColor: palette.primary,
               foregroundColor: Colors.white,
             ),
             onPressed: () async {
@@ -89,11 +89,13 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
+
     final seriesAsync = ref.watch(allSeriesForStatsProvider);
     final settingsAsync = ref.watch(appSettingsProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: palette.bg,
       appBar: AppBar(
         title: const Text(
           'Reading Statistics',
@@ -126,13 +128,13 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                       width: 64,
                       height: 64,
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.15),
+                        color: palette.primary.withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
                         Icons.bar_chart_rounded,
                         size: 36,
-                        color: AppColors.primaryLight,
+                        color: palette.accent,
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -141,14 +143,14 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.darkText,
+                        color: palette.textMain,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'Add titles to your library to track reading milestones, velocity, and genres.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: AppColors.darkTextMuted, fontSize: 13),
+                      style: TextStyle(color: palette.textSecondary, fontSize: 13),
                     ),
                   ],
                 ),
@@ -165,33 +167,33 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
               ref.invalidate(allSeriesForStatsProvider);
               ref.invalidate(appSettingsProvider);
             },
-            color: AppColors.primaryLight,
+            color: palette.accent,
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
               children: [
-                _buildMilestoneHero(seriesList, goal),
+                _buildMilestoneHero(seriesList, goal, palette),
                 const SizedBox(height: 16),
-                _buildQuickStatsGrid(seriesList),
+                _buildQuickStatsGrid(seriesList, palette),
                 const SizedBox(height: 20),
-                _buildReadingTimelineCard(seriesList),   // new
+                _buildReadingTimelineCard(seriesList, palette),   // new
                 const SizedBox(height: 20),
-                _buildStatusDistributionCard(seriesList),
+                _buildStatusDistributionCard(seriesList, palette),
                 const SizedBox(height: 20),
-                _buildRatingDistributionCard(seriesList),
+                _buildRatingDistributionCard(seriesList, palette),
                 const SizedBox(height: 20),
-                _buildFormatDistributionCard(seriesList),
+                _buildFormatDistributionCard(seriesList, palette),
                 const SizedBox(height: 20),
-                _buildTopGenresCard(seriesList),
+                _buildTopGenresCard(seriesList, palette),
                 const SizedBox(height: 20),
-                _buildTopTagsCard(seriesList),           // new
+                _buildTopTagsCard(seriesList, palette),           // new
                 const SizedBox(height: 20),
-                _buildRadarCard(seriesList),             // new
+                _buildRadarCard(seriesList, palette),             // new
               ],
             ),
           );
         },
         loading: () => Center(
-          child: CircularProgressIndicator(color: AppColors.primaryLight),
+          child: CircularProgressIndicator(color: palette.accent),
         ),
         error: (e, _) => Center(
           child: Text('Failed to load stats: $e'),
@@ -308,7 +310,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
 
   // ─── 1. Annual Milestone Hero ──────────────────────────────────────────
 
-  Widget _buildMilestoneHero(List<Series> allSeries, int? goal) {
+  Widget _buildMilestoneHero(List<Series> allSeries, int? goal, AppPalette palette) {
     final completedCount = allSeries.where((s) {
       if (s.status != ReadingStatus.finished) return false;
       return _yearOf(s.dateFinished) == _selectedYear;
@@ -325,15 +327,15 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppColors.primary.withValues(alpha: 0.35),
-            AppColors.darkSurfaceLight,
+            palette.primary.withValues(alpha: 0.35),
+            palette.surfaceLight,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: AppColors.primary.withValues(alpha: 0.4),
+          color: palette.primary.withValues(alpha: 0.4),
           width: 1.2,
         ),
         boxShadow: [
@@ -359,7 +361,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.0,
-                      color: AppColors.primaryLight,
+                      color: palette.accent,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -368,16 +370,16 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.darkText,
+                      color: palette.textMain,
                     ),
                   ),
                 ],
               ),
               IconButton(
                 icon: const Icon(Icons.edit_outlined, size: 20),
-                color: AppColors.primaryLight,
+                color: palette.accent,
                 tooltip: 'Set Reading Goal',
-                onPressed: () => _showSetGoalDialog(goal?.toString()),
+                onPressed: () => _showSetGoalDialog(goal?.toString(), palette),
               ),
             ],
           ),
@@ -400,7 +402,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                 const SizedBox(width: 6),
                 Text(
                   'of',
-                  style: TextStyle(color: AppColors.darkTextMuted, fontSize: 14),
+                  style: TextStyle(color: palette.textSecondary, fontSize: 14),
                 ),
                 const SizedBox(width: 6),
                 Text(
@@ -408,25 +410,25 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.primaryLight,
+                    color: palette.accent,
                   ),
                 ),
                 const SizedBox(width: 6),
                 Text(
                   'works read',
-                  style: TextStyle(color: AppColors.darkTextMuted, fontSize: 13),
+                  style: TextStyle(color: palette.textSecondary, fontSize: 13),
                 ),
                 const Spacer(),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.3),
+                    color: palette.primary.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     '$pctText%',
                     style: TextStyle(
-                      color: AppColors.primaryLight,
+                      color: palette.accent,
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
                     ),
@@ -442,9 +444,9 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
               child: LinearProgressIndicator(
                 value: progressPct,
                 minHeight: 10,
-                backgroundColor: AppColors.darkSurfaceLighter,
+                backgroundColor: palette.surfaceHigh,
                 valueColor: AlwaysStoppedAnimation<Color>(
-                  AppColors.primaryLight,
+                  palette.accent,
                 ),
               ),
             ),
@@ -457,7 +459,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                   : '🎉 Congratulations! You reached your reading goal!',
               style: TextStyle(
                 fontSize: 12,
-                color: AppColors.darkTextMuted,
+                color: palette.textSecondary,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -466,24 +468,24 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.darkBackground.withValues(alpha: 0.6),
+                color: palette.bg.withValues(alpha: 0.6),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.flag_outlined,
-                      color: AppColors.gold, size: 24),
+                  Icon(Icons.flag_outlined,
+                      color: palette.gold, size: 24),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       'No annual goal set yet for this year.',
-                      style: TextStyle(fontSize: 13, color: AppColors.darkText),
+                      style: TextStyle(fontSize: 13, color: palette.textMain),
                     ),
                   ),
                   ElevatedButton(
-                    onPressed: () => _showSetGoalDialog(null),
+                    onPressed: () => _showSetGoalDialog(null, palette),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: palette.primary,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 8),
@@ -502,7 +504,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
 
   // ─── 2. Quick Stats Grid ───────────────────────────────────────────────
 
-  Widget _buildQuickStatsGrid(List<Series> allSeries) {
+  Widget _buildQuickStatsGrid(List<Series> allSeries, AppPalette palette) {
     int readingCount = 0;
     int planningCount = 0;
     int completedCount = 0;
@@ -534,13 +536,13 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
       childAspectRatio: 1.55,
       children: [
         _buildStatCard('Active', '$readingCount', 'Reading Now',
-            AppColors.primaryLight, Icons.menu_book_rounded),
+            palette.accent, Icons.menu_book_rounded, palette),
         _buildStatCard('Queued', '$planningCount', 'In Planning',
-            AppColors.softCream, Icons.schedule_rounded),
+            palette.textMain, Icons.schedule_rounded, palette),
         _buildStatCard('Finished', '$completedCount', 'Completed',
-            const Color(0xFF7FC9A0), Icons.check_circle_outline_rounded),
+            palette.success, Icons.check_circle_outline_rounded, palette),
         _buildStatCard('Avg Rating', avgRating, '$ratedCount rated titles',
-            AppColors.gold, Icons.star_rounded),
+            palette.gold, Icons.star_rounded, palette),
       ],
     );
   }
@@ -551,14 +553,15 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     String subtitle,
     Color accentColor,
     IconData icon,
+    AppPalette palette,
   ) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.darkSurfaceLight,
+        color: palette.surfaceLight,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: AppColors.darkBorder.withValues(alpha: 0.8),
+          color: palette.border.withValues(alpha: 0.8),
           width: 1,
         ),
       ),
@@ -575,7 +578,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 0.6,
-                  color: AppColors.darkTextMuted,
+                  color: palette.textSecondary,
                 ),
               ),
               Icon(icon, size: 16, color: accentColor),
@@ -593,7 +596,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             subtitle,
             style: TextStyle(
               fontSize: 11,
-              color: AppColors.darkTextMuted.withValues(alpha: 0.8),
+              color: palette.textSecondary.withValues(alpha: 0.8),
             ),
           ),
         ],
@@ -636,7 +639,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
   ];
 
-  Widget _buildReadingTimelineCard(List<Series> allSeries) {
+  Widget _buildReadingTimelineCard(List<Series> allSeries, AppPalette palette) {
     final counts = _monthlyFinishedCounts(allSeries, _selectedYear);
     final maxCount = counts.values.fold<int>(0, (a, b) => a > b ? a : b);
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -644,9 +647,9 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.darkSurfaceLight,
+        color: palette.surfaceLight,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.darkBorder),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -656,15 +659,15 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             children: [
               Text('READING TIMELINE',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold,
-                      letterSpacing: 0.8, color: AppColors.darkTextMuted)),
+                      letterSpacing: 0.8, color: palette.textSecondary)),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   DropdownButton<int>(
                     value: _selectedYear,
-                    dropdownColor: AppColors.darkSurfaceLight,
+                    dropdownColor: palette.surfaceLight,
                     underline: const SizedBox.shrink(),
-                    style: TextStyle(color: AppColors.primaryLight,
+                    style: TextStyle(color: palette.accent,
                         fontSize: 12, fontWeight: FontWeight.w600),
                     items: _availableYears(allSeries)
                         .map((y) => DropdownMenuItem(value: y, child: Text('$y')))
@@ -674,9 +677,9 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                   const SizedBox(width: 10),
                   DropdownButton<int>(
                     value: _selectedMonth,
-                    dropdownColor: AppColors.darkSurfaceLight,
+                    dropdownColor: palette.surfaceLight,
                     underline: const SizedBox.shrink(),
-                    style: TextStyle(color: AppColors.primaryLight,
+                    style: TextStyle(color: palette.accent,
                         fontSize: 12, fontWeight: FontWeight.w600),
                     items: List.generate(12, (i) => i + 1)
                         .map((m) => DropdownMenuItem(
@@ -711,7 +714,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                               ? Center(
                                   child: Text('$count',
                                       style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold,
-                                          color: isPeak ? AppColors.primaryLight : AppColors.darkTextMuted)))
+                                          color: isPeak ? palette.accent : palette.textSecondary)))
                               : null,
                         ),
                         Expanded(
@@ -725,11 +728,11 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                                 margin: const EdgeInsets.symmetric(horizontal: 3),
                                 decoration: BoxDecoration(
                                   color: isPeak
-                                      ? AppColors.primaryLight
-                                      : AppColors.primary.withValues(alpha: count > 0 ? 0.55 : 0.12),
+                                      ? palette.accent
+                                      : palette.primary.withValues(alpha: count > 0 ? 0.55 : 0.12),
                                   borderRadius: const BorderRadius.vertical(top: Radius.circular(3)),
                                   border: isSelected
-                                      ? Border.all(color: AppColors.primaryLight, width: 1.5)
+                                      ? Border.all(color: palette.accent, width: 1.5)
                                       : null,
                                 ),
                               ),
@@ -740,7 +743,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                         Text(months[i], style: TextStyle(
                             fontSize: 9,
                             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            color: isSelected ? AppColors.primaryLight : AppColors.darkTextMuted)),
+                            color: isSelected ? palette.accent : palette.textSecondary)),
                       ],
                     ),
                   ),
@@ -749,9 +752,9 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          Divider(color: AppColors.darkBorder),
+          Divider(color: palette.border),
           const SizedBox(height: 16),
-          _buildMonthDrilldown(allSeries, _selectedYear, _selectedMonth),
+          _buildMonthDrilldown(allSeries, _selectedYear, _selectedMonth, palette),
         ],
       ),
     );
@@ -759,7 +762,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
 
   // ─── 3b. Month Drilldown (completed count, streaks, weekly, heatmap) ──
 
-  Widget _buildMonthDrilldown(List<Series> allSeries, int year, int month) {
+  Widget _buildMonthDrilldown(List<Series> allSeries, int year, int month, AppPalette palette) {
     final monthSeries = _finishedIn(allSeries, year, month);
     final allDaily = _dailyFinishCounts(allSeries); // all-time, for consistency block
     final consistency = _computeConsistency(allDaily);
@@ -802,31 +805,31 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
       children: [
         Row(
           children: [
-            _miniStat('${monthSeries.length}', 'FINISHED'),
+            _miniStat('${monthSeries.length}', 'FINISHED', palette),
             const SizedBox(width: 24),
-            _miniStat('$genresTagged', 'GENRES TAGGED'),
+            _miniStat('$genresTagged', 'GENRES TAGGED', palette),
             const SizedBox(width: 24),
-            _miniStat('$activeDaysThisMonth', 'ACTIVE DAYS'),
+            _miniStat('$activeDaysThisMonth', 'ACTIVE DAYS', palette),
           ],
         ),
         const SizedBox(height: 20),
         Text('READING CONSISTENCY (all-time)',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.6, color: AppColors.darkTextMuted)),
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.6, color: palette.textSecondary)),
         const SizedBox(height: 10),
         Wrap(
           spacing: 24,
           runSpacing: 10,
           children: [
-            _miniStat('${consistency.currentStreak}d', 'CURRENT STREAK'),
-            _miniStat('${consistency.longestStreak}d', 'LONGEST STREAK'),
-            _miniStat('${consistency.longestBreak}d', 'LONGEST BREAK'),
-            _miniStat('${consistency.totalActiveDays}d', 'TOTAL ACTIVE DAYS'),
-            _miniStat('${consistency.consistencyPct.toStringAsFixed(0)}%', 'CONSISTENCY'),
+            _miniStat('${consistency.currentStreak}d', 'CURRENT STREAK', palette),
+            _miniStat('${consistency.longestStreak}d', 'LONGEST STREAK', palette),
+            _miniStat('${consistency.longestBreak}d', 'LONGEST BREAK', palette),
+            _miniStat('${consistency.totalActiveDays}d', 'TOTAL ACTIVE DAYS', palette),
+            _miniStat('${consistency.consistencyPct.toStringAsFixed(0)}%', 'CONSISTENCY', palette),
           ],
         ),
         const SizedBox(height: 20),
         Text('WEEKLY BREAKDOWN',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.6, color: AppColors.darkTextMuted)),
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.6, color: palette.textSecondary)),
         const SizedBox(height: 10),
         ...weeks.map((w) {
           final maxBooks = weeks.fold<int>(1, (a, e) => math.max(a, e.value));
@@ -834,27 +837,27 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Row(
               children: [
-                SizedBox(width: 90, child: Text(w.key, style: TextStyle(fontSize: 11, color: AppColors.darkText))),
+                SizedBox(width: 90, child: Text(w.key, style: TextStyle(fontSize: 11, color: palette.textMain))),
                 Expanded(
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(4),
                     child: LinearProgressIndicator(
                       value: w.value / maxBooks,
                       minHeight: 6,
-                      backgroundColor: AppColors.darkSurfaceLighter,
-                      valueColor: AlwaysStoppedAnimation(AppColors.primaryLight),
+                      backgroundColor: palette.surfaceHigh,
+                      valueColor: AlwaysStoppedAnimation(palette.accent),
                     ),
                   ),
                 ),
                 const SizedBox(width: 10),
-                Text('${w.value} books', style: TextStyle(fontSize: 11, color: AppColors.darkTextMuted)),
+                Text('${w.value} books', style: TextStyle(fontSize: 11, color: palette.textSecondary)),
               ],
             ),
           );
         }),
         const SizedBox(height: 20),
         Text('DAILY ACTIVITY',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.6, color: AppColors.darkTextMuted)),
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.6, color: palette.textSecondary)),
         const SizedBox(height: 10),
         GridView.builder(
           shrinkWrap: true,
@@ -869,56 +872,56 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             final alpha = count == 0 ? 0.08 : (0.3 + (count.clamp(1, 4) * 0.17));
             return Container(
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: alpha),
+                color: palette.primary.withValues(alpha: alpha),
                 borderRadius: BorderRadius.circular(6),
               ),
               alignment: Alignment.center,
               child: Text('$day', style: TextStyle(fontSize: 10,
-                  color: count > 0 ? Colors.white : AppColors.darkTextMuted)),
+                  color: count > 0 ? Colors.white : palette.textSecondary)),
             );
           },
         ),
         if (peakDay != null || topGenre != null || topTag != null) ...[
           const SizedBox(height: 20),
           Wrap(spacing: 12, runSpacing: 12, children: [
-            if (peakDay != null) _highlightCard('MOST ACTIVE DAY', 'Day ${peakDay.key} (${peakDay.value} finished)'),
-            if (topGenre != null) _highlightCard('TOP GENRE THIS MONTH', topGenre),
-            if (topTag != null) _highlightCard('TOP TAG THIS MONTH', topTag),
+            if (peakDay != null) _highlightCard('MOST ACTIVE DAY', 'Day ${peakDay.key} (${peakDay.value} finished)', palette),
+            if (topGenre != null) _highlightCard('TOP GENRE THIS MONTH', topGenre, palette),
+            if (topTag != null) _highlightCard('TOP TAG THIS MONTH', topTag, palette),
           ]),
         ],
         const SizedBox(height: 20),
-        if (monthSeries.isNotEmpty) _buildTopGenresCard(monthSeries),
+        if (monthSeries.isNotEmpty) _buildTopGenresCard(monthSeries, palette),
         if (monthSeries.isNotEmpty) const SizedBox(height: 20),
-        if (monthSeries.isNotEmpty) _buildTopTagsCard(monthSeries),
+        if (monthSeries.isNotEmpty) _buildTopTagsCard(monthSeries, palette),
       ],
     );
   }
 
-  Widget _miniStat(String value, String label) {
+  Widget _miniStat(String value, String label, AppPalette palette) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.darkText)),
-        Text(label, style: TextStyle(fontSize: 10, color: AppColors.darkTextMuted)),
+        Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: palette.textMain)),
+        Text(label, style: TextStyle(fontSize: 10, color: palette.textSecondary)),
       ],
     );
   }
 
-  Widget _highlightCard(String label, String value) {
+  Widget _highlightCard(String label, String value, AppPalette palette) {
     return Container(
       width: 160,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.darkBackground,
+        color: palette.bg,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.darkBorder),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: TextStyle(fontSize: 9, letterSpacing: 0.5, color: AppColors.darkTextMuted)),
+          Text(label, style: TextStyle(fontSize: 9, letterSpacing: 0.5, color: palette.textSecondary)),
           const SizedBox(height: 4),
-          Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.darkText)),
+          Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: palette.textMain)),
         ],
       ),
     );
@@ -926,7 +929,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
 
   // 4. Top Tags
 
-  Widget _buildTopTagsCard(List<Series> allSeries) {
+  Widget _buildTopTagsCard(List<Series> allSeries, AppPalette palette) {
     final tagCounts = <String, int>{};
     for (final s in allSeries) {
       for (final t in s.tags) {
@@ -941,27 +944,27 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     return Container(
     padding: const EdgeInsets.all(18),
     decoration: BoxDecoration(
-      color: AppColors.darkSurfaceLight,
+      color: palette.surfaceLight,
       borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: AppColors.darkBorder),
+      border: Border.all(color: palette.border),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text('TOP TAGS',
             style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold,
-                letterSpacing: 0.8, color: AppColors.darkTextMuted)),
+                letterSpacing: 0.8, color: palette.textSecondary)),
         const SizedBox(height: 12),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: top.map((entry) => Chip(
-            backgroundColor: AppColors.darkBackground,
+            backgroundColor: palette.bg,
             label: Text('${entry.key} (${entry.value})',
-                style: TextStyle(fontSize: 12, color: AppColors.darkText)),
+                style: TextStyle(fontSize: 12, color: palette.textMain)),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
-              side: BorderSide(color: AppColors.darkBorder),
+              side: BorderSide(color: palette.border),
             ),
           )).toList(),
         ),
@@ -972,7 +975,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
 
   // 5. Radar
 
-  Widget _buildRadarCard(List<Series> allSeries) {
+  Widget _buildRadarCard(List<Series> allSeries, AppPalette palette) {
     final genreCounts = <String, int>{};
     for (final s in allSeries) {
       for (final g in s.genres) {
@@ -988,16 +991,16 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.darkSurfaceLight,
+        color: palette.surfaceLight,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.darkBorder),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('READING PROFILE',
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold,
-                  letterSpacing: 0.8, color: AppColors.darkTextMuted)),
+                  letterSpacing: 0.8, color: palette.textSecondary)),
           const SizedBox(height: 12),
           Center(child: RadarChart(data: radarData)),
         ],
@@ -1007,7 +1010,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
 
   // ─── 6. Status Distribution ────────────────────────────────────────────
 
-  Widget _buildStatusDistributionCard(List<Series> allSeries) {
+  Widget _buildStatusDistributionCard(List<Series> allSeries, AppPalette palette) {
     final statusCounts = <String, int>{};
     for (final s in ReadingStatus.all) {
       statusCounts[s] = 0;
@@ -1021,9 +1024,9 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.darkSurfaceLight,
+        color: palette.surfaceLight,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.darkBorder),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1037,12 +1040,12 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 0.8,
-                  color: AppColors.darkTextMuted,
+                  color: palette.textSecondary,
                 ),
               ),
               Text(
                 '$total Total Works',
-                style: TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
+                style: TextStyle(fontSize: 12, color: palette.textSecondary),
               ),
             ],
           ),
@@ -1075,7 +1078,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: AppColors.darkText,
+                              color: palette.textMain,
                             ),
                           ),
                         ],
@@ -1084,7 +1087,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                         '$count (${(pct * 100).toStringAsFixed(0)}%)',
                         style: TextStyle(
                           fontSize: 12,
-                          color: AppColors.darkTextMuted,
+                          color: palette.textSecondary,
                         ),
                       ),
                     ],
@@ -1095,7 +1098,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                     child: LinearProgressIndicator(
                       value: pct,
                       minHeight: 6,
-                      backgroundColor: AppColors.darkSurfaceLighter,
+                      backgroundColor: palette.surfaceHigh,
                       valueColor: AlwaysStoppedAnimation<Color>(color),
                     ),
                   ),
@@ -1110,7 +1113,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
 
   // ─── 7. Rating Distribution ────────────────────────────────────────────
 
-  Widget _buildRatingDistributionCard(List<Series> allSeries) {
+  Widget _buildRatingDistributionCard(List<Series> allSeries, AppPalette palette) {
     final ratingCounts = {5: 0, 4: 0, 3: 0, 2: 0, 1: 0};
     int ratedTotal = 0;
 
@@ -1124,9 +1127,9 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.darkSurfaceLight,
+        color: palette.surfaceLight,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.darkBorder),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1137,7 +1140,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
               fontSize: 12,
               fontWeight: FontWeight.bold,
               letterSpacing: 0.8,
-              color: AppColors.darkTextMuted,
+              color: palette.textSecondary,
             ),
           ),
           const SizedBox(height: 14),
@@ -1155,8 +1158,8 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                       children: [
                         Text('$stars', style: const TextStyle(fontSize: 12)),
                         const SizedBox(width: 2),
-                        const Icon(Icons.star_rounded,
-                            size: 14, color: AppColors.gold),
+                        Icon(Icons.star_rounded,
+                            size: 14, color: palette.gold),
                       ],
                     ),
                   ),
@@ -1167,9 +1170,9 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                       child: LinearProgressIndicator(
                         value: pct,
                         minHeight: 8,
-                        backgroundColor: AppColors.darkSurfaceLighter,
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                            AppColors.gold),
+                        backgroundColor: palette.surfaceHigh,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                            palette.gold),
                       ),
                     ),
                   ),
@@ -1181,7 +1184,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                       textAlign: TextAlign.end,
                       style: TextStyle(
                         fontSize: 12,
-                        color: AppColors.darkTextMuted,
+                        color: palette.textSecondary,
                       ),
                     ),
                   ),
@@ -1196,7 +1199,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
 
   // ─── 8. Format Distribution ────────────────────────────────────────────
 
-  Widget _buildFormatDistributionCard(List<Series> allSeries) {
+  Widget _buildFormatDistributionCard(List<Series> allSeries, AppPalette palette) {
     final formatCounts = <String, int>{};
     for (final s in allSeries) {
       final f = s.bookType ?? 'Manga';
@@ -1209,9 +1212,9 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.darkSurfaceLight,
+        color: palette.surfaceLight,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.darkBorder),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1222,7 +1225,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
               fontSize: 12,
               fontWeight: FontWeight.bold,
               letterSpacing: 0.8,
-              color: AppColors.darkTextMuted,
+              color: palette.textSecondary,
             ),
           ),
           const SizedBox(height: 12),
@@ -1233,10 +1236,10 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.18),
+                  color: palette.primary.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.4),
+                    color: palette.primary.withValues(alpha: 0.4),
                   ),
                 ),
                 child: Row(
@@ -1247,7 +1250,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.primaryLight,
+                        color: palette.accent,
                       ),
                     ),
                     const SizedBox(width: 6),
@@ -1255,7 +1258,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                       padding:
                           const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: AppColors.primary,
+                        color: palette.primary,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
@@ -1279,7 +1282,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
 
   // ─── 6. Top Genres ─────────────────────────────────────────────────────
 
-  Widget _buildTopGenresCard(List<Series> allSeries) {
+  Widget _buildTopGenresCard(List<Series> allSeries, AppPalette palette) {
     final genreCounts = <String, int>{};
     for (final s in allSeries) {
       for (final g in s.genres) {
@@ -1296,9 +1299,9 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.darkSurfaceLight,
+        color: palette.surfaceLight,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.darkBorder),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1309,7 +1312,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
               fontSize: 12,
               fontWeight: FontWeight.bold,
               letterSpacing: 0.8,
-              color: AppColors.darkTextMuted,
+              color: palette.textSecondary,
             ),
           ),
           const SizedBox(height: 12),
@@ -1318,14 +1321,14 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             runSpacing: 8,
             children: top.map((entry) {
               return Chip(
-                backgroundColor: AppColors.darkBackground,
+                backgroundColor: palette.bg,
                 label: Text(
                   '${entry.key} (${entry.value})',
-                  style: TextStyle(fontSize: 12, color: AppColors.darkText),
+                  style: TextStyle(fontSize: 12, color: palette.textMain),
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
-                  side: BorderSide(color: AppColors.darkBorder),
+                  side: BorderSide(color: palette.border),
                 ),
               );
             }).toList(),

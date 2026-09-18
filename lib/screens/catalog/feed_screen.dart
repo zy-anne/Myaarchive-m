@@ -6,7 +6,7 @@ import '../../models/metadata.dart';
 import '../../models/series.dart';
 import '../../models/series_group.dart';
 import '../../providers/app_providers.dart';
-import '../../theme/colors.dart';
+import '../../theme/app_palette.dart';
 import '../../widgets/cover_image.dart';
 import '../../widgets/rating_stars.dart';
 import '../../widgets/series_card.dart';
@@ -31,12 +31,12 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     super.dispose();
   }
 
-  void _openFilterBottomSheet() {
+  void _openFilterBottomSheet(AppPalette palette) {
     final filter = ref.read(seriesFilterProvider);
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.darkSurfaceLight,
+      backgroundColor: palette.surfaceLight,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -57,7 +57,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.darkText,
+                          color: palette.textMain,
                         ),
                       ),
                       IconButton(
@@ -73,17 +73,17 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 0.8,
-                      color: AppColors.darkTextMuted,
+                      color: palette.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
                     children: [
-                      _buildSortChip('Title A-Z', 'title', true, filter),
-                      _buildSortChip('Title Z-A', 'title', false, filter),
-                      _buildSortChip('Highest Rated', 'rating', false, filter),
-                      _buildSortChip('Recently Added', 'id', false, filter),
+                      _buildSortChip('Title A-Z', 'title', true, filter, palette),
+                      _buildSortChip('Title Z-A', 'title', false, filter, palette),
+                      _buildSortChip('Highest Rated', 'rating', false, filter, palette),
+                      _buildSortChip('Recently Added', 'id', false, filter, palette),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -97,8 +97,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                             Navigator.pop(ctx);
                           },
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.darkTextMuted,
-                            side: BorderSide(color: AppColors.darkBorder),
+                            foregroundColor: palette.textSecondary,
+                            side: BorderSide(color: palette.border),
                           ),
                           child: const Text('Reset All'),
                         ),
@@ -108,7 +108,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         child: ElevatedButton(
                           onPressed: () => Navigator.pop(ctx),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
+                            backgroundColor: palette.primary,
                             foregroundColor: Colors.white,
                           ),
                           child: const Text('Apply'),
@@ -130,6 +130,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     String sortBy,
     bool sortAsc,
     SeriesFilter currentFilter,
+    AppPalette palette,
   ) {
     final isSelected =
         currentFilter.sortBy == sortBy && currentFilter.sortAsc == sortAsc;
@@ -137,10 +138,10 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     return ChoiceChip(
       label: Text(label),
       selected: isSelected,
-      selectedColor: AppColors.primary,
-      backgroundColor: const Color(0xFF1B2338),
+      selectedColor: palette.primary,
+      backgroundColor: palette.surfaceHigh,
       labelStyle: TextStyle(
-        color: isSelected ? Colors.white : AppColors.darkTextMuted,
+        color: isSelected ? Colors.white : palette.textSecondary,
         fontSize: 12,
         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
       ),
@@ -156,6 +157,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
+
     final seriesAsync = ref.watch(seriesListProvider);
     final librariesAsync = ref.watch(librariesProvider);
     final selectedLibId = ref.watch(selectedLibraryIdProvider);
@@ -183,11 +186,11 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     }
 
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: palette.bg,
       floatingActionButton: FloatingActionButton(
         onPressed: () => context.push('/series/add'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: AppColors.onPrimary,
+        backgroundColor: palette.primary,
+        foregroundColor: palette.onSolid,
         elevation: 4,
         child: const Icon(Icons.add_rounded),
       ),
@@ -200,13 +203,13 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               ref.invalidate(seriesGroupsProvider(selectedLibId));
             }
           },
-          color: AppColors.primaryLight,
+          color: palette.accent,
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               // ── 1. Top Horizontal Category Tabs (Wireframe) ─────────────
               SliverToBoxAdapter(
-                child: _buildCategoryTabs(librariesAsync, selectedLibId),
+                child: _buildCategoryTabs(librariesAsync, selectedLibId, palette),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 14)),
 
@@ -223,7 +226,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                           fontFamily: 'Outfit',
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.darkText,
+                          color: palette.textMain,
                           letterSpacing: 0.3,
                         ),
                       ),
@@ -235,18 +238,18 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                             '$count ${count == 1 ? 'entry' : 'entries'}',
                             style: TextStyle(
                               fontSize: 13,
-                              color: AppColors.darkTextMuted,
+                              color: palette.textSecondary,
                               fontWeight: FontWeight.w400,
                             ),
                           );
                         },
                         loading: () => Text(
                           'Loading entries...',
-                          style: TextStyle(fontSize: 13, color: AppColors.darkTextMuted),
+                          style: TextStyle(fontSize: 13, color: palette.textSecondary),
                         ),
                         error: (_, __) => Text(
                           '0 entries',
-                          style: TextStyle(fontSize: 13, color: AppColors.darkTextMuted),
+                          style: TextStyle(fontSize: 13, color: palette.textSecondary),
                         ),
                       ),
                     ],
@@ -266,10 +269,10 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         child: Container(
                           height: 46,
                           decoration: BoxDecoration(
-                            color: AppColors.darkSurface,
+                            color: palette.surface,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: AppColors.darkBorder,
+                              color: palette.border,
                               width: 1.2,
                             ),
                           ),
@@ -280,18 +283,18 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                                   filter.copyWith(search: val);
                             },
                             style: TextStyle(
-                              color: AppColors.darkText,
+                              color: palette.textMain,
                               fontSize: 14,
                             ),
                             decoration: InputDecoration(
                               hintText: 'Search title, author, fandom...',
                               hintStyle: TextStyle(
-                                color: AppColors.darkTextMuted,
+                                color: palette.textSecondary,
                                 fontSize: 13.5,
                               ),
                               prefixIcon: Icon(
                                 Icons.search_rounded,
-                                color: AppColors.darkTextMuted,
+                                color: palette.textSecondary,
                                 size: 20,
                               ),
                               suffixIcon: _searchController.text.isNotEmpty
@@ -299,7 +302,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                                       icon: Icon(
                                         Icons.close_rounded,
                                         size: 18,
-                                        color: AppColors.darkTextMuted,
+                                        color: palette.textSecondary,
                                       ),
                                       onPressed: () {
                                         _searchController.clear();
@@ -323,11 +326,11 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         height: 46,
                         width: 46,
                         decoration: BoxDecoration(
-                          color: AppColors.primary,
+                          color: palette.primary,
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.primary.withValues(alpha: 0.35),
+                              color: palette.primary.withValues(alpha: 0.35),
                               blurRadius: 8,
                               offset: const Offset(0, 3),
                             ),
@@ -336,11 +339,11 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         child: IconButton(
                           icon: Icon(
                             Icons.filter_alt_rounded,
-                            color: AppColors.onPrimary,
+                            color: palette.onSolid,
                             size: 22,
                           ),
                           tooltip: 'Sort & Filters',
-                          onPressed: _openFilterBottomSheet,
+                          onPressed: () => _openFilterBottomSheet(palette),
                         ),
                       ),
                     ],
@@ -360,7 +363,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                       _buildStatusChip('All', filter.status == 'All', () {
                         ref.read(seriesFilterProvider.notifier).state =
                             filter.copyWith(status: 'All');
-                      }),
+                      }, palette),
                       const SizedBox(width: 8),
 
                       // Status Chips (dynamic — see Settings → Manage Statuses)
@@ -371,7 +374,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                           child: _buildStatusChip(status, isSelected, () {
                             ref.read(seriesFilterProvider.notifier).state =
                                 filter.copyWith(status: status);
-                          }),
+                          }, palette),
                         );
                       }),
                     ],
@@ -382,7 +385,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
 
               // ── 5. Series Groups (umbrella / shared-universe cards) ──────
               if (selectedLibId != null)
-                SliverToBoxAdapter(child: _buildGroupsSection(selectedLibId)),
+                SliverToBoxAdapter(child: _buildGroupsSection(selectedLibId, palette)),
 
               // ── 6. Series Grid (2-Column Wireframe) ──────────────────────
               seriesAsync.when(
@@ -392,7 +395,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   if (items.isEmpty) {
                     return SliverFillRemaining(
                       hasScrollBody: false,
-                      child: _buildEmptyState(context),
+                      child: _buildEmptyState(context, palette),
                     );
                   }
 
@@ -424,7 +427,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   hasScrollBody: false,
                   child: Center(
                     child: CircularProgressIndicator(
-                        color: AppColors.primaryLight),
+                        color: palette.accent),
                   ),
                 ),
                 error: (err, _) => SliverFillRemaining(
@@ -435,7 +438,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                       child: Text(
                         'Failed to load: $err',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: AppColors.darkTextMuted),
+                        style: TextStyle(color: palette.textSecondary),
                       ),
                     ),
                   ),
@@ -456,16 +459,16 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
   // of umbrella cards, each expandable to show its member titles tagged
   // by group_role (Main Story, Spin-off, Prequel, etc). Library-scoped.
 
-  Widget _buildGroupsSection(int libraryId) {
+  Widget _buildGroupsSection(int libraryId, AppPalette palette) {
     final groupsAsync = ref.watch(seriesGroupsProvider(libraryId));
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.darkSurface,
+          color: palette.surface,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.darkBorder, width: 1.2),
+          border: Border.all(color: palette.border, width: 1.2),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -483,19 +486,19 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                       _groupsSectionCollapsed
                           ? Icons.chevron_right_rounded
                           : Icons.expand_more_rounded,
-                      color: AppColors.darkTextMuted,
+                      color: palette.textSecondary,
                       size: 20,
                     ),
                     const SizedBox(width: 6),
                     Icon(Icons.workspaces_rounded,
-                        size: 16, color: AppColors.primaryLight),
+                        size: 16, color: palette.accent),
                     const SizedBox(width: 8),
                     Text(
                       'Series Groups',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.darkText,
+                        color: palette.textMain,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -504,14 +507,14 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 7, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1B2338),
+                          color: palette.surfaceHigh,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
                           '${groups.length}',
                           style: TextStyle(
                             fontSize: 11,
-                            color: AppColors.darkTextMuted,
+                            color: palette.textSecondary,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -521,11 +524,11 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     ),
                     const Spacer(),
                     TextButton.icon(
-                      onPressed: () => _showGroupEditorDialog(libraryId),
+                      onPressed: () => _showGroupEditorDialog(libraryId, palette),
                       icon: const Icon(Icons.add_rounded, size: 16),
                       label: const Text('New Group'),
                       style: TextButton.styleFrom(
-                        foregroundColor: AppColors.primaryLight,
+                        foregroundColor: palette.accent,
                         padding:
                             const EdgeInsets.symmetric(horizontal: 8),
                         minimumSize: Size.zero,
@@ -546,7 +549,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         'No series groups yet — tap "New Group" to link related titles (sequels, spin-offs, shared universes).',
                         style: TextStyle(
                           fontSize: 12,
-                          color: AppColors.darkTextMuted,
+                          color: palette.textSecondary,
                         ),
                       ),
                     );
@@ -555,7 +558,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
                     child: Column(
                       children: groups
-                          .map((g) => _buildUmbrellaGroupCard(g, libraryId))
+                          .map((g) => _buildUmbrellaGroupCard(g, libraryId, palette))
                           .toList(),
                     ),
                   );
@@ -568,7 +571,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: AppColors.primaryLight,
+                        color: palette.accent,
                       ),
                     ),
                   ),
@@ -579,7 +582,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     'Failed to load groups: $e',
                     style: TextStyle(
                       fontSize: 12,
-                      color: AppColors.darkTextMuted,
+                      color: palette.textSecondary,
                     ),
                   ),
                 ),
@@ -590,15 +593,15 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     );
   }
 
-  Widget _buildUmbrellaGroupCard(SeriesGroup group, int libraryId) {
+  Widget _buildUmbrellaGroupCard(SeriesGroup group, int libraryId, AppPalette palette) {
     final isOpen = _expandedGroupIds.contains(group.id);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF1B2338),
+        color: palette.surfaceLight,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF2B3650)),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -621,7 +624,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         ? Icons.expand_more_rounded
                         : Icons.chevron_right_rounded,
                     size: 18,
-                    color: AppColors.darkTextMuted,
+                    color: palette.textSecondary,
                   ),
                   const SizedBox(width: 6),
                   Expanded(
@@ -632,7 +635,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                       style: TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.darkText,
+                        color: palette.textMain,
                       ),
                     ),
                   ),
@@ -641,24 +644,24 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.2),
+                      color: palette.primary.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       group.groupType,
                       style: TextStyle(
                         fontSize: 10,
-                        color: AppColors.primaryLight,
+                        color: palette.accent,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.edit_outlined, size: 16),
-                    color: AppColors.darkTextMuted,
+                    color: palette.textSecondary,
                     tooltip: 'Edit Group',
                     onPressed: () =>
-                        _showGroupEditorDialog(libraryId, existingGroup: group),
+                        _showGroupEditorDialog(libraryId, palette, existingGroup: group),
                   ),
                 ],
               ),
@@ -672,7 +675,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   group.description!,
                   style: TextStyle(
                     fontSize: 12,
-                    color: AppColors.darkTextMuted,
+                    color: palette.textSecondary,
                     height: 1.4,
                   ),
                 ),
@@ -685,7 +688,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   children: [
                     for (int i = 0; i < group.items.length; i++) ...[
                       if (i > 0) const SizedBox(width: 10),
-                      _buildSubBookCard(group.items[i]),
+                      _buildSubBookCard(group.items[i], palette),
                     ],
                   ],
                 ),
@@ -697,7 +700,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     );
   }
 
-  Widget _buildSubBookCard(SeriesGroupItem item) {
+  Widget _buildSubBookCard(SeriesGroupItem item, AppPalette palette) {
     return SizedBox(
       width: 112,
       child: GestureDetector(
@@ -736,7 +739,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         fontSize: 8.5,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.3,
-                        color: AppColors.primaryLight,
+                        color: palette.accent,
                       ),
                     ),
                   ),
@@ -751,7 +754,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w600,
-                color: AppColors.darkText,
+                color: palette.textMain,
                 height: 1.2,
               ),
             ),
@@ -765,7 +768,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     '${item.volumeCount}v',
                     style: TextStyle(
                       fontSize: 9.5,
-                      color: AppColors.darkTextMuted,
+                      color: palette.textSecondary,
                     ),
                   ),
                 ],
@@ -782,7 +785,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
   }
 
   Future<void> _showGroupEditorDialog(
-    int libraryId, {
+    int libraryId,
+    AppPalette palette, {
     SeriesGroup? existingGroup,
   }) async {
     final nameCtrl = TextEditingController(text: existingGroup?.name ?? '');
@@ -824,7 +828,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
             int? selectedToAdd;
 
             return AlertDialog(
-              backgroundColor: AppColors.darkSurfaceLight,
+              backgroundColor: palette.surfaceLight,
               title: Text(existingGroup == null
                   ? 'New Series Group / Universe'
                   : 'Edit Series Group / Universe'),
@@ -862,7 +866,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 0.6,
-                          color: AppColors.darkTextMuted,
+                          color: palette.textSecondary,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -873,7 +877,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                             'No titles added yet.',
                             style: TextStyle(
                               fontSize: 12,
-                              color: AppColors.darkTextMuted,
+                              color: palette.textSecondary,
                             ),
                           ),
                         )
@@ -898,7 +902,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                                   child: DropdownButtonFormField<String>(
                                     initialValue: item.groupRole,
                                     isDense: true,
-                                    dropdownColor: AppColors.darkSurfaceLight,
+                                    dropdownColor: palette.surfaceLight,
                                     decoration: const InputDecoration(
                                       isDense: true,
                                       contentPadding: EdgeInsets.symmetric(
@@ -924,7 +928,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                                 IconButton(
                                   icon: const Icon(Icons.close_rounded,
                                       size: 16),
-                                  color: AppColors.darkTextMuted,
+                                  color: palette.textSecondary,
                                   onPressed: () => setDialogState(() =>
                                       draftItems.remove(item)),
                                 ),
@@ -939,7 +943,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                             child: DropdownButtonFormField<int>(
                               initialValue: selectedToAdd,
                               isDense: true,
-                              dropdownColor: AppColors.darkSurfaceLight,
+                              dropdownColor: palette.surfaceLight,
                               hint: const Text(
                                 '-- Select a title to add --',
                                 style: TextStyle(fontSize: 12),
@@ -962,7 +966,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                           const SizedBox(width: 8),
                           IconButton(
                             icon: Icon(Icons.add_circle_outline,
-                                color: AppColors.primaryLight),
+                                color: palette.accent),
                             onPressed: () {
                               if (selectedToAdd == null) return;
                               final series = libraryTitles
@@ -985,12 +989,12 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               actions: [
                 if (existingGroup != null)
                   TextButton(
-                    style: TextButton.styleFrom(foregroundColor: AppColors.error),
+                    style: TextButton.styleFrom(foregroundColor: palette.danger),
                     onPressed: () async {
                       final confirmed = await showDialog<bool>(
                         context: ctx,
                         builder: (confirmCtx) => AlertDialog(
-                          backgroundColor: AppColors.darkSurfaceLight,
+                          backgroundColor: palette.surfaceLight,
                           title: const Text('Delete Group?'),
                           content: Text(
                             'Delete "${existingGroup.name}"? This won\'t delete the titles in it, just the group.',
@@ -1003,7 +1007,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                             ),
                             ElevatedButton(
                               style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.error),
+                                  backgroundColor: palette.danger),
                               onPressed: () =>
                                   Navigator.pop(confirmCtx, true),
                               child: const Text('Delete'),
@@ -1027,7 +1031,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary),
+                      backgroundColor: palette.primary),
                   onPressed: () async {
                     final name = nameCtrl.text.trim();
                     if (name.isEmpty) return;
@@ -1080,6 +1084,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
   Widget _buildCategoryTabs(
     AsyncValue<List<Library>> librariesAsync,
     int? selectedLibId,
+    AppPalette palette,
   ) {
     return librariesAsync.when(
       data: (libraries) {
@@ -1107,7 +1112,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     border: isSelected
                         ? Border(
                             bottom: BorderSide(
-                              color: AppColors.primaryLight,
+                              color: palette.accent,
                               width: 2.5,
                             ),
                           )
@@ -1120,8 +1125,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                       fontWeight:
                           isSelected ? FontWeight.bold : FontWeight.w500,
                       color: isSelected
-                          ? AppColors.primaryLight
-                          : const Color(0xFF7A8396),
+                          ? palette.accent
+                          : palette.textSecondary,
                     ),
                   ),
                 ),
@@ -1135,27 +1140,27 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     );
   }
 
-  Widget _buildStatusChip(String label, bool isSelected, VoidCallback onTap) {
+  Widget _buildStatusChip(String label, bool isSelected, VoidCallback onTap, AppPalette palette) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppColors.primary
-              : AppColors.darkSurface,
+              ? palette.primary
+              : palette.surface,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isSelected
-                ? AppColors.primaryLight
-                : AppColors.darkBorder,
+                ? palette.accent
+                : palette.border,
             width: 1,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? AppColors.onPrimary : AppColors.darkTextMuted,
+            color: isSelected ? palette.onSolid : palette.textSecondary,
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
           ),
@@ -1164,7 +1169,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     );
   }
 
-    Widget _buildEmptyState(BuildContext context) {
+    Widget _buildEmptyState(BuildContext context, AppPalette palette) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32.0),
@@ -1175,28 +1180,28 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               width: 64,
               height: 64,
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.15),
+                color: palette.primary.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.menu_book_rounded, size: 32, color: AppColors.primaryLight),
+              child: Icon(Icons.menu_book_rounded, size: 32, color: palette.accent),
             ),
             const SizedBox(height: 16),
             Text(
               'No Entries Found',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.darkText),
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: palette.textMain),
             ),
             const SizedBox(height: 6),
             Text(
               'No series match your current filter. Try selecting "All" or add a new book.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12.5, color: AppColors.darkTextMuted),
+              style: TextStyle(fontSize: 12.5, color: palette.textSecondary),
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
               onPressed: () => context.push('/series/add'),
               icon: const Icon(Icons.add_rounded, size: 18),
               label: const Text('Add Entry'),
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: AppColors.onPrimary),
+              style: ElevatedButton.styleFrom(backgroundColor: palette.primary, foregroundColor: palette.onSolid),
             ),
           ],
         ),

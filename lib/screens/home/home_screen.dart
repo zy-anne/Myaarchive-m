@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../theme/colors.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../theme/app_palette.dart';
 import '../catalog/feed_screen.dart';
 import '../settings/settings_screen.dart';
 import '../statistics/statistics_screen.dart';
@@ -8,14 +9,14 @@ import '../statistics/statistics_screen.dart';
 /// 1. Library
 /// 2. Statistics
 /// 3. Settings
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _currentIndex = 0;
 
   final List<Widget> _screens = const [
@@ -26,6 +27,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
+
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
@@ -33,10 +36,10 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: AppColors.darkSurface,
+          color: palette.surface,
           border: Border(
             top: BorderSide(
-              color: AppColors.darkBorder.withValues(alpha: 0.6),
+              color: palette.border.withValues(alpha: 0.6),
               width: 1,
             ),
           ),
@@ -46,8 +49,8 @@ class _HomeScreenState extends State<HomeScreen> {
           onTap: (index) => setState(() => _currentIndex = index),
           backgroundColor: Colors.transparent,
           elevation: 0,
-          selectedItemColor: AppColors.primaryLight,
-          unselectedItemColor: AppColors.darkTextMuted,
+          selectedItemColor: palette.accent,
+          unselectedItemColor: palette.textSecondary,
           selectedFontSize: 12,
           unselectedFontSize: 12,
           type: BottomNavigationBarType.fixed,
