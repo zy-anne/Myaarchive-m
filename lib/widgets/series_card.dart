@@ -41,11 +41,13 @@ class SeriesCard extends StatelessWidget {
     onTap: onTap,
     child: Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF141926), // Deep midnight card
+        color: AppColors.darkCard,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
+            color: AppColors.isDark
+                ? Colors.black.withValues(alpha: 0.35)
+                : Colors.black.withValues(alpha: 0.06),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -195,10 +197,10 @@ Widget _buildOverlayTag(String text, Color bg, Color fg) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF141926),
+        color: AppColors.darkCard,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: const Color(0xFF232B40),
+          color: AppColors.darkBorder,
           width: 1,
         ),
       ),
@@ -235,7 +237,7 @@ Widget _buildOverlayTag(String text, Color bg, Color fg) {
                             series.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppColors.darkText,
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
@@ -250,7 +252,7 @@ Widget _buildOverlayTag(String text, Color bg, Color fg) {
                       const SizedBox(height: 2),
                       Text(
                         series.author!,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.darkTextMuted,
                           fontSize: 12,
                         ),
@@ -268,14 +270,14 @@ Widget _buildOverlayTag(String text, Color bg, Color fg) {
                         if (series.volumeCount > 0)
                           Text(
                             '${series.volumeCount} vols',
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppColors.darkTextMuted,
                               fontSize: 11,
                             ),
                           ),
                         if (series.volumeCount > 0 &&
                             series.standaloneChapterCount != null)
-                          const Text(
+                          Text(
                             ' • ',
                             style: TextStyle(
                               color: AppColors.darkTextMuted,
@@ -285,7 +287,7 @@ Widget _buildOverlayTag(String text, Color bg, Color fg) {
                         if (series.standaloneChapterCount != null)
                           Text(
                             '${series.standaloneChapterCount} chs',
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppColors.darkTextMuted,
                               fontSize: 11,
                             ),

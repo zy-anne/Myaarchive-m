@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -190,7 +189,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text('Cover uploaded to Cloudflare R2!'),
             backgroundColor: AppColors.primary,
           ),
@@ -366,7 +365,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
                             imagePath: _coverPathCtrl.text,
                             borderRadius: BorderRadius.circular(12),
                           )
-                        : const Center(
+                        : Center(
                             child: Icon(
                               Icons.add_photo_alternate_rounded,
                               size: 40,
@@ -401,7 +400,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
               child: Text(
                 'Tap camera icon to pick & upload cover image to R2',
                 style: TextStyle(
-                  color: AppColors.darkTextMuted.withOpacity(0.8),
+                  color: AppColors.darkTextMuted.withValues(alpha: 0.8),
                   fontSize: 12,
                 ),
               ),
@@ -411,7 +410,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
             // Title (Required)
             TextFormField(
               controller: _titleCtrl,
-              style: const TextStyle(color: AppColors.darkText),
+              style: TextStyle(color: AppColors.darkText),
               decoration: const InputDecoration(
                 labelText: 'Title *',
                 prefixIcon: Icon(Icons.title_rounded),
@@ -424,7 +423,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
             // Author
             TextFormField(
               controller: _authorCtrl,
-              style: const TextStyle(color: AppColors.darkText),
+              style: TextStyle(color: AppColors.darkText),
               decoration: const InputDecoration(
                 labelText: 'Author / Creator',
                 prefixIcon: Icon(Icons.person_rounded),
@@ -441,7 +440,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
                     data: (libs) {
                       if (libs.isEmpty) return const SizedBox.shrink();
                       return DropdownButtonFormField<int>(
-                        value: libs.any((l) => l.id == _selectedLibraryId)
+                        initialValue: libs.any((l) => l.id == _selectedLibraryId)
                             ? _selectedLibraryId
                             : libs.first.id,
                         dropdownColor: AppColors.darkSurfaceLight,
@@ -469,7 +468,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
                 // Status dropdown (dynamic — see Settings → Manage Statuses)
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: statusNames.contains(_selectedStatus)
+                    initialValue: statusNames.contains(_selectedStatus)
                         ? _selectedStatus
                         : (statusNames.isNotEmpty ? statusNames.first : null),
                     dropdownColor: AppColors.darkSurfaceLight,
@@ -494,7 +493,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: _selectedBookType,
+                    initialValue: _selectedBookType,
                     dropdownColor: AppColors.darkSurfaceLight,
                     decoration: const InputDecoration(
                       labelText: 'Format',
@@ -520,7 +519,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Rating',
                           style: TextStyle(
                               fontSize: 12, color: AppColors.darkTextMuted),
@@ -546,7 +545,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
               title: const Text('Adult / 18+ Content'),
               subtitle: const Text('Flags entry with NSFW danger pill'),
               value: _isNsfw,
-              activeColor: AppColors.error,
+              activeThumbColor: AppColors.error,
               tileColor: AppColors.darkSurfaceLight,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -559,7 +558,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
             // Synopsis
             TextFormField(
               controller: _synopsisCtrl,
-              style: const TextStyle(color: AppColors.darkText),
+              style: TextStyle(color: AppColors.darkText),
               decoration: const InputDecoration(
                 labelText: 'Synopsis',
                 alignLabelWithHint: true,
@@ -610,7 +609,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
             // Overall Thoughts
             TextFormField(
               controller: _overallThoughtsCtrl,
-              style: const TextStyle(color: AppColors.darkText),
+              style: TextStyle(color: AppColors.darkText),
               decoration: const InputDecoration(
                 labelText: 'Overall Thoughts',
                 alignLabelWithHint: true,
@@ -622,7 +621,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
             // Chapter Thoughts
             TextFormField(
               controller: _chapterThoughtsCtrl,
-              style: const TextStyle(color: AppColors.darkText),
+              style: TextStyle(color: AppColors.darkText),
               decoration: const InputDecoration(
                 labelText: 'Chapter Thoughts / Reading Log',
                 alignLabelWithHint: true,
@@ -753,7 +752,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
       children: [
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.bold,
             color: AppColors.darkTextMuted,
@@ -765,7 +764,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
             Expanded(
               child: TextField(
                 controller: controller,
-                style: const TextStyle(color: AppColors.darkText, fontSize: 13),
+                style: TextStyle(color: AppColors.darkText, fontSize: 13),
                 decoration: InputDecoration(
                   hintText: 'Add $title...',
                   contentPadding:
@@ -783,7 +782,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
             ),
             const SizedBox(width: 8),
             IconButton(
-              icon: const Icon(Icons.add_circle_outline,
+              icon: Icon(Icons.add_circle_outline,
                   color: AppColors.primaryLight),
               onPressed: () {
                 final trimmed = controller.text.trim();

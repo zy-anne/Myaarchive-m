@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../models/app_color_palette.dart';
+import '../../theme/app_color_palette.dart';
 import '../../providers/app_providers.dart';
 import '../../theme/colors.dart';
 
@@ -135,7 +135,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 if (mounted) {
                   Navigator.pop(ctx);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
+                    SnackBar(
                       content: Text('Password updated successfully!'),
                       backgroundColor: AppColors.primary,
                     ),
@@ -221,7 +221,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     Container(
                       width: 56,
                       height: 56,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [AppColors.primary, AppColors.primaryLight],
                         ),
@@ -247,7 +247,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         children: [
                           Text(
                             user.username,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                               color: AppColors.darkText,
@@ -256,7 +256,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           const SizedBox(height: 2),
                           Text(
                             'User ID: ${user.id.substring(0, 8)}...',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
                               color: AppColors.darkTextMuted,
                             ),
@@ -271,7 +271,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 20),
 
           // Cloud Sync Section
-          const Text(
+          Text(
             'CLOUD SYNC & DATABASE',
             style: TextStyle(
               fontSize: 11,
@@ -290,7 +290,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             child: Column(
               children: [
                 ListTile(
-                  leading: const Icon(Icons.cloud_sync_rounded,
+                  leading: Icon(Icons.cloud_sync_rounded,
                       color: AppColors.primaryLight),
                   title: const Text('Turso & R2 Connectivity'),
                   subtitle: Text(
@@ -319,7 +319,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'LIBRARIES & COLLECTIONS',
                 style: TextStyle(
                   fontSize: 11,
@@ -329,7 +329,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.add_rounded, color: AppColors.primaryLight),
+                icon: Icon(Icons.add_rounded, color: AppColors.primaryLight),
                 onPressed: _showAddLibraryDialog,
               ),
             ],
@@ -346,7 +346,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     side: BorderSide(color: AppColors.darkBorder),
                   ),
                   child: ListTile(
-                    leading: const Icon(Icons.collections_bookmark_rounded,
+                    leading: Icon(Icons.collections_bookmark_rounded,
                         color: AppColors.primaryLight),
                     title: Text(lib.name,
                         style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -366,7 +366,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 );
               }).toList(),
             ),
-            loading: () => const Center(
+            loading: () => Center(
               child: CircularProgressIndicator(color: AppColors.primaryLight),
             ),
             error: (e, _) => Text('Error: $e'),
@@ -374,7 +374,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 20),
 
           // ── Color Theme ──────────────────────────────────────────────
-          const Text(
+          Text(
             'COLOR THEME',
             style: TextStyle(
               fontSize: 11,
@@ -384,7 +384,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Switch between Light Mode and Dark Mode reading palettes.',
             style: TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
           ),
@@ -413,7 +413,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 24),
 
           // ── Color Palette ────────────────────────────────────────────
-          const Text(
+          Text(
             'COLOR PALETTE',
             style: TextStyle(
               fontSize: 11,
@@ -423,7 +423,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Pick an accent palette — it applies to both Light and Dark Mode.',
             style: TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
           ),
@@ -441,7 +441,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 24),
 
           // ── Content ──────────────────────────────────────────────────
-          const Text(
+          Text(
             'CONTENT',
             style: TextStyle(
               fontSize: 11,
@@ -465,14 +465,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 "Filters, which only searches within what's shown here.",
               ),
               value: showNsfw,
-              activeColor: AppColors.primaryLight,
+              activeThumbColor: AppColors.primaryLight,
               onChanged: _toggleNsfw,
             ),
           ),
           const SizedBox(height: 24),
 
           // ── Reading Statuses ────────────────────────────────────────
-          const Text(
+          Text(
             'READING STATUSES',
             style: TextStyle(
               fontSize: 11,
@@ -490,7 +490,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             child: ListTile(
               leading:
-                  const Icon(Icons.bookmark_outline_rounded, color: AppColors.primaryLight),
+                  Icon(Icons.bookmark_outline_rounded, color: AppColors.primaryLight),
               title: const Text('Manage Statuses'),
               subtitle: const Text(
                 'Add, rename, recolor, or delete the reading statuses used '
@@ -505,7 +505,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 24),
 
           // ── Tags ─────────────────────────────────────────────────────
-          const Text(
+          Text(
             'TAGS',
             style: TextStyle(
               fontSize: 11,
@@ -522,7 +522,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               side: BorderSide(color: AppColors.darkBorder),
             ),
             child: ListTile(
-              leading: const Icon(Icons.sell_outlined, color: AppColors.primaryLight),
+              leading: Icon(Icons.sell_outlined, color: AppColors.primaryLight),
               title: const Text('Manage Tags'),
               subtitle: const Text(
                 'Rename, recolor, or delete tags — fix typos or clean up '
@@ -538,7 +538,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 20),
 
           // Account Actions
-          const Text(
+          Text(
             'ACCOUNT & SECURITY',
             style: TextStyle(
               fontSize: 11,
@@ -563,12 +563,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
                     onTap: () => _showChangePasswordDialog(user.id),
                   ),
-                  const Divider(height: 1, color: AppColors.darkBorder),
+                  Divider(height: 1, color: AppColors.darkBorder),
                 ],
                 ListTile(
                   leading:
-                      const Icon(Icons.logout_rounded, color: AppColors.error),
-                  title: const Text(
+                      Icon(Icons.logout_rounded, color: AppColors.error),
+                  title: Text(
                     'Sign Out',
                     style: TextStyle(
                         color: AppColors.error, fontWeight: FontWeight.bold),
@@ -653,7 +653,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             const SizedBox(height: 8),
             Text(
               palette.label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: AppColors.darkText,

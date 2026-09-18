@@ -182,7 +182,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               ),
               child: Text(
                 '$count',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
                   color: AppColors.darkTextMuted,
@@ -252,7 +252,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                   bottom: PreferredSize(
                     preferredSize: const Size.fromHeight(48),
                     child: Container(
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         color: AppColors.darkSurface,
                         border: Border(
                           bottom: BorderSide(color: AppColors.darkBorder, width: 1),
@@ -299,7 +299,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
           ),
         );
       },
-      loading: () => const Scaffold(
+      loading: () => Scaffold(
         backgroundColor: AppColors.darkBackground,
         body: Center(
           child: CircularProgressIndicator(color: AppColors.primaryLight),
@@ -334,8 +334,8 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Colors.black.withOpacity(0.6),
-                AppColors.darkBackground.withOpacity(0.95),
+                Colors.black.withValues(alpha: 0.6),
+                AppColors.darkBackground.withValues(alpha: 0.95),
               ],
             ),
           ),
@@ -357,7 +357,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                   borderRadius: BorderRadius.circular(10),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.5),
+                      color: Colors.black.withValues(alpha: 0.5),
                       blurRadius: 12,
                       offset: const Offset(0, 4),
                     ),
@@ -389,7 +389,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                           ),
                           child: Text(
                             series.kind == 'series' ? 'Series' : 'Standalone',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 10,
                               color: AppColors.darkTextMuted,
                               fontWeight: FontWeight.w600,
@@ -401,7 +401,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                             decoration: BoxDecoration(
-                              color: AppColors.error.withOpacity(0.9),
+                              color: AppColors.error.withValues(alpha: 0.9),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: const Text(
@@ -421,7 +421,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                       series.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontFamily: 'Outfit',
                         fontSize: 19,
                         fontWeight: FontWeight.bold,
@@ -435,7 +435,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                         'By ${series.author!}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           color: AppColors.darkTextMuted,
                         ),
@@ -457,11 +457,11 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primary.withOpacity(0.15),
+                                  color: AppColors.primary.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                                 ),
-                                child: const Text(
+                                child: Text(
                                   '+ Started Today',
                                   style: TextStyle(
                                     fontSize: 10,
@@ -480,9 +480,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: AppColors.success.withOpacity(0.15),
+                                  color: AppColors.success.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: AppColors.success.withOpacity(0.3)),
+                                  border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
                                 ),
                                 child: const Text(
                                   '+ Finished Today',
@@ -515,7 +515,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
       children: [
         // Content Warnings
         if (series.contentWarnings.isNotEmpty) ...[
-          const Text(
+          Text(
             'CONTENT WARNINGS',
             style: TextStyle(
               fontSize: 11,
@@ -537,7 +537,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
 
         // Genres & Tags
         if (series.genres.isNotEmpty || series.tags.isNotEmpty) ...[
-          const Text(
+          Text(
             'GENRES & TAGS',
             style: TextStyle(
               fontSize: 11,
@@ -560,7 +560,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
 
         // Synopsis
         if (series.synopsis != null && series.synopsis!.isNotEmpty) ...[
-          const Text(
+          Text(
             'SYNOPSIS',
             style: TextStyle(
               fontSize: 11,
@@ -572,7 +572,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
           const SizedBox(height: 8),
           Text(
             series.synopsis!,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               height: 1.5,
               color: AppColors.darkText,
@@ -582,7 +582,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
         ],
 
         // Metadata grid
-        const Text(
+        Text(
           'DETAILS',
           style: TextStyle(
             fontSize: 11,
@@ -599,7 +599,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
             series.overallThoughts != null &&
             series.overallThoughts!.isNotEmpty) ...[
           const SizedBox(height: 24),
-          const Text(
+          Text(
             'OVERALL THOUGHTS',
             style: TextStyle(
               fontSize: 11,
@@ -618,7 +618,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
             ),
             child: Text(
               series.overallThoughts!,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 height: 1.5,
                 color: AppColors.darkText,
@@ -632,7 +632,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
             series.chapterThoughts != null &&
             series.chapterThoughts!.isNotEmpty) ...[
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'CHAPTER THOUGHTS',
             style: TextStyle(
               fontSize: 11,
@@ -651,7 +651,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
             ),
             child: Text(
               series.chapterThoughts!,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 height: 1.5,
                 color: AppColors.darkText,
@@ -707,7 +707,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     }
 
     if (items.isEmpty) {
-      return const Text(
+      return Text(
         'No additional details provided.',
         style: TextStyle(color: AppColors.darkTextMuted, fontSize: 13),
       );
@@ -729,7 +729,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               children: [
                 Text(
                   entry.key,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.darkTextMuted,
                     fontSize: 13,
                   ),
@@ -738,7 +738,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                   child: Text(
                     entry.value,
                     textAlign: TextAlign.end,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.darkText,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
@@ -773,9 +773,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.book_rounded, size: 44, color: AppColors.darkTextMuted),
+                  Icon(Icons.book_rounded, size: 44, color: AppColors.darkTextMuted),
                   const SizedBox(height: 12),
-                  const Text(
+                  Text(
                     'No volumes logged yet',
                     style: TextStyle(color: AppColors.darkTextMuted),
                   ),
@@ -798,7 +798,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                   margin: const EdgeInsets.only(bottom: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
-                    side: const BorderSide(color: AppColors.darkBorder),
+                    side: BorderSide(color: AppColors.darkBorder),
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(12.0),
@@ -809,13 +809,13 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                           width: 44,
                           height: 44,
                           decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.2),
+                            color: AppColors.primary.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Center(
                             child: Text(
                               'V${v.volumeNumber}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: AppColors.primaryLight,
                               ),
@@ -829,7 +829,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                             children: [
                               Text(
                                 v.title ?? 'Volume ${v.volumeNumber}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 15,
                                   color: AppColors.darkText,
@@ -839,7 +839,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                                 const SizedBox(height: 2),
                                 Text(
                                   'Chapters: ${v.chapterRange}',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 12,
                                     color: AppColors.darkTextMuted,
                                   ),
@@ -849,7 +849,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                                 const SizedBox(height: 2),
                                 Text(
                                   'Read on: ${v.dateRead}',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 12,
                                     color: AppColors.darkTextMuted,
                                   ),
@@ -859,7 +859,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                                 const SizedBox(height: 6),
                                 Text(
                                   v.thoughts!,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 13,
                                     color: AppColors.darkText,
                                   ),
@@ -895,7 +895,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               'STANDALONE THOUGHTS',
               style: TextStyle(
                 fontSize: 12,
@@ -923,14 +923,14 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
             child: Center(
               child: Column(
                 children: [
-                  const Icon(Icons.edit_note_rounded, size: 40, color: AppColors.darkTextMuted),
+                  Icon(Icons.edit_note_rounded, size: 40, color: AppColors.darkTextMuted),
                   const SizedBox(height: 8),
-                  const Text(
+                  Text(
                     'No thoughts added yet',
                     style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.darkText),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
+                  Text(
                     'Add your overall thoughts and chapter notes for this book.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
@@ -958,7 +958,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Overall Thoughts',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
@@ -969,7 +969,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                   const SizedBox(height: 8),
                   Text(
                     series.overallThoughts!,
-                    style: const TextStyle(fontSize: 13, height: 1.5, color: AppColors.darkText),
+                    style: TextStyle(fontSize: 13, height: 1.5, color: AppColors.darkText),
                   ),
                 ],
               ),
@@ -988,7 +988,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Chapter Notes / Timeline',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
@@ -999,7 +999,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                   const SizedBox(height: 8),
                   Text(
                     series.chapterThoughts!,
-                    style: const TextStyle(fontSize: 13, height: 1.5, color: AppColors.darkText),
+                    style: TextStyle(fontSize: 13, height: 1.5, color: AppColors.darkText),
                   ),
                 ],
               ),
@@ -1154,9 +1154,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.people_outline_rounded, size: 44, color: AppColors.darkTextMuted),
+                  Icon(Icons.people_outline_rounded, size: 44, color: AppColors.darkTextMuted),
                   const SizedBox(height: 12),
-                  const Text(
+                  Text(
                     'No characters added yet',
                     style: TextStyle(color: AppColors.darkTextMuted),
                   ),
@@ -1182,7 +1182,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 16),
-                        const Text(
+                        Text(
                           'CHARACTER RELATIONSHIPS',
                           style: TextStyle(
                             fontSize: 11,
@@ -1212,19 +1212,19 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primary.withOpacity(0.2),
+                                  color: AppColors.primary.withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
                                   r.label ?? r.type,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 11,
                                     color: AppColors.primaryLight,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ),
-                              const Icon(Icons.arrow_forward_rounded, size: 14, color: AppColors.darkTextMuted),
+                              Icon(Icons.arrow_forward_rounded, size: 14, color: AppColors.darkTextMuted),
                               Text(
                                 r.toCharacterName ?? 'Char #${r.toCharacterId}',
                                 style: const TextStyle(fontWeight: FontWeight.bold),
@@ -1249,7 +1249,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: AppColors.darkBorder),
+        side: BorderSide(color: AppColors.darkBorder),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -1272,7 +1272,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                         borderRadius: BorderRadius.circular(25),
                         fit: BoxFit.cover,
                       )
-                    : const Center(
+                    : Center(
                         child: Icon(Icons.person, color: AppColors.primaryLight),
                       ),
               ),
@@ -1286,7 +1286,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                         Expanded(
                           child: Text(
                             c.name,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
                               color: AppColors.darkText,
@@ -1297,12 +1297,12 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.2),
+                            color: AppColors.primary.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             c.role,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 11,
                               color: AppColors.primaryLight,
                               fontWeight: FontWeight.w600,
@@ -1315,14 +1315,14 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                       const SizedBox(height: 2),
                       Text(
                         c.statusRole!,
-                        style: const TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
+                        style: TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
                       ),
                     ],
                     if (c.personality != null) ...[
                       const SizedBox(height: 4),
                       Text(
                         'Personality: ${c.personality!}',
-                        style: const TextStyle(fontSize: 12, color: AppColors.darkText),
+                        style: TextStyle(fontSize: 12, color: AppColors.darkText),
                       ),
                     ],
                     if (c.notes != null && c.notes!.isNotEmpty) ...[
@@ -1331,7 +1331,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                         c.notes!,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
+                        style: TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
                       ),
                     ],
                   ],
@@ -1346,7 +1346,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                   ref.invalidate(seriesRelationshipsProvider(seriesId));
                 },
               ),
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(top: 4.0),
                 child: Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.darkTextMuted),
               ),
@@ -1406,7 +1406,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                                 borderRadius: BorderRadius.circular(32),
                                 fit: BoxFit.cover,
                               )
-                            : const Center(
+                            : Center(
                                 child: Icon(Icons.person,
                                     color: AppColors.primaryLight, size: 30),
                               ),
@@ -1418,7 +1418,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                           children: [
                             Text(
                               c.name,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontFamily: 'Outfit',
                                 fontSize: 19,
                                 fontWeight: FontWeight.bold,
@@ -1434,12 +1434,12 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary.withOpacity(0.2),
+                                    color: AppColors.primary.withValues(alpha: 0.2),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
                                     c.role,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 11,
                                       color: AppColors.primaryLight,
                                       fontWeight: FontWeight.w600,
@@ -1456,7 +1456,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                                     ),
                                     child: Text(
                                       c.statusRole!,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                           fontSize: 11, color: AppColors.darkTextMuted),
                                     ),
                                   ),
@@ -1506,11 +1506,11 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                           label: const Text('Edit'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppColors.primaryLight,
-                            side: const BorderSide(color: AppColors.darkBorder),
+                            side: BorderSide(color: AppColors.darkBorder),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      SizedBox(width: 10),
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () async {
@@ -1519,12 +1519,12 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                             ref.invalidate(seriesRelationshipsProvider(seriesId));
                             if (mounted) Navigator.pop(ctx);
                           },
-                          icon: const Icon(Icons.delete_outline,
+                          icon: Icon(Icons.delete_outline,
                               size: 16, color: AppColors.error),
-                          label: const Text('Delete',
+                          label: Text('Delete',
                               style: TextStyle(color: AppColors.error)),
                           style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: AppColors.darkBorder),
+                            side: BorderSide(color: AppColors.darkBorder),
                           ),
                         ),
                       ),
@@ -1549,7 +1549,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
             width: 100,
             child: Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 color: AppColors.darkTextMuted,
                 fontWeight: FontWeight.w600,
@@ -1559,7 +1559,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(fontSize: 13, color: AppColors.darkText),
+              style: TextStyle(fontSize: 13, color: AppColors.darkText),
             ),
           ),
         ],
@@ -1573,7 +1573,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
       children: [
         Text(
           title.toUpperCase(),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.bold,
             letterSpacing: 0.6,
@@ -1591,7 +1591,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
           ),
           child: Text(
             value,
-            style: const TextStyle(fontSize: 13, height: 1.4, color: AppColors.darkText),
+            style: TextStyle(fontSize: 13, height: 1.4, color: AppColors.darkText),
           ),
         ),
       ],
@@ -1755,9 +1755,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.photo_library_outlined, size: 44, color: AppColors.darkTextMuted),
+                  Icon(Icons.photo_library_outlined, size: 44, color: AppColors.darkTextMuted),
                   const SizedBox(height: 12),
-                  const Text(
+                  Text(
                     'No gallery pictures yet',
                     style: TextStyle(color: AppColors.darkTextMuted),
                   ),
@@ -1798,7 +1798,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                               right: 0,
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                color: Colors.black.withOpacity(0.65),
+                                color: Colors.black.withValues(alpha: 0.65),
                                 child: Text(
                                   img.caption!,
                                   maxLines: 1,
@@ -1839,11 +1839,11 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                 padding: const EdgeInsets.all(12),
                 child: Text(
                   img.caption!,
-                  style: const TextStyle(fontSize: 13, color: AppColors.darkText),
+                  style: TextStyle(fontSize: 13, color: AppColors.darkText),
                 ),
               ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              padding: EdgeInsets.fromLTRB(12, 0, 12, 12),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -1985,14 +1985,14 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               child: Center(
                 child: Column(
                   children: [
-                    const Icon(Icons.folder_open_rounded, size: 40, color: AppColors.darkTextMuted),
+                    Icon(Icons.folder_open_rounded, size: 40, color: AppColors.darkTextMuted),
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       'No files or links yet',
                       style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.darkText),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
+                    Text(
                       'Attach PDFs, external bookmarks, notes, or reading resources.',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
@@ -2004,7 +2004,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
           else ...[
             // External Links Section
             if (links.isNotEmpty) ...[
-              const Text(
+              Text(
                 'EXTERNAL LINKS & BOOKMARKS',
                 style: TextStyle(
                   fontSize: 11,
@@ -2020,7 +2020,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
 
             // Attachments Section
             if (attachments.isNotEmpty) ...[
-              const Text(
+              Text(
                 'FILE ATTACHMENTS',
                 style: TextStyle(
                   fontSize: 11,
@@ -2058,10 +2058,10 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.15),
+              color: AppColors.primary.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.link_rounded, size: 20, color: AppColors.primaryLight),
+            child: Icon(Icons.link_rounded, size: 20, color: AppColors.primaryLight),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -2077,7 +2077,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                 const SizedBox(height: 2),
                 Text(
                   l.url,
-                  style: const TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
+                  style: TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -2132,7 +2132,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               color: AppColors.darkSurfaceLighter,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.insert_drive_file_rounded, size: 20, color: AppColors.primaryLight),
+            child: Icon(Icons.insert_drive_file_rounded, size: 20, color: AppColors.primaryLight),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -2149,7 +2149,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                   const SizedBox(height: 2),
                   Text(
                     formattedSize,
-                    style: const TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
+                    style: TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
                   ),
                 ],
               ],
@@ -2290,14 +2290,14 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.menu_book_rounded, size: 44, color: AppColors.darkTextMuted),
+                  Icon(Icons.menu_book_rounded, size: 44, color: AppColors.darkTextMuted),
                   const SizedBox(height: 12),
-                  const Text(
+                  Text(
                     'No glossary terms yet',
                     style: TextStyle(color: AppColors.darkTextMuted),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
+                  Text(
                     'Track in-world jargon, honorifics, or lore terms specific to this title.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
@@ -2321,7 +2321,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                   margin: const EdgeInsets.only(bottom: 10),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
-                    side: const BorderSide(color: AppColors.darkBorder),
+                    side: BorderSide(color: AppColors.darkBorder),
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(14.0),
@@ -2333,7 +2333,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                           children: [
                             Text(
                               t.term,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontFamily: 'Outfit',
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
@@ -2364,7 +2364,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                           const SizedBox(height: 6),
                           Text(
                             t.definition!,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               height: 1.4,
                               color: AppColors.darkText,

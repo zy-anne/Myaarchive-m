@@ -29,7 +29,7 @@ class RatingStars extends StatelessWidget {
         final icon = Icon(
           isFilled ? Icons.star_rounded : Icons.star_outline_rounded,
           size: size,
-          color: isFilled ? AppColors.gold : AppColors.darkTextMuted.withOpacity(0.4),
+          color: isFilled ? AppColors.gold : AppColors.darkTextMuted.withValues(alpha: 0.4),
         );
 
         if (onRatingChanged != null) {

@@ -52,7 +52,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
+                      Text(
                         'Sort & Filters',
                         style: TextStyle(
                           fontSize: 18,
@@ -67,7 +67,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  const Text(
+                  Text(
                     'SORT BY',
                     style: TextStyle(
                       fontSize: 11,
@@ -98,7 +98,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                           },
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppColors.darkTextMuted,
-                            side: const BorderSide(color: AppColors.darkBorder),
+                            side: BorderSide(color: AppColors.darkBorder),
                           ),
                           child: const Text('Reset All'),
                         ),
@@ -183,11 +183,11 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0C101A), // Deep dark background from wireframe
+      backgroundColor: AppColors.darkBackground,
       floatingActionButton: FloatingActionButton(
         onPressed: () => context.push('/series/add'),
         backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
+        foregroundColor: AppColors.onPrimary,
         elevation: 4,
         child: const Icon(Icons.add_rounded),
       ),
@@ -219,11 +219,11 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     children: [
                       Text(
                         libraryTitle,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'Outfit',
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: AppColors.darkText,
                           letterSpacing: 0.3,
                         ),
                       ),
@@ -233,20 +233,20 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                           final count = _filteredList(list).length;
                           return Text(
                             '$count ${count == 1 ? 'entry' : 'entries'}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
-                              color: Color(0xFF8A93A6),
+                              color: AppColors.darkTextMuted,
                               fontWeight: FontWeight.w400,
                             ),
                           );
                         },
-                        loading: () => const Text(
+                        loading: () => Text(
                           'Loading entries...',
-                          style: TextStyle(fontSize: 13, color: Color(0xFF8A93A6)),
+                          style: TextStyle(fontSize: 13, color: AppColors.darkTextMuted),
                         ),
-                        error: (_, __) => const Text(
+                        error: (_, __) => Text(
                           '0 entries',
-                          style: TextStyle(fontSize: 13, color: Color(0xFF8A93A6)),
+                          style: TextStyle(fontSize: 13, color: AppColors.darkTextMuted),
                         ),
                       ),
                     ],
@@ -266,10 +266,10 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         child: Container(
                           height: 46,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF141926),
+                            color: AppColors.darkSurface,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: const Color(0xFF232B40),
+                              color: AppColors.darkBorder,
                               width: 1.2,
                             ),
                           ),
@@ -279,27 +279,27 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                               ref.read(seriesFilterProvider.notifier).state =
                                   filter.copyWith(search: val);
                             },
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: AppColors.darkText,
                               fontSize: 14,
                             ),
                             decoration: InputDecoration(
                               hintText: 'Search title, author, fandom...',
-                              hintStyle: const TextStyle(
-                                color: Color(0xFF6B7589),
+                              hintStyle: TextStyle(
+                                color: AppColors.darkTextMuted,
                                 fontSize: 13.5,
                               ),
-                              prefixIcon: const Icon(
+                              prefixIcon: Icon(
                                 Icons.search_rounded,
-                                color: Color(0xFF6B7589),
+                                color: AppColors.darkTextMuted,
                                 size: 20,
                               ),
                               suffixIcon: _searchController.text.isNotEmpty
                                   ? IconButton(
-                                      icon: const Icon(
+                                      icon: Icon(
                                         Icons.close_rounded,
                                         size: 18,
-                                        color: Color(0xFF6B7589),
+                                        color: AppColors.darkTextMuted,
                                       ),
                                       onPressed: () {
                                         _searchController.clear();
@@ -323,7 +323,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         height: 46,
                         width: 46,
                         decoration: BoxDecoration(
-                          color: AppColors.primary, // Vibrant purple from wireframe
+                          color: AppColors.primary,
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
@@ -334,9 +334,9 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                           ],
                         ),
                         child: IconButton(
-                          icon: const Icon(
+                          icon: Icon(
                             Icons.filter_alt_rounded,
-                            color: Colors.white,
+                            color: AppColors.onPrimary,
                             size: 22,
                           ),
                           tooltip: 'Sort & Filters',
@@ -420,7 +420,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     ),
                   );
                 },
-                loading: () => const SliverFillRemaining(
+                loading: () => SliverFillRemaining(
                   hasScrollBody: false,
                   child: Center(
                     child: CircularProgressIndicator(
@@ -435,7 +435,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                       child: Text(
                         'Failed to load: $err',
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: AppColors.darkTextMuted),
+                        style: TextStyle(color: AppColors.darkTextMuted),
                       ),
                     ),
                   ),
@@ -463,9 +463,9 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
       padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF141926),
+          color: AppColors.darkSurface,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFF232B40), width: 1.2),
+          border: Border.all(color: AppColors.darkBorder, width: 1.2),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -487,10 +487,10 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                       size: 20,
                     ),
                     const SizedBox(width: 6),
-                    const Icon(Icons.workspaces_rounded,
+                    Icon(Icons.workspaces_rounded,
                         size: 16, color: AppColors.primaryLight),
                     const SizedBox(width: 8),
-                    const Text(
+                    Text(
                       'Series Groups',
                       style: TextStyle(
                         fontSize: 13,
@@ -509,7 +509,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         ),
                         child: Text(
                           '${groups.length}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
                             color: AppColors.darkTextMuted,
                             fontWeight: FontWeight.w600,
@@ -540,7 +540,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               groupsAsync.when(
                 data: (groups) {
                   if (groups.isEmpty) {
-                    return const Padding(
+                    return Padding(
                       padding: EdgeInsets.fromLTRB(14, 0, 14, 14),
                       child: Text(
                         'No series groups yet — tap "New Group" to link related titles (sequels, spin-offs, shared universes).',
@@ -560,7 +560,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     ),
                   );
                 },
-                loading: () => const Padding(
+                loading: () => Padding(
                   padding: EdgeInsets.all(14),
                   child: Center(
                     child: SizedBox(
@@ -577,7 +577,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
                   child: Text(
                     'Failed to load groups: $e',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       color: AppColors.darkTextMuted,
                     ),
@@ -629,7 +629,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                       group.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.bold,
                         color: AppColors.darkText,
@@ -646,7 +646,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     ),
                     child: Text(
                       group.groupType,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 10,
                         color: AppColors.primaryLight,
                         fontWeight: FontWeight.w600,
@@ -670,7 +670,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
                 child: Text(
                   group.description!,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     color: AppColors.darkTextMuted,
                     height: 1.4,
@@ -732,7 +732,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                       item.groupRole,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 8.5,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.3,
@@ -748,7 +748,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               item.title,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w600,
                 color: AppColors.darkText,
@@ -763,7 +763,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   const SizedBox(width: 4),
                   Text(
                     '${item.volumeCount}v',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 9.5,
                       color: AppColors.darkTextMuted,
                     ),
@@ -856,7 +856,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                             const InputDecoration(labelText: 'Description'),
                       ),
                       const SizedBox(height: 16),
-                      const Text(
+                      Text(
                         'MEMBER TITLES',
                         style: TextStyle(
                           fontSize: 11,
@@ -867,7 +867,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                       ),
                       const SizedBox(height: 8),
                       if (draftItems.isEmpty)
-                        const Padding(
+                        Padding(
                           padding: EdgeInsets.symmetric(vertical: 6),
                           child: Text(
                             'No titles added yet.',
@@ -896,7 +896,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                                 Expanded(
                                   flex: 3,
                                   child: DropdownButtonFormField<String>(
-                                    value: item.groupRole,
+                                    initialValue: item.groupRole,
                                     isDense: true,
                                     dropdownColor: AppColors.darkSurfaceLight,
                                     decoration: const InputDecoration(
@@ -937,7 +937,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         children: [
                           Expanded(
                             child: DropdownButtonFormField<int>(
-                              value: selectedToAdd,
+                              initialValue: selectedToAdd,
                               isDense: true,
                               dropdownColor: AppColors.darkSurfaceLight,
                               hint: const Text(
@@ -961,7 +961,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                           ),
                           const SizedBox(width: 8),
                           IconButton(
-                            icon: const Icon(Icons.add_circle_outline,
+                            icon: Icon(Icons.add_circle_outline,
                                 color: AppColors.primaryLight),
                             onPressed: () {
                               if (selectedToAdd == null) return;
@@ -1105,7 +1105,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   padding: const EdgeInsets.only(bottom: 6),
                   decoration: BoxDecoration(
                     border: isSelected
-                        ? const Border(
+                        ? Border(
                             bottom: BorderSide(
                               color: AppColors.primaryLight,
                               width: 2.5,
@@ -1142,20 +1142,20 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppColors.primary // Solid purple from wireframe
-              : const Color(0xFF141926),
+              ? AppColors.primary
+              : AppColors.darkSurface,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isSelected
                 ? AppColors.primaryLight
-                : const Color(0xFF232B40),
+                : AppColors.darkBorder,
             width: 1,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? Colors.white : const Color(0xFF8A93A6),
+            color: isSelected ? AppColors.onPrimary : AppColors.darkTextMuted,
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
           ),
@@ -1178,25 +1178,25 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                 color: AppColors.primary.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.menu_book_rounded, size: 32, color: AppColors.primaryLight),
+              child: Icon(Icons.menu_book_rounded, size: 32, color: AppColors.primaryLight),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'No Entries Found',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.darkText),
             ),
             const SizedBox(height: 6),
-            const Text(
+            Text(
               'No series match your current filter. Try selecting "All" or add a new book.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12.5, color: Color(0xFF8A93A6)),
+              style: TextStyle(fontSize: 12.5, color: AppColors.darkTextMuted),
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
               onPressed: () => context.push('/series/add'),
               icon: const Icon(Icons.add_rounded, size: 18),
               label: const Text('Add Entry'),
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: AppColors.onPrimary),
             ),
           ],
         ),

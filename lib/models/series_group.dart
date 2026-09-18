@@ -5,6 +5,7 @@
 /// Universes)" section). A group links a set of member series/books
 /// together — e.g. a shared universe, a main story + its spin-offs, or a
 /// prequel/sequel pair — each tagged with a [groupRole].
+library;
 
 /// The fixed set of roles a member title can have within a group.
 class GroupRoles {

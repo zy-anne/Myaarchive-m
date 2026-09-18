@@ -27,11 +27,11 @@ class ManageTagsScreen extends ConsumerWidget {
                 children: [
                   TextField(
                     controller: nameCtrl,
-                    style: const TextStyle(color: AppColors.darkText),
+                    style: TextStyle(color: AppColors.darkText),
                     decoration: const InputDecoration(labelText: 'Tag Name'),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
+                  Text(
                     'Color',
                     style: TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
                   ),
@@ -40,7 +40,7 @@ class ManageTagsScreen extends ConsumerWidget {
                     spacing: 10,
                     runSpacing: 10,
                     children: AppColors.tagPalette.map((c) {
-                      final isSelected = c.value == selectedColor.value;
+                      final isSelected = c.toARGB32() == selectedColor.toARGB32();
                       return GestureDetector(
                         onTap: () => setDialogState(() => selectedColor = c),
                         child: Container(
@@ -71,7 +71,7 @@ class ManageTagsScreen extends ConsumerWidget {
                   final name = nameCtrl.text.trim();
                   if (name.isEmpty) return;
                   final colorHex =
-                      '#${selectedColor.value.toRadixString(16).substring(2)}';
+                      '#${selectedColor.toARGB32().toRadixString(16).substring(2)}';
                   final updated = Tag(
                     id: tag.id,
                     ownerId: tag.ownerId,
@@ -136,7 +136,7 @@ class ManageTagsScreen extends ConsumerWidget {
       body: tagsAsync.when(
         data: (tags) {
           if (tags.isEmpty) {
-            return const Center(
+            return Center(
               child: Padding(
                 padding: EdgeInsets.all(32.0),
                 child: Text(
@@ -175,7 +175,7 @@ class ManageTagsScreen extends ConsumerWidget {
                     Expanded(
                       child: Text(
                         tag.name,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w600,
                           color: AppColors.darkText,
                         ),
@@ -197,7 +197,7 @@ class ManageTagsScreen extends ConsumerWidget {
             },
           );
         },
-        loading: () => const Center(
+        loading: () => Center(
           child: CircularProgressIndicator(color: AppColors.primaryLight),
         ),
         error: (e, _) => Center(child: Text('Error: $e')),

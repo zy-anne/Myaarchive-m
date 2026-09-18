@@ -26,7 +26,7 @@ class CategoriesScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(16.0),
         children: [
           // Genres Section
-          const Text(
+          Text(
             'GENRES',
             style: TextStyle(
               fontSize: 12,
@@ -44,7 +44,7 @@ class CategoriesScreen extends ConsumerWidget {
                     runSpacing: 6,
                     children: genres.map((g) => TagChip.fromGenre(g)).toList(),
                   ),
-            loading: () => const Center(
+            loading: () => Center(
               child: CircularProgressIndicator(color: AppColors.primaryLight),
             ),
             error: (e, _) => Text('Error: $e'),
@@ -52,7 +52,7 @@ class CategoriesScreen extends ConsumerWidget {
           const SizedBox(height: 24),
 
           // User Tags Section
-          const Text(
+          Text(
             'MY TAGS',
             style: TextStyle(
               fontSize: 12,
@@ -64,7 +64,7 @@ class CategoriesScreen extends ConsumerWidget {
           const SizedBox(height: 8),
           tagsAsync.when(
             data: (tags) => tags.isEmpty
-                ? const Text(
+                ? Text(
                     'No tags created yet. Tags are added when creating or editing books.',
                     style: TextStyle(color: AppColors.darkTextMuted, fontSize: 13),
                   )
@@ -73,7 +73,7 @@ class CategoriesScreen extends ConsumerWidget {
                     runSpacing: 6,
                     children: tags.map((t) => TagChip.fromTag(t)).toList(),
                   ),
-            loading: () => const Center(
+            loading: () => Center(
               child: CircularProgressIndicator(color: AppColors.primaryLight),
             ),
             error: (e, _) => Text('Error: $e'),
@@ -81,7 +81,7 @@ class CategoriesScreen extends ConsumerWidget {
           const SizedBox(height: 24),
 
           // Content Warnings Section
-          const Text(
+          Text(
             'CONTENT WARNINGS',
             style: TextStyle(
               fontSize: 12,
@@ -93,7 +93,7 @@ class CategoriesScreen extends ConsumerWidget {
           const SizedBox(height: 8),
           warningsAsync.when(
             data: (warnings) => warnings.isEmpty
-                ? const Text(
+                ? Text(
                     'No content warnings created.',
                     style: TextStyle(color: AppColors.darkTextMuted, fontSize: 13),
                   )
@@ -104,7 +104,7 @@ class CategoriesScreen extends ConsumerWidget {
                         .map((w) => TagChip.fromWarning(w))
                         .toList(),
                   ),
-            loading: () => const Center(
+            loading: () => Center(
               child: CircularProgressIndicator(color: AppColors.primaryLight),
             ),
             error: (e, _) => Text('Error: $e'),

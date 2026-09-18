@@ -4,6 +4,7 @@
 /// presigned-URL downloads (the R2 bucket is private, same as the
 /// desktop app). For uploads from mobile, the image bytes are PUT
 /// directly to the R2 endpoint using AWS Signature V4.
+library;
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';

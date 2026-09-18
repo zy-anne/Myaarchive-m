@@ -34,11 +34,11 @@ class ManageStatusesScreen extends ConsumerWidget {
                 children: [
                   TextField(
                     controller: nameCtrl,
-                    style: const TextStyle(color: AppColors.darkText),
+                    style: TextStyle(color: AppColors.darkText),
                     decoration: const InputDecoration(labelText: 'Status Name'),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
+                  Text(
                     'Color',
                     style: TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
                   ),
@@ -47,7 +47,7 @@ class ManageStatusesScreen extends ConsumerWidget {
                     spacing: 10,
                     runSpacing: 10,
                     children: AppColors.tagPalette.map((c) {
-                      final isSelected = c.value == selectedColor.value;
+                      final isSelected = c.toARGB32() == selectedColor.toARGB32();
                       return GestureDetector(
                         onTap: () => setDialogState(() => selectedColor = c),
                         child: Container(
@@ -78,7 +78,7 @@ class ManageStatusesScreen extends ConsumerWidget {
                   final name = nameCtrl.text.trim();
                   if (name.isEmpty) return;
                   final colorHex =
-                      '#${selectedColor.value.toRadixString(16).substring(2)}';
+                      '#${selectedColor.toARGB32().toRadixString(16).substring(2)}';
                   final dataLayer = ref.read(dataLayerProvider);
                   if (existing == null) {
                     await dataLayer.statusesCreate(ownerId, name, colorHex);
@@ -163,7 +163,7 @@ class ManageStatusesScreen extends ConsumerWidget {
           : statusesAsync.when(
               data: (statuses) {
                 if (statuses.isEmpty) {
-                  return const Center(
+                  return Center(
                     child: Padding(
                       padding: EdgeInsets.all(32.0),
                       child: Text(
@@ -200,7 +200,7 @@ class ManageStatusesScreen extends ConsumerWidget {
                           Expanded(
                             child: Text(
                               status.name,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.w600,
                                 color: AppColors.darkText,
                               ),
@@ -228,7 +228,7 @@ class ManageStatusesScreen extends ConsumerWidget {
                   },
                 );
               },
-              loading: () => const Center(
+              loading: () => Center(
                 child: CircularProgressIndicator(color: AppColors.primaryLight),
               ),
               error: (e, _) => Center(child: Text('Error: $e')),

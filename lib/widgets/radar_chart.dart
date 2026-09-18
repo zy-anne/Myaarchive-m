@@ -69,7 +69,7 @@ class _RadarChartPainter extends CustomPainter {
       final labelPoint = pointFor(i, 1.16);
       final tp = TextPainter(
         text: TextSpan(text: data[i].label,
-            style: const TextStyle(color: AppColors.darkTextMuted, fontSize: 10)),
+            style: TextStyle(color: AppColors.darkTextMuted, fontSize: 10)),
         textAlign: TextAlign.center,
         textDirection: TextDirection.ltr,
       )..layout();

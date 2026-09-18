@@ -31,7 +31,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Set target number of books/manga to complete this year:',
               style: TextStyle(color: AppColors.darkTextMuted, fontSize: 13),
             ),
@@ -40,7 +40,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
               controller: controller,
               keyboardType: TextInputType.number,
               autofocus: true,
-              style: const TextStyle(
+              style: TextStyle(
                 color: AppColors.darkText,
                 fontWeight: FontWeight.bold,
                 fontSize: 18,
@@ -126,17 +126,17 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                       width: 64,
                       height: 64,
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.15),
+                        color: AppColors.primary.withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.bar_chart_rounded,
                         size: 36,
                         color: AppColors.primaryLight,
                       ),
                     ),
                     const SizedBox(height: 16),
-                    const Text(
+                    Text(
                       'No Reading Data Yet',
                       style: TextStyle(
                         fontSize: 18,
@@ -145,7 +145,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       'Add titles to your library to track reading milestones, velocity, and genres.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: AppColors.darkTextMuted, fontSize: 13),
@@ -190,7 +190,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             ),
           );
         },
-        loading: () => const Center(
+        loading: () => Center(
           child: CircularProgressIndicator(color: AppColors.primaryLight),
         ),
         error: (e, _) => Center(
@@ -325,7 +325,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppColors.primary.withOpacity(0.35),
+            AppColors.primary.withValues(alpha: 0.35),
             AppColors.darkSurfaceLight,
           ],
           begin: Alignment.topLeft,
@@ -333,12 +333,12 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: AppColors.primary.withOpacity(0.4),
+          color: AppColors.primary.withValues(alpha: 0.4),
           width: 1.2,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.3),
+            color: Colors.black.withValues(alpha: 0.3),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -353,7 +353,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'ANNUAL MILESTONE',
                     style: TextStyle(
                       fontSize: 11,
@@ -365,7 +365,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                   const SizedBox(height: 2),
                   Text(
                     '$_selectedYear Reading Journey',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: AppColors.darkText,
@@ -398,21 +398,21 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                   ),
                 ),
                 const SizedBox(width: 6),
-                const Text(
+                Text(
                   'of',
                   style: TextStyle(color: AppColors.darkTextMuted, fontSize: 14),
                 ),
                 const SizedBox(width: 6),
                 Text(
                   '$goal',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                     color: AppColors.primaryLight,
                   ),
                 ),
                 const SizedBox(width: 6),
-                const Text(
+                Text(
                   'works read',
                   style: TextStyle(color: AppColors.darkTextMuted, fontSize: 13),
                 ),
@@ -420,12 +420,12 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.3),
+                    color: AppColors.primary.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     '$pctText%',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.primaryLight,
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
@@ -443,7 +443,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                 value: progressPct,
                 minHeight: 10,
                 backgroundColor: AppColors.darkSurfaceLighter,
-                valueColor: const AlwaysStoppedAnimation<Color>(
+                valueColor: AlwaysStoppedAnimation<Color>(
                   AppColors.primaryLight,
                 ),
               ),
@@ -455,7 +455,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
               remaining > 0
                   ? '$remaining more to reach your annual goal!'
                   : '🎉 Congratulations! You reached your reading goal!',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 color: AppColors.darkTextMuted,
                 fontWeight: FontWeight.w500,
@@ -466,7 +466,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.darkBackground.withOpacity(0.6),
+                color: AppColors.darkBackground.withValues(alpha: 0.6),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
@@ -474,7 +474,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                   const Icon(Icons.flag_outlined,
                       color: AppColors.gold, size: 24),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'No annual goal set yet for this year.',
                       style: TextStyle(fontSize: 13, color: AppColors.darkText),
@@ -558,7 +558,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
         color: AppColors.darkSurfaceLight,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: AppColors.darkBorder.withOpacity(0.8),
+          color: AppColors.darkBorder.withValues(alpha: 0.8),
           width: 1,
         ),
       ),
@@ -571,7 +571,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             children: [
               Text(
                 label.toUpperCase(),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 0.6,
@@ -593,7 +593,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             subtitle,
             style: TextStyle(
               fontSize: 11,
-              color: AppColors.darkTextMuted.withOpacity(0.8),
+              color: AppColors.darkTextMuted.withValues(alpha: 0.8),
             ),
           ),
         ],
@@ -654,7 +654,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('READING TIMELINE',
+              Text('READING TIMELINE',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold,
                       letterSpacing: 0.8, color: AppColors.darkTextMuted)),
               Row(
@@ -664,7 +664,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                     value: _selectedYear,
                     dropdownColor: AppColors.darkSurfaceLight,
                     underline: const SizedBox.shrink(),
-                    style: const TextStyle(color: AppColors.primaryLight,
+                    style: TextStyle(color: AppColors.primaryLight,
                         fontSize: 12, fontWeight: FontWeight.w600),
                     items: _availableYears(allSeries)
                         .map((y) => DropdownMenuItem(value: y, child: Text('$y')))
@@ -676,7 +676,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                     value: _selectedMonth,
                     dropdownColor: AppColors.darkSurfaceLight,
                     underline: const SizedBox.shrink(),
-                    style: const TextStyle(color: AppColors.primaryLight,
+                    style: TextStyle(color: AppColors.primaryLight,
                         fontSize: 12, fontWeight: FontWeight.w600),
                     items: List.generate(12, (i) => i + 1)
                         .map((m) => DropdownMenuItem(
@@ -749,7 +749,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          const Divider(color: AppColors.darkBorder),
+          Divider(color: AppColors.darkBorder),
           const SizedBox(height: 16),
           _buildMonthDrilldown(allSeries, _selectedYear, _selectedMonth),
         ],
@@ -772,13 +772,15 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     MapEntry<int, int>? peakDay;
     for (int day = 1; day <= daysInMonth; day++) {
       final c = allDaily[DateTime(year, month, day)] ?? 0;
-      if (c > 0 && (peakDay == null || c > peakDay!.value)) peakDay = MapEntry(day, c);
+      if (c > 0 && (peakDay == null || c > peakDay.value)) peakDay = MapEntry(day, c);
     }
 
     String? topGenre;
     final genreCounts = <String, int>{};
     for (final s in monthSeries) {
-      for (final g in s.genres) genreCounts[g.name] = (genreCounts[g.name] ?? 0) + 1;
+      for (final g in s.genres) {
+        genreCounts[g.name] = (genreCounts[g.name] ?? 0) + 1;
+      }
     }
     if (genreCounts.isNotEmpty) {
       topGenre = (genreCounts.entries.toList()..sort((a, b) => b.value.compareTo(a.value))).first.key;
@@ -787,7 +789,9 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     String? topTag;
     final tagCounts = <String, int>{};
     for (final s in monthSeries) {
-      for (final t in s.tags) tagCounts[t.name] = (tagCounts[t.name] ?? 0) + 1;
+      for (final t in s.tags) {
+        tagCounts[t.name] = (tagCounts[t.name] ?? 0) + 1;
+      }
     }
     if (tagCounts.isNotEmpty) {
       topTag = (tagCounts.entries.toList()..sort((a, b) => b.value.compareTo(a.value))).first.key;
@@ -806,7 +810,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
           ],
         ),
         const SizedBox(height: 20),
-        const Text('READING CONSISTENCY (all-time)',
+        Text('READING CONSISTENCY (all-time)',
             style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.6, color: AppColors.darkTextMuted)),
         const SizedBox(height: 10),
         Wrap(
@@ -821,7 +825,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
           ],
         ),
         const SizedBox(height: 20),
-        const Text('WEEKLY BREAKDOWN',
+        Text('WEEKLY BREAKDOWN',
             style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.6, color: AppColors.darkTextMuted)),
         const SizedBox(height: 10),
         ...weeks.map((w) {
@@ -830,7 +834,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Row(
               children: [
-                SizedBox(width: 90, child: Text(w.key, style: const TextStyle(fontSize: 11, color: AppColors.darkText))),
+                SizedBox(width: 90, child: Text(w.key, style: TextStyle(fontSize: 11, color: AppColors.darkText))),
                 Expanded(
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(4),
@@ -838,18 +842,18 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                       value: w.value / maxBooks,
                       minHeight: 6,
                       backgroundColor: AppColors.darkSurfaceLighter,
-                      valueColor: const AlwaysStoppedAnimation(AppColors.primaryLight),
+                      valueColor: AlwaysStoppedAnimation(AppColors.primaryLight),
                     ),
                   ),
                 ),
                 const SizedBox(width: 10),
-                Text('${w.value} books', style: const TextStyle(fontSize: 11, color: AppColors.darkTextMuted)),
+                Text('${w.value} books', style: TextStyle(fontSize: 11, color: AppColors.darkTextMuted)),
               ],
             ),
           );
         }),
         const SizedBox(height: 20),
-        const Text('DAILY ACTIVITY',
+        Text('DAILY ACTIVITY',
             style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.6, color: AppColors.darkTextMuted)),
         const SizedBox(height: 10),
         GridView.builder(
@@ -894,8 +898,8 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.darkText)),
-        Text(label, style: const TextStyle(fontSize: 10, color: AppColors.darkTextMuted)),
+        Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.darkText)),
+        Text(label, style: TextStyle(fontSize: 10, color: AppColors.darkTextMuted)),
       ],
     );
   }
@@ -912,9 +916,9 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 9, letterSpacing: 0.5, color: AppColors.darkTextMuted)),
+          Text(label, style: TextStyle(fontSize: 9, letterSpacing: 0.5, color: AppColors.darkTextMuted)),
           const SizedBox(height: 4),
-          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.darkText)),
+          Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.darkText)),
         ],
       ),
     );
@@ -944,7 +948,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('TOP TAGS',
+        Text('TOP TAGS',
             style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold,
                 letterSpacing: 0.8, color: AppColors.darkTextMuted)),
         const SizedBox(height: 12),
@@ -954,10 +958,10 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
           children: top.map((entry) => Chip(
             backgroundColor: AppColors.darkBackground,
             label: Text('${entry.key} (${entry.value})',
-                style: const TextStyle(fontSize: 12, color: AppColors.darkText)),
+                style: TextStyle(fontSize: 12, color: AppColors.darkText)),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
-              side: const BorderSide(color: AppColors.darkBorder),
+              side: BorderSide(color: AppColors.darkBorder),
             ),
           )).toList(),
         ),
@@ -991,7 +995,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('READING PROFILE',
+          Text('READING PROFILE',
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold,
                   letterSpacing: 0.8, color: AppColors.darkTextMuted)),
           const SizedBox(height: 12),
@@ -1027,7 +1031,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'STATUS BREAKDOWN',
                 style: TextStyle(
                   fontSize: 12,
@@ -1038,7 +1042,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
               ),
               Text(
                 '$total Total Works',
-                style: const TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
+                style: TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
               ),
             ],
           ),
@@ -1068,7 +1072,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                           const SizedBox(width: 8),
                           Text(
                             status,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                               color: AppColors.darkText,
@@ -1078,7 +1082,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                       ),
                       Text(
                         '$count (${(pct * 100).toStringAsFixed(0)}%)',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           color: AppColors.darkTextMuted,
                         ),
@@ -1127,7 +1131,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'RATING DISTRIBUTION',
             style: TextStyle(
               fontSize: 12,
@@ -1175,7 +1179,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                     child: Text(
                       '$count',
                       textAlign: TextAlign.end,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         color: AppColors.darkTextMuted,
                       ),
@@ -1212,7 +1216,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'FORMAT & BOOK TYPES',
             style: TextStyle(
               fontSize: 12,
@@ -1229,10 +1233,10 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.18),
+                  color: AppColors.primary.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: AppColors.primary.withOpacity(0.4),
+                    color: AppColors.primary.withValues(alpha: 0.4),
                   ),
                 ),
                 child: Row(
@@ -1240,7 +1244,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                   children: [
                     Text(
                       entry.key,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: AppColors.primaryLight,
@@ -1299,7 +1303,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'TOP GENRES',
             style: TextStyle(
               fontSize: 12,
@@ -1317,7 +1321,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                 backgroundColor: AppColors.darkBackground,
                 label: Text(
                   '${entry.key} (${entry.value})',
-                  style: const TextStyle(fontSize: 12, color: AppColors.darkText),
+                  style: TextStyle(fontSize: 12, color: AppColors.darkText),
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),

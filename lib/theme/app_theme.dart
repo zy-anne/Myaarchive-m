@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'app_palette.dart';
-import '../models/app_color_palette.dart';
+import 'app_color_palette.dart';
 
 class AppTheme {
   AppTheme._();
@@ -31,6 +31,22 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         foregroundColor: palette.textMain,
+      ),
+      cardTheme: CardThemeData(
+        color: palette.surface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: palette.border),
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: palette.surface,
+        surfaceTintColor: Colors.transparent,
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: palette.surface,
+        surfaceTintColor: Colors.transparent,
       ),
       dividerColor: palette.border,
       extensions: [palette],

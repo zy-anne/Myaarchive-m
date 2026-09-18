@@ -1,10 +1,20 @@
 import 'package:flutter/material.dart';
+import 'app_color_palette.dart';
 
-/// Myaarchive color palette — Twilight Reading Room aesthetic.
+/// Myaarchive color palette — dynamically adapts to Light/Dark mode and
+/// the user-selected accent palette (Settings → Color Palette).
 class AppColors {
   AppColors._();
 
-  // ─── Twilight Reading Room core palette ──────────────────────────────
+  static bool isDark = true;
+  static AppColorPalette currentPalette = AppColorPalettes.twilightReadingRoom;
+
+  static void setTheme({required bool isDark, required AppColorPalette palette}) {
+    AppColors.isDark = isDark;
+    AppColors.currentPalette = palette;
+  }
+
+  // ─── Twilight Reading Room core palette (raw swatches) ───────────────
   static const Color deepIndigo = Color(0xFF1a1a2e);
   static const Color midnightPurple = Color(0xFF16213e);
   static const Color duskBlue = Color(0xFF0f3460);
@@ -13,32 +23,47 @@ class AppColors {
   static const Color softCream = Color(0xFFf5e6cc);
   static const Color roseHighlight = Color(0xFFe94560);
 
-  // ─── Aliases & Convenience Colors ───────────────────────────────────
-  static const Color primary = Color(0xFF6C48B5); // Vibrant Twilight Purple
-  static const Color primaryLight = Color(0xFF9B7EDE);
-  static const Color darkBackground = Color(0xFF0C101A); // Midnight dark
-  static const Color darkBg = darkBackground;
-  static const Color darkSurface = Color(0xFF141926);
-  static const Color darkSurfaceLight = Color(0xFF181F30);
-  static const Color darkSurfaceContainer = Color(0xFF1A2134);
-  static const Color darkSurfaceHigh = Color(0xFF222B42);
-  static const Color darkSurfaceLighter = darkSurfaceHigh;
-  static const Color darkCard = Color(0xFF141926);
-  static const Color darkBorder = Color(0xFF232B40);
+  // ─── Dynamic Palette Roles ──────────────────────────────────────────
+  static Color get primary =>
+      isDark ? currentPalette.primaryDark : currentPalette.primaryLight;
+  static Color get primaryLight => currentPalette.accent;
+  static Color get accent => currentPalette.accent;
+  static Color get onPrimary =>
+      isDark ? const Color(0xFF0C101A) : const Color(0xFFFFFFFF);
+
+  // ─── Surfaces & Backgrounds ─────────────────────────────────────────
+  static Color get darkBackground =>
+      isDark ? const Color(0xFF0C101A) : const Color(0xFFF7F8FC);
+  static Color get darkBg => darkBackground;
+  static Color get darkSurface =>
+      isDark ? const Color(0xFF141926) : const Color(0xFFFFFFFF);
+  static Color get darkSurfaceLight =>
+      isDark ? const Color(0xFF181F30) : const Color(0xFFF0F3FA);
+  static Color get darkSurfaceContainer =>
+      isDark ? const Color(0xFF1A2134) : const Color(0xFFE8ECF6);
+  static Color get darkSurfaceHigh =>
+      isDark ? const Color(0xFF222B42) : const Color(0xFFE0E5F2);
+  static Color get darkSurfaceLighter => darkSurfaceHigh;
+  static Color get darkCard => darkSurface;
+  static Color get darkBorder =>
+      isDark ? const Color(0xFF232B40) : const Color(0xFFDDE3F2);
 
   // ─── Text ───────────────────────────────────────────────────────────
-  static const Color darkTextPrimary = Color(0xFFFFFFFF);
-  static const Color darkText = darkTextPrimary;
-  static const Color darkTextSecondary = Color(0xFF8A93A6);
-  static const Color darkTextMuted = darkTextSecondary;
-  static const Color darkTextTertiary = Color(0xFF636D82);
+  static Color get darkTextPrimary =>
+      isDark ? const Color(0xFFFFFFFF) : const Color(0xFF151928);
+  static Color get darkText => darkTextPrimary;
+  static Color get darkTextSecondary =>
+      isDark ? const Color(0xFF8A93A6) : const Color(0xFF656F85);
+  static Color get darkTextMuted => darkTextSecondary;
+  static Color get darkTextTertiary =>
+      isDark ? const Color(0xFF636D82) : const Color(0xFF8F98AA);
 
   static const Color lightBg = Color(0xFFFAF6F0);
   static const Color lightSurface = Color(0xFFF5EDE3);
   static const Color lightTextPrimary = Color(0xFF2C2420);
 
   static const Color gold = warmGold;
-  static const Color error = roseHighlight;
+  static Color get error => roseHighlight;
   static const Color success = Color(0xFF2ECC71);
 
   // ─── Tag color palette (14 colors, matches data-layer/index.js) ─────

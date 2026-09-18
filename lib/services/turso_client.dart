@@ -4,6 +4,7 @@
 /// `data-layer/client.js:createRemoteClient()`. Every query goes
 /// over the network (no embedded replica on mobile yet), so this
 /// should be used with good error handling and loading states.
+library;
 import 'package:dio/dio.dart';
 
 /// Result of a single SQL execute call.
@@ -25,9 +26,8 @@ class TursoClient {
   final String _authToken;
   late final Dio _dio;
 
-  TursoClient({required String databaseUrl, required String authToken})
-      : _baseUrl = _httpUrl(databaseUrl),
-        _authToken = authToken {
+  TursoClient({required String databaseUrl, required this._authToken})
+      : _baseUrl = _httpUrl(databaseUrl) {
     _dio = Dio(BaseOptions(
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 30),

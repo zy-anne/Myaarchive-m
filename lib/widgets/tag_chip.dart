@@ -68,10 +68,10 @@ class TagChip extends StatelessWidget {
           bottom: 4,
         ),
         decoration: BoxDecoration(
-          color: chipColor.withOpacity(bgOpacity),
+          color: chipColor.withValues(alpha: bgOpacity),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: chipColor.withOpacity(borderOpacity),
+            color: chipColor.withValues(alpha: borderOpacity),
             width: 1,
           ),
         ),
@@ -99,7 +99,7 @@ class TagChip extends StatelessWidget {
                   child: Icon(
                     Icons.close_rounded,
                     size: 14,
-                    color: chipColor.withOpacity(0.8),
+                    color: chipColor.withValues(alpha: 0.8),
                   ),
                 ),
               ),

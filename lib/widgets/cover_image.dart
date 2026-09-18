@@ -122,7 +122,7 @@ class CoverImage extends ConsumerWidget {
         color: AppColors.darkSurfaceLight,
         borderRadius: radius,
         border: Border.all(
-          color: AppColors.darkBorder.withOpacity(0.5),
+          color: AppColors.darkBorder.withValues(alpha: 0.5),
           width: 1,
         ),
       ),
@@ -130,7 +130,7 @@ class CoverImage extends ConsumerWidget {
         child: Icon(
           fallbackIcon,
           size: (width != null && width! < 60) ? 20 : 36,
-          color: AppColors.darkTextMuted.withOpacity(0.6),
+          color: AppColors.darkTextMuted.withValues(alpha: 0.6),
         ),
       ),
     );

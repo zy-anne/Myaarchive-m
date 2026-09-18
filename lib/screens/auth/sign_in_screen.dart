@@ -72,7 +72,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       width: 80,
                       height: 80,
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
+                        gradient: LinearGradient(
                           colors: [AppColors.primary, AppColors.primaryLight],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
@@ -80,7 +80,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         borderRadius: BorderRadius.circular(24),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.primary.withOpacity(0.4),
+                            color: AppColors.primary.withValues(alpha: 0.4),
                             blurRadius: 20,
                             offset: const Offset(0, 8),
                           ),
@@ -96,7 +96,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   const SizedBox(height: 24),
 
                   // App Title & Tagline
-                  const Text(
+                  Text(
                     'Myaarchive',
                     textAlign: TextAlign.center,
                     style: TextStyle(
@@ -108,7 +108,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  const Text(
+                  Text(
                     'Your personal reading library & manga tracker',
                     textAlign: TextAlign.center,
                     style: TextStyle(
@@ -121,7 +121,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   // Username Field
                   TextFormField(
                     controller: _usernameController,
-                    style: const TextStyle(color: AppColors.darkText),
+                    style: TextStyle(color: AppColors.darkText),
                     decoration: InputDecoration(
                       labelText: 'Username',
                       prefixIcon: const Icon(Icons.person_outline_rounded),
@@ -129,17 +129,17 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       fillColor: AppColors.darkSurfaceLight,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(color: AppColors.darkBorder),
+                        borderSide: BorderSide(color: AppColors.darkBorder),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                         borderSide: BorderSide(
-                          color: AppColors.darkBorder.withOpacity(0.6),
+                          color: AppColors.darkBorder.withValues(alpha: 0.6),
                         ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(
+                        borderSide: BorderSide(
                           color: AppColors.primaryLight,
                           width: 1.5,
                         ),
@@ -158,7 +158,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   TextFormField(
                     controller: _passwordController,
                     obscureText: _obscurePassword,
-                    style: const TextStyle(color: AppColors.darkText),
+                    style: TextStyle(color: AppColors.darkText),
                     decoration: InputDecoration(
                       labelText: 'Password',
                       prefixIcon: const Icon(Icons.lock_outline_rounded),
@@ -177,17 +177,17 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       fillColor: AppColors.darkSurfaceLight,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(color: AppColors.darkBorder),
+                        borderSide: BorderSide(color: AppColors.darkBorder),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                         borderSide: BorderSide(
-                          color: AppColors.darkBorder.withOpacity(0.6),
+                          color: AppColors.darkBorder.withValues(alpha: 0.6),
                         ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(
+                        borderSide: BorderSide(
                           color: AppColors.primaryLight,
                           width: 1.5,
                         ),
@@ -214,7 +214,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                           borderRadius: BorderRadius.circular(14),
                         ),
                         elevation: 4,
-                        shadowColor: AppColors.primary.withOpacity(0.5),
+                        shadowColor: AppColors.primary.withValues(alpha: 0.5),
                       ),
                       child: _isLoading
                           ? const SizedBox(
@@ -241,13 +241,13 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text(
+                      Text(
                         "Don't have an account? ",
                         style: TextStyle(color: AppColors.darkTextMuted),
                       ),
                       GestureDetector(
                         onTap: () => context.push('/sign-up'),
-                        child: const Text(
+                        child: Text(
                           'Create Account',
                           style: TextStyle(
                             color: AppColors.primaryLight,

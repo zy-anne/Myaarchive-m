@@ -43,7 +43,7 @@ class _SearchFilterBarState extends ConsumerState<SearchFilterBar> {
                     color: AppColors.darkSurfaceLight,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: AppColors.darkBorder.withOpacity(0.8),
+                      color: AppColors.darkBorder.withValues(alpha: 0.8),
                       width: 1,
                     ),
                   ),
@@ -53,24 +53,24 @@ class _SearchFilterBarState extends ConsumerState<SearchFilterBar> {
                       ref.read(seriesFilterProvider.notifier).state =
                           filter.copyWith(search: val);
                     },
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.darkText,
                       fontSize: 14,
                     ),
                     decoration: InputDecoration(
                       hintText: 'Search title, author, fandom...',
                       hintStyle: TextStyle(
-                        color: AppColors.darkTextMuted.withOpacity(0.7),
+                        color: AppColors.darkTextMuted.withValues(alpha: 0.7),
                         fontSize: 13,
                       ),
-                      prefixIcon: const Icon(
+                      prefixIcon: Icon(
                         Icons.search_rounded,
                         color: AppColors.darkTextMuted,
                         size: 20,
                       ),
                       suffixIcon: _searchController.text.isNotEmpty
                           ? IconButton(
-                              icon: const Icon(
+                              icon: Icon(
                                 Icons.close_rounded,
                                 size: 18,
                                 color: AppColors.darkTextMuted,
@@ -98,7 +98,7 @@ class _SearchFilterBarState extends ConsumerState<SearchFilterBar> {
                   color: AppColors.darkSurfaceLight,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: AppColors.darkBorder.withOpacity(0.8),
+                    color: AppColors.darkBorder.withValues(alpha: 0.8),
                     width: 1,
                   ),
                 ),
@@ -141,10 +141,10 @@ class _SearchFilterBarState extends ConsumerState<SearchFilterBar> {
                     margin: const EdgeInsets.only(right: 8),
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.2),
+                      color: AppColors.primary.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: AppColors.primary.withOpacity(0.5),
+                        color: AppColors.primary.withValues(alpha: 0.5),
                         width: 1,
                       ),
                     ),
@@ -157,7 +157,7 @@ class _SearchFilterBarState extends ConsumerState<SearchFilterBar> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.collections_bookmark_rounded,
                             size: 14,
                             color: AppColors.primaryLight,
@@ -167,14 +167,14 @@ class _SearchFilterBarState extends ConsumerState<SearchFilterBar> {
                             selectedLibId == null
                                 ? 'All Libraries'
                                 : currentLib.name,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppColors.primaryLight,
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                           const SizedBox(width: 4),
-                          const Icon(
+                          Icon(
                             Icons.arrow_drop_down_rounded,
                             size: 16,
                             color: AppColors.primaryLight,
@@ -240,7 +240,7 @@ class _SearchFilterBarState extends ConsumerState<SearchFilterBar> {
           side: BorderSide(
             color: isSelected
                 ? AppColors.primaryLight
-                : AppColors.darkBorder.withOpacity(0.6),
+                : AppColors.darkBorder.withValues(alpha: 0.6),
             width: 1,
           ),
         ),

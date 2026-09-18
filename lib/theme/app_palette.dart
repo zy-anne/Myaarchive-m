@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
-import '../models/app_color_palette.dart';
+import 'app_color_palette.dart';
 
 /// Semantic color roles for the app, resolved per-mode from the style guide.
 ///

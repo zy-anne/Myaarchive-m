@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/app_config.dart';
-import '../models/app_color_palette.dart';
+import '../theme/app_color_palette.dart';
 import '../models/attachment.dart';
 import '../models/character.dart';
 import '../models/gallery_image.dart';

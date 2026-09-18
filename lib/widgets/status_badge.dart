@@ -22,10 +22,10 @@ class StatusBadge extends StatelessWidget {
         vertical: compact ? 2 : 4,
       ),
       decoration: BoxDecoration(
-        color: statusColor.withOpacity(0.18),
+        color: statusColor.withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: statusColor.withOpacity(0.4),
+          color: statusColor.withValues(alpha: 0.4),
           width: 1,
         ),
       ),
@@ -40,7 +40,7 @@ class StatusBadge extends StatelessWidget {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: statusColor.withOpacity(0.6),
+                  color: statusColor.withValues(alpha: 0.6),
                   blurRadius: 4,
                   spreadRadius: 1,
                 ),

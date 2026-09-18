@@ -66,7 +66,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.darkText),
+          icon: Icon(Icons.arrow_back_rounded, color: AppColors.darkText),
           onPressed: () => context.pop(),
         ),
       ),
@@ -80,7 +80,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
+                  Text(
                     'Create Account',
                     textAlign: TextAlign.center,
                     style: TextStyle(
@@ -91,7 +91,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  const Text(
+                  Text(
                     'Join Myaarchive to sync and track your reading on mobile',
                     textAlign: TextAlign.center,
                     style: TextStyle(
@@ -104,7 +104,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                   // Username Field
                   TextFormField(
                     controller: _usernameController,
-                    style: const TextStyle(color: AppColors.darkText),
+                    style: TextStyle(color: AppColors.darkText),
                     decoration: InputDecoration(
                       labelText: 'Username',
                       prefixIcon: const Icon(Icons.person_outline_rounded),
@@ -112,12 +112,12 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       fillColor: AppColors.darkSurfaceLight,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(color: AppColors.darkBorder),
+                        borderSide: BorderSide(color: AppColors.darkBorder),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                         borderSide: BorderSide(
-                          color: AppColors.darkBorder.withOpacity(0.6),
+                          color: AppColors.darkBorder.withValues(alpha: 0.6),
                         ),
                       ),
                     ),
@@ -134,7 +134,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                   TextFormField(
                     controller: _passwordController,
                     obscureText: _obscurePassword,
-                    style: const TextStyle(color: AppColors.darkText),
+                    style: TextStyle(color: AppColors.darkText),
                     decoration: InputDecoration(
                       labelText: 'Password',
                       prefixIcon: const Icon(Icons.lock_outline_rounded),
@@ -153,12 +153,12 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       fillColor: AppColors.darkSurfaceLight,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(color: AppColors.darkBorder),
+                        borderSide: BorderSide(color: AppColors.darkBorder),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                         borderSide: BorderSide(
-                          color: AppColors.darkBorder.withOpacity(0.6),
+                          color: AppColors.darkBorder.withValues(alpha: 0.6),
                         ),
                       ),
                     ),
@@ -174,25 +174,25 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                   // Optional recovery question divider
                   Row(
                     children: [
-                      const Expanded(child: Divider(color: AppColors.darkBorder)),
+                      Expanded(child: Divider(color: AppColors.darkBorder)),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 10),
                         child: Text(
                           'Password Recovery (Optional)',
                           style: TextStyle(
                             fontSize: 12,
-                            color: AppColors.darkTextMuted.withOpacity(0.8),
+                            color: AppColors.darkTextMuted.withValues(alpha: 0.8),
                           ),
                         ),
                       ),
-                      const Expanded(child: Divider(color: AppColors.darkBorder)),
+                      Expanded(child: Divider(color: AppColors.darkBorder)),
                     ],
                   ),
                   const SizedBox(height: 16),
 
                   TextFormField(
                     controller: _questionController,
-                    style: const TextStyle(color: AppColors.darkText),
+                    style: TextStyle(color: AppColors.darkText),
                     decoration: InputDecoration(
                       labelText: 'Security Question (e.g. Favorite book)',
                       prefixIcon: const Icon(Icons.help_outline_rounded),
@@ -200,12 +200,12 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       fillColor: AppColors.darkSurfaceLight,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(color: AppColors.darkBorder),
+                        borderSide: BorderSide(color: AppColors.darkBorder),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                         borderSide: BorderSide(
-                          color: AppColors.darkBorder.withOpacity(0.6),
+                          color: AppColors.darkBorder.withValues(alpha: 0.6),
                         ),
                       ),
                     ),
@@ -214,7 +214,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
 
                   TextFormField(
                     controller: _answerController,
-                    style: const TextStyle(color: AppColors.darkText),
+                    style: TextStyle(color: AppColors.darkText),
                     decoration: InputDecoration(
                       labelText: 'Security Answer',
                       prefixIcon: const Icon(Icons.check_circle_outline_rounded),
@@ -222,12 +222,12 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       fillColor: AppColors.darkSurfaceLight,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(color: AppColors.darkBorder),
+                        borderSide: BorderSide(color: AppColors.darkBorder),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                         borderSide: BorderSide(
-                          color: AppColors.darkBorder.withOpacity(0.6),
+                          color: AppColors.darkBorder.withValues(alpha: 0.6),
                         ),
                       ),
                     ),
@@ -246,7 +246,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                           borderRadius: BorderRadius.circular(14),
                         ),
                         elevation: 4,
-                        shadowColor: AppColors.primary.withOpacity(0.5),
+                        shadowColor: AppColors.primary.withValues(alpha: 0.5),
                       ),
                       child: _isLoading
                           ? const SizedBox(
@@ -272,13 +272,13 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text(
+                      Text(
                         'Already have an account? ',
                         style: TextStyle(color: AppColors.darkTextMuted),
                       ),
                       GestureDetector(
                         onTap: () => context.pop(),
-                        child: const Text(
+                        child: Text(
                           'Sign In',
                           style: TextStyle(
                             color: AppColors.primaryLight,
