@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/metadata.dart';
 import '../../providers/app_providers.dart';
-import '../../theme/colors.dart';
+import '../../theme/app_palette.dart';
 
 /// Rename, recolor, or delete tags — fix typos or clean up ones no longer
 /// used. Deleting a tag removes it from every title currently using it.
 class ManageTagsScreen extends ConsumerWidget {
   const ManageTagsScreen({super.key});
 
-  void _showEditDialog(BuildContext context, WidgetRef ref, Tag tag) {
+  void _showEditDialog(BuildContext context, WidgetRef ref, Tag tag, AppPalette palette) {
     final nameCtrl = TextEditingController(text: tag.name);
     Color selectedColor = tag.parsedColor;
 
@@ -18,7 +18,7 @@ class ManageTagsScreen extends ConsumerWidget {
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
-            backgroundColor: AppColors.darkSurfaceLight,
+            backgroundColor: palette.surfaceLight,
             title: const Text('Edit Tag'),
             content: SingleChildScrollView(
               child: Column(
@@ -27,19 +27,19 @@ class ManageTagsScreen extends ConsumerWidget {
                 children: [
                   TextField(
                     controller: nameCtrl,
-                    style: TextStyle(color: AppColors.darkText),
+                    style: TextStyle(color: palette.textMain),
                     decoration: const InputDecoration(labelText: 'Tag Name'),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     'Color',
-                    style: TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
+                    style: TextStyle(fontSize: 12, color: palette.textSecondary),
                   ),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 10,
                     runSpacing: 10,
-                    children: AppColors.tagPalette.map((c) {
+                    children: palette.tagPalette.map((c) {
                       final isSelected = c.toARGB32() == selectedColor.toARGB32();
                       return GestureDetector(
                         onTap: () => setDialogState(() => selectedColor = c),
@@ -66,7 +66,7 @@ class ManageTagsScreen extends ConsumerWidget {
                 child: const Text('Cancel'),
               ),
               ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                style: ElevatedButton.styleFrom(backgroundColor: palette.primary),
                 onPressed: () async {
                   final name = nameCtrl.text.trim();
                   if (name.isEmpty) return;
@@ -92,11 +92,11 @@ class ManageTagsScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _confirmDelete(BuildContext context, WidgetRef ref, Tag tag) async {
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref, Tag tag, AppPalette palette) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.darkSurfaceLight,
+        backgroundColor: palette.surfaceLight,
         title: const Text('Delete Tag?'),
         content: Text(
           'Delete "${tag.name}"? This removes it from every title currently using it.',
@@ -107,7 +107,7 @@ class ManageTagsScreen extends ConsumerWidget {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            style: ElevatedButton.styleFrom(backgroundColor: palette.danger),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Delete'),
           ),
@@ -123,10 +123,11 @@ class ManageTagsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.palette;
     final tagsAsync = ref.watch(userTagsProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: palette.bg,
       appBar: AppBar(
         title: const Text(
           'Manage Tags',
@@ -143,7 +144,7 @@ class ManageTagsScreen extends ConsumerWidget {
                   'No tags yet. Tags are created when you add one while '
                   'creating or editing a book.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: AppColors.darkTextMuted, fontSize: 13),
+                  style: TextStyle(color: palette.textSecondary, fontSize: 13),
                 ),
               ),
             );
@@ -157,9 +158,9 @@ class ManageTagsScreen extends ConsumerWidget {
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  color: AppColors.darkSurfaceLight,
+                  color: palette.surfaceLight,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.darkBorder),
+                  border: Border.all(color: palette.border),
                 ),
                 child: Row(
                   children: [
@@ -177,19 +178,19 @@ class ManageTagsScreen extends ConsumerWidget {
                         tag.name,
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: AppColors.darkText,
+                          color: palette.textMain,
                         ),
                       ),
                     ),
                     IconButton(
                       icon: const Icon(Icons.edit_outlined, size: 18),
-                      color: AppColors.darkTextMuted,
-                      onPressed: () => _showEditDialog(context, ref, tag),
+                      color: palette.textSecondary,
+                      onPressed: () => _showEditDialog(context, ref, tag, palette),
                     ),
                     IconButton(
                       icon: const Icon(Icons.delete_outline, size: 18),
-                      color: AppColors.darkTextMuted,
-                      onPressed: () => _confirmDelete(context, ref, tag),
+                      color: palette.textSecondary,
+                      onPressed: () => _confirmDelete(context, ref, tag, palette),
                     ),
                   ],
                 ),
@@ -198,7 +199,7 @@ class ManageTagsScreen extends ConsumerWidget {
           );
         },
         loading: () => Center(
-          child: CircularProgressIndicator(color: AppColors.primaryLight),
+          child: CircularProgressIndicator(color: palette.accent),
         ),
         error: (e, _) => Center(child: Text('Error: $e')),
       ),

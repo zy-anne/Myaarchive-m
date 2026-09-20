@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/metadata.dart';
 import '../models/series.dart';
-import '../theme/colors.dart';
+import '../theme/app_palette.dart';
 import 'cover_image.dart';
 import 'rating_stars.dart';
 import 'status_badge.dart';
@@ -21,12 +21,14 @@ class SeriesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return isGrid ? _buildGridCard(context) : _buildListCard(context);
+    final palette = context.palette;
+    return isGrid ? _buildGridCard(context, palette) : _buildListCard(context, palette);
   }
 
-  Widget _buildGridCard(BuildContext context) {
+  Widget _buildGridCard(BuildContext context, AppPalette palette) {
   final statusColor = ReadingStatus.colorFor(series.status);
   final String formatLabel = (series.bookType ?? 'Manga').toUpperCase();
+  final isDark = Theme.of(context).brightness == Brightness.dark;
 
   // Chapter or volume count label
   String? countLabel;
@@ -41,11 +43,11 @@ class SeriesCard extends StatelessWidget {
     onTap: onTap,
     child: Container(
       decoration: BoxDecoration(
-        color: AppColors.darkCard,
+        color: palette.surface,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: AppColors.isDark
+            color: isDark
                 ? Colors.black.withValues(alpha: 0.35)
                 : Colors.black.withValues(alpha: 0.06),
             blurRadius: 10,
@@ -70,13 +72,13 @@ class SeriesCard extends StatelessWidget {
                         borderRadius: BorderRadius.zero,
                       )
                     : Container(
-                        color: AppColors.darkSurfaceLight,
+                        color: palette.surfaceLight,
                         child: Center(
                           child: Icon(
                             Icons.menu_book_rounded,
                             size: 42,
                             color:
-                                AppColors.darkTextMuted.withValues(alpha: 0.35),
+                                palette.textSecondary.withValues(alpha: 0.35),
                           ),
                         ),
                       ),
@@ -95,7 +97,7 @@ class SeriesCard extends StatelessWidget {
                     top: 8,
                     child: _buildOverlayTag(
                       'NSFW',
-                      AppColors.error,
+                      palette.danger,
                       Colors.white,
                     ),
                   ),
@@ -104,6 +106,10 @@ class SeriesCard extends StatelessWidget {
           ),
 
           // ── Title / author / status row ───────────────────────────
+          // This block sits on `palette.surface`, which is light in Light
+          // Mode and dark in Dark Mode — so every color here must come
+          // from the palette (never a hardcoded Colors.white / fixed hex)
+          // or it goes unreadable / stays the wrong hue when the mode flips.
           Padding(
             padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
             child: Column(
@@ -113,8 +119,8 @@ class SeriesCard extends StatelessWidget {
                   series.title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: palette.textMain,
                     fontSize: 13.5,
                     fontWeight: FontWeight.bold,
                     height: 1.2,
@@ -126,7 +132,7 @@ class SeriesCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: AppColors.roseHighlight.withValues(alpha: 0.85),
+                    color: palette.textSecondary,
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
                   ),
@@ -158,7 +164,7 @@ class SeriesCard extends StatelessWidget {
                       Text(
                         countLabel,
                         style: TextStyle(
-                          color: AppColors.roseHighlight.withValues(alpha: 0.85),
+                          color: palette.accent,
                           fontSize: 10.5,
                           fontWeight: FontWeight.w600,
                         ),
@@ -193,14 +199,14 @@ Widget _buildOverlayTag(String text, Color bg, Color fg) {
   );
 }
 
-  Widget _buildListCard(BuildContext context) {
+  Widget _buildListCard(BuildContext context, AppPalette palette) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: BoxDecoration(
-        color: AppColors.darkCard,
+        color: palette.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: AppColors.darkBorder,
+          color: palette.border,
           width: 1,
         ),
       ),
@@ -238,7 +244,7 @@ Widget _buildOverlayTag(String text, Color bg, Color fg) {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              color: AppColors.darkText,
+                              color: palette.textMain,
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
                             ),
@@ -253,7 +259,7 @@ Widget _buildOverlayTag(String text, Color bg, Color fg) {
                       Text(
                         series.author!,
                         style: TextStyle(
-                          color: AppColors.darkTextMuted,
+                          color: palette.textSecondary,
                           fontSize: 12,
                         ),
                       ),
@@ -271,7 +277,7 @@ Widget _buildOverlayTag(String text, Color bg, Color fg) {
                           Text(
                             '${series.volumeCount} vols',
                             style: TextStyle(
-                              color: AppColors.darkTextMuted,
+                              color: palette.textSecondary,
                               fontSize: 11,
                             ),
                           ),
@@ -280,7 +286,7 @@ Widget _buildOverlayTag(String text, Color bg, Color fg) {
                           Text(
                             ' • ',
                             style: TextStyle(
-                              color: AppColors.darkTextMuted,
+                              color: palette.textSecondary,
                               fontSize: 11,
                             ),
                           ),
@@ -288,7 +294,7 @@ Widget _buildOverlayTag(String text, Color bg, Color fg) {
                           Text(
                             '${series.standaloneChapterCount} chs',
                             style: TextStyle(
-                              color: AppColors.darkTextMuted,
+                              color: palette.textSecondary,
                               fontSize: 11,
                             ),
                           ),

@@ -4,20 +4,18 @@ import 'app_color_palette.dart';
 
 /// Semantic color roles for the app, resolved per-mode from the style guide.
 ///
-/// Light mode:
-///   bg = white + 3% Frost Fairy · surface = white + 10% Frost Fairy
-///   border = 55% Frost Fairy · text = Mysterious Depths · primary = selected palette
-///   accent = selected palette accent · danger = #9C4B5A
+/// The background/surface tiers below are drawn from the "Twilight Reading
+/// Room" swatch family (documented in `AppColors` as `deepIndigo`,
+/// `midnightPurple`, `duskBlue`, `twilightAccent` for dark mode, and
+/// `lightBg` / `lightSurface` / `softCream` / `doubleCream` for light mode).
+/// Those constants existed in the codebase but were never actually wired
+/// into a theme — this is what makes the background a real color instead
+/// of a barely-tinted near-black / near-white pair.
 ///
-/// Dark mode ("lamplight"):
-///   bg = Mysterious Depths · surface = 82% Depths / 18% Twilight
-///   border = 62% Twilight / 38% Depths · text = white + 8% Frost Fairy
-///   primary = selected palette's dark-mode tone (the "role-swap") · accent = selected palette accent (constant)
-///   danger = #D98C96 · onSolid = ink navy (since primary is now light)
-///
-/// The primary/accent roles come from an [AppColorPalette] chosen in
-/// Settings → Color Palette; everything else follows the fixed Twilight
-/// Reading Room base regardless of which accent palette is active.
+/// The primary/accent roles still come from an [AppColorPalette] chosen in
+/// Settings → Color Palette; the bg/surface/text tiers below follow the
+/// fixed Twilight Reading Room base regardless of which accent palette is
+/// active — same split as before, just with real color in it now.
 ///
 /// This extension is resolved through `Theme.of(context)`, so any widget
 /// that reads it via `context.palette` rebuilds automatically whenever the
@@ -34,6 +32,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
   final Color textSecondary;
   final Color primary;
   final Color accent;
+  final Color secondary;
   final Color danger;
   final Color success;
   final Color gold;
@@ -52,6 +51,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
     required this.textSecondary,
     required this.primary,
     required this.accent,
+    required this.secondary,
     required this.danger,
     required this.success,
     required this.gold,
@@ -96,25 +96,34 @@ class AppPalette extends ThemeExtension<AppPalette> {
     Color(0xFF7FBF7F), // leaf green
   ];
 
+  // The actual "gold" swatch from the style guide — used for ratings/star
+  // accents in both modes (matches `AppColors.warmGold`, a single constant
+  // that was never mode-dependent to begin with).
+  static const Color _warmGold = Color(0xFFE2B05E);
+
   factory AppPalette.light([AppColorPalette? colorPalette]) {
     final p = colorPalette ?? AppColorPalettes.twilightReadingRoom;
-    const textMain = BrandColors.mysteriousDepths;
+    // Warm cream reading-room base — matches `AppColors.lightBg` /
+    // `lightSurface` / `lightTextPrimary`, instead of the near-white
+    // FDFDFF/F9FAFE pair this used to resolve to.
+    const textMain = Color(0xFF2C2420); // AppColors.lightTextPrimary
     return AppPalette(
-      bg: const Color(0xFFFDFDFF), // white + 3% Frost Fairy
-      surface: const Color(0xFFF9FAFE), // white + 10% Frost Fairy
-      surfaceLight: const Color(0xFFF0F3FA),
-      surfaceHigh: const Color(0xFFE0E5F2),
-      border: const Color(0xFFDDE3F9), // 55% Frost Fairy
+      bg: const Color(0xFFFAF6F0), // AppColors.lightBg — warm cream
+      surface: const Color(0xFFFFFFFF), // clean card pop off the cream bg
+      surfaceLight: const Color(0xFFF5E6CC), // AppColors.softCream
+      surfaceHigh: const Color(0xFFF1D8A3), // BrandColors.doubleCream
+      border: const Color(0xFFE6D9C3),
       textMain: textMain,
       textSecondary: textMain.withValues(alpha: 0.62),
       primary: p.primaryLight,
       accent: p.accent,
+      secondary: BrandColors.twilight, // muted indigo-blue, reads on cream
       danger: BrandColors.dangerLight,
       success: const Color(0xFF2ECC71),
-      gold: BrandColors.sunlight,
+      gold: _warmGold,
       onSolid: BrandColors.white,
       star: BrandColors.champagne,
-      starEmpty: const Color(0xFFDDE3F9),
+      starEmpty: const Color(0xFFE6D9C3),
       tagPalette: _tagPaletteConstant,
     );
   }
@@ -123,21 +132,22 @@ class AppPalette extends ThemeExtension<AppPalette> {
     final p = colorPalette ?? AppColorPalettes.twilightReadingRoom;
     const textMain = Color(0xFFFAFBFE); // white + 8% Frost Fairy
     return AppPalette(
-      bg: BrandColors.mysteriousDepths,
-      surface: const Color(0xFF12143B), // 82% Depths / 18% Twilight
-      surfaceLight: const Color(0xFF181F30),
-      surfaceHigh: const Color(0xFF222B42),
-      border: const Color(0xFF2E3466), // 62% Twilight / 38% Depths
+      bg: const Color(0xFF1A1A2E), // AppColors.deepIndigo
+      surface: const Color(0xFF16213E), // AppColors.midnightPurple
+      surfaceLight: const Color(0xFF0F3460), // AppColors.duskBlue
+      surfaceHigh: const Color(0xFF533483), // AppColors.twilightAccent
+      border: const Color(0xFF313471), // blend of duskBlue / twilightAccent
       textMain: textMain,
       textSecondary: textMain.withValues(alpha: 0.6),
       primary: p.primaryDark, // deliberate role-swap
       accent: p.accent, // stays constant across modes
+      secondary: BrandColors.frostFairy, // soft lavender-blue against indigo
       danger: BrandColors.dangerDark,
       success: const Color(0xFF2ECC71),
-      gold: BrandColors.sunlight,
-      onSolid: BrandColors.mysteriousDepths, // flips to ink navy
+      gold: _warmGold,
+      onSolid: const Color(0xFF1A1A2E), // matches the new deepIndigo bg
       star: BrandColors.sunlight,
-      starEmpty: const Color(0xFF2E3466),
+      starEmpty: const Color(0xFF313471),
       tagPalette: _tagPaletteConstant,
     );
   }
@@ -153,6 +163,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
     Color? textSecondary,
     Color? primary,
     Color? accent,
+    Color? secondary,
     Color? danger,
     Color? success,
     Color? gold,
@@ -171,6 +182,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
       textSecondary: textSecondary ?? this.textSecondary,
       primary: primary ?? this.primary,
       accent: accent ?? this.accent,
+      secondary: secondary ?? this.secondary,
       danger: danger ?? this.danger,
       success: success ?? this.success,
       gold: gold ?? this.gold,
@@ -194,6 +206,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
       textSecondary: Color.lerp(textSecondary, other.textSecondary, t)!,
       primary: Color.lerp(primary, other.primary, t)!,
       accent: Color.lerp(accent, other.accent, t)!,
+      secondary: Color.lerp(secondary, other.secondary, t)!,
       danger: Color.lerp(danger, other.danger, t)!,
       success: Color.lerp(success, other.success, t)!,
       gold: Color.lerp(gold, other.gold, t)!,

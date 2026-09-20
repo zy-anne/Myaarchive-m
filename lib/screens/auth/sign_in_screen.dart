@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/app_providers.dart';
-import '../../theme/colors.dart';
+import '../../theme/app_palette.dart';
 
 /// Sign In screen with Twilight aesthetic and bcrypt authentication.
 class SignInScreen extends ConsumerStatefulWidget {
@@ -43,7 +43,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.toString()),
-            backgroundColor: AppColors.error,
+            backgroundColor: context.palette.danger,
           ),
         );
       }
@@ -54,8 +54,10 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
+
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: palette.bg,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -73,14 +75,14 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       height: 80,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [AppColors.primary, AppColors.primaryLight],
+                          colors: [palette.primary, palette.accent],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
                         borderRadius: BorderRadius.circular(24),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.4),
+                            color: palette.primary.withValues(alpha: 0.4),
                             blurRadius: 20,
                             offset: const Offset(0, 8),
                           ),
@@ -103,7 +105,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       fontFamily: 'Outfit',
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.darkText,
+                      color: palette.textMain,
                       letterSpacing: 0.5,
                     ),
                   ),
@@ -113,7 +115,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,
-                      color: AppColors.darkTextMuted,
+                      color: palette.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 36),
@@ -121,26 +123,26 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   // Username Field
                   TextFormField(
                     controller: _usernameController,
-                    style: TextStyle(color: AppColors.darkText),
+                    style: TextStyle(color: palette.textMain),
                     decoration: InputDecoration(
                       labelText: 'Username',
                       prefixIcon: const Icon(Icons.person_outline_rounded),
                       filled: true,
-                      fillColor: AppColors.darkSurfaceLight,
+                      fillColor: palette.surfaceLight,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide(color: AppColors.darkBorder),
+                        borderSide: BorderSide(color: palette.border),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                         borderSide: BorderSide(
-                          color: AppColors.darkBorder.withValues(alpha: 0.6),
+                          color: palette.border.withValues(alpha: 0.6),
                         ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                         borderSide: BorderSide(
-                          color: AppColors.primaryLight,
+                          color: palette.accent,
                           width: 1.5,
                         ),
                       ),
@@ -158,7 +160,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   TextFormField(
                     controller: _passwordController,
                     obscureText: _obscurePassword,
-                    style: TextStyle(color: AppColors.darkText),
+                    style: TextStyle(color: palette.textMain),
                     decoration: InputDecoration(
                       labelText: 'Password',
                       prefixIcon: const Icon(Icons.lock_outline_rounded),
@@ -167,28 +169,28 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                           _obscurePassword
                               ? Icons.visibility_off_outlined
                               : Icons.visibility_outlined,
-                          color: AppColors.darkTextMuted,
+                          color: palette.textSecondary,
                         ),
                         onPressed: () {
                           setState(() => _obscurePassword = !_obscurePassword);
                         },
                       ),
                       filled: true,
-                      fillColor: AppColors.darkSurfaceLight,
+                      fillColor: palette.surfaceLight,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
-                        borderSide: BorderSide(color: AppColors.darkBorder),
+                        borderSide: BorderSide(color: palette.border),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                         borderSide: BorderSide(
-                          color: AppColors.darkBorder.withValues(alpha: 0.6),
+                          color: palette.border.withValues(alpha: 0.6),
                         ),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                         borderSide: BorderSide(
-                          color: AppColors.primaryLight,
+                          color: palette.accent,
                           width: 1.5,
                         ),
                       ),
@@ -208,13 +210,13 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                     child: ElevatedButton(
                       onPressed: _isLoading ? null : _handleSignIn,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
+                        backgroundColor: palette.primary,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
                         elevation: 4,
-                        shadowColor: AppColors.primary.withValues(alpha: 0.5),
+                        shadowColor: palette.primary.withValues(alpha: 0.5),
                       ),
                       child: _isLoading
                           ? const SizedBox(
@@ -243,14 +245,14 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                     children: [
                       Text(
                         "Don't have an account? ",
-                        style: TextStyle(color: AppColors.darkTextMuted),
+                        style: TextStyle(color: palette.textSecondary),
                       ),
                       GestureDetector(
                         onTap: () => context.push('/sign-up'),
                         child: Text(
                           'Create Account',
                           style: TextStyle(
-                            color: AppColors.primaryLight,
+                            color: palette.accent,
                             fontWeight: FontWeight.bold,
                           ),
                         ),

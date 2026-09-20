@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/reading_status_model.dart';
 import '../../providers/app_providers.dart';
-import '../../theme/colors.dart';
+import '../../theme/app_palette.dart';
 
 /// Add, rename, recolor, or delete the reading statuses used across your
 /// library. Renaming cascades onto every title currently using that
@@ -14,18 +14,19 @@ class ManageStatusesScreen extends ConsumerWidget {
   void _showEditDialog(
     BuildContext context,
     WidgetRef ref,
-    String ownerId, {
+    String ownerId,
+    AppPalette palette, {
     ReadingStatusItem? existing,
   }) {
     final nameCtrl = TextEditingController(text: existing?.name ?? '');
-    Color selectedColor = existing?.parsedColor ?? AppColors.tagPalette.first;
+    Color selectedColor = existing?.parsedColor ?? palette.tagPalette.first;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) {
           return AlertDialog(
-            backgroundColor: AppColors.darkSurfaceLight,
+            backgroundColor: palette.surfaceLight,
             title: Text(existing == null ? 'New Status' : 'Edit Status'),
             content: SingleChildScrollView(
               child: Column(
@@ -34,19 +35,19 @@ class ManageStatusesScreen extends ConsumerWidget {
                 children: [
                   TextField(
                     controller: nameCtrl,
-                    style: TextStyle(color: AppColors.darkText),
+                    style: TextStyle(color: palette.textMain),
                     decoration: const InputDecoration(labelText: 'Status Name'),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     'Color',
-                    style: TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
+                    style: TextStyle(fontSize: 12, color: palette.textSecondary),
                   ),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 10,
                     runSpacing: 10,
-                    children: AppColors.tagPalette.map((c) {
+                    children: palette.tagPalette.map((c) {
                       final isSelected = c.toARGB32() == selectedColor.toARGB32();
                       return GestureDetector(
                         onTap: () => setDialogState(() => selectedColor = c),
@@ -73,7 +74,7 @@ class ManageStatusesScreen extends ConsumerWidget {
                 child: const Text('Cancel'),
               ),
               ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                style: ElevatedButton.styleFrom(backgroundColor: palette.primary),
                 onPressed: () async {
                   final name = nameCtrl.text.trim();
                   if (name.isEmpty) return;
@@ -106,11 +107,12 @@ class ManageStatusesScreen extends ConsumerWidget {
     WidgetRef ref,
     String ownerId,
     ReadingStatusItem status,
+    AppPalette palette,
   ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.darkSurfaceLight,
+        backgroundColor: palette.surfaceLight,
         title: const Text('Delete Status?'),
         content: Text(
           'Delete "${status.name}"? Titles using this status will be moved to "Planning".',
@@ -121,7 +123,7 @@ class ManageStatusesScreen extends ConsumerWidget {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            style: ElevatedButton.styleFrom(backgroundColor: palette.danger),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Delete'),
           ),
@@ -139,11 +141,12 @@ class ManageStatusesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final palette = context.palette;
     final user = ref.watch(authStateProvider).value;
     final statusesAsync = ref.watch(readingStatusesProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: palette.bg,
       appBar: AppBar(
         title: const Text(
           'Manage Statuses',
@@ -153,9 +156,9 @@ class ManageStatusesScreen extends ConsumerWidget {
       floatingActionButton: user == null
           ? null
           : FloatingActionButton(
-              backgroundColor: AppColors.primary,
+              backgroundColor: palette.primary,
               foregroundColor: Colors.white,
-              onPressed: () => _showEditDialog(context, ref, user.id),
+              onPressed: () => _showEditDialog(context, ref, user.id, palette),
               child: const Icon(Icons.add_rounded),
             ),
       body: user == null
@@ -168,7 +171,7 @@ class ManageStatusesScreen extends ConsumerWidget {
                       padding: EdgeInsets.all(32.0),
                       child: Text(
                         'No statuses yet. Tap + to add one.',
-                        style: TextStyle(color: AppColors.darkTextMuted),
+                        style: TextStyle(color: palette.textSecondary),
                       ),
                     ),
                   );
@@ -182,9 +185,9 @@ class ManageStatusesScreen extends ConsumerWidget {
                     return Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
-                        color: AppColors.darkSurfaceLight,
+                        color: palette.surfaceLight,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.darkBorder),
+                        border: Border.all(color: palette.border),
                       ),
                       child: Row(
                         children: [
@@ -202,25 +205,26 @@ class ManageStatusesScreen extends ConsumerWidget {
                               status.name,
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,
-                                color: AppColors.darkText,
+                                color: palette.textMain,
                               ),
                             ),
                           ),
                           IconButton(
                             icon: const Icon(Icons.edit_outlined, size: 18),
-                            color: AppColors.darkTextMuted,
+                            color: palette.textSecondary,
                             onPressed: () => _showEditDialog(
                               context,
                               ref,
                               user.id,
+                              palette,
                               existing: status,
                             ),
                           ),
                           IconButton(
                             icon: const Icon(Icons.delete_outline, size: 18),
-                            color: AppColors.darkTextMuted,
+                            color: palette.textSecondary,
                             onPressed: () =>
-                                _confirmDelete(context, ref, user.id, status),
+                                _confirmDelete(context, ref, user.id, status, palette),
                           ),
                         ],
                       ),
@@ -229,7 +233,7 @@ class ManageStatusesScreen extends ConsumerWidget {
                 );
               },
               loading: () => Center(
-                child: CircularProgressIndicator(color: AppColors.primaryLight),
+                child: CircularProgressIndicator(color: palette.accent),
               ),
               error: (e, _) => Center(child: Text('Error: $e')),
             ),

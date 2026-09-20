@@ -12,7 +12,7 @@ import '../../models/metadata.dart';
 import '../../models/series.dart';
 import '../../models/volume.dart';
 import '../../providers/app_providers.dart';
-import '../../theme/colors.dart';
+import '../../theme/app_palette.dart';
 import '../../widgets/cover_image.dart';
 import '../../widgets/rating_stars.dart';
 import '../../widgets/status_badge.dart';
@@ -50,11 +50,11 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     super.dispose();
   }
 
-  Future<void> _handleDelete(Series series) async {
+  Future<void> _handleDelete(Series series, AppPalette palette) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.darkSurfaceLight,
+        backgroundColor: palette.surfaceLight,
         title: const Text('Delete Title?'),
         content: Text(
           'Are you sure you want to delete "${series.title}"? All associated volumes, characters, gallery images, attachments, and glossary terms will also be removed.',
@@ -65,7 +65,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            style: ElevatedButton.styleFrom(backgroundColor: palette.danger),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Delete'),
           ),
@@ -74,25 +74,27 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     );
 
     if (confirmed == true && mounted) {
+      final messenger = ScaffoldMessenger.of(context);
+      final router = GoRouter.of(context);
       try {
         final dataLayer = ref.read(dataLayerProvider);
         await dataLayer.seriesDelete(series.id);
         ref.invalidate(seriesListProvider);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          messenger.showSnackBar(
             SnackBar(
               content: Text('Deleted "${series.title}"'),
-              backgroundColor: AppColors.primary,
+              backgroundColor: palette.primary,
             ),
           );
-          context.pop();
+          router.pop();
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          messenger.showSnackBar(
             SnackBar(
               content: Text('Failed to delete: $e'),
-              backgroundColor: AppColors.error,
+              backgroundColor: palette.danger,
             ),
           );
         }
@@ -100,7 +102,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     }
   }
 
-  Future<void> _quickUpdateDate(Series series, {bool isStarted = false, bool isFinished = false}) async {
+  Future<void> _quickUpdateDate(Series series, AppPalette palette, {bool isStarted = false, bool isFinished = false}) async {
     final user = ref.read(authStateProvider).value;
     if (user == null) return;
 
@@ -116,6 +118,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
           : (isStarted ? ReadingStatus.reading : series.status),
     );
 
+    final messenger = ScaffoldMessenger.of(context);
     try {
       await ref.read(dataLayerProvider).seriesUpdate(
             user.id,
@@ -127,45 +130,46 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
       ref.invalidate(seriesDetailProvider(widget.seriesId));
       ref.invalidate(seriesListProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           SnackBar(
             content: Text(isFinished ? 'Marked as finished today' : 'Marked as started today'),
-            backgroundColor: AppColors.primary,
+            backgroundColor: palette.primary,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           SnackBar(
             content: Text('Update failed: $e'),
-            backgroundColor: AppColors.error,
+            backgroundColor: palette.danger,
           ),
         );
       }
     }
   }
 
-  Future<void> _launchExternalUrl(String url) async {
+  Future<void> _launchExternalUrl(String url, AppPalette palette) async {
     String toLaunch = url.trim();
     if (!toLaunch.startsWith('http://') && !toLaunch.startsWith('https://')) {
       toLaunch = 'https://$toLaunch';
     }
     final uri = Uri.tryParse(toLaunch);
     if (uri != null) {
+      final messenger = ScaffoldMessenger.of(context);
       final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!launched && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           SnackBar(
             content: Text('Could not open $url'),
-            backgroundColor: AppColors.error,
+            backgroundColor: palette.danger,
           ),
         );
       }
     }
   }
 
-  Widget _buildTabHeader(String label, [int? count]) {
+  Widget _buildTabHeader(String label, AppPalette palette, [int? count]) {
     return Tab(
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -176,16 +180,16 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: AppColors.darkSurfaceLight,
+                color: palette.surfaceLight,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.darkBorder),
+                border: Border.all(color: palette.border),
               ),
               child: Text(
                 '$count',
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.darkTextMuted,
+                  color: palette.textSecondary,
                 ),
               ),
             ),
@@ -197,6 +201,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     final seriesAsync = ref.watch(seriesDetailProvider(widget.seriesId));
 
     // Watch list providers to display dynamic counts on tabs
@@ -211,8 +216,8 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
       data: (series) {
         if (series == null) {
           return Scaffold(
-            backgroundColor: AppColors.darkBackground,
-            appBar: AppBar(backgroundColor: AppColors.darkSurface),
+            backgroundColor: palette.bg,
+            appBar: AppBar(backgroundColor: palette.surface),
             body: const Center(child: Text('Title not found')),
           );
         }
@@ -221,14 +226,14 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
         final filesTotalCount = linksList.length + attachmentsList.length;
 
         return Scaffold(
-          backgroundColor: AppColors.darkBackground,
+          backgroundColor: palette.bg,
           body: NestedScrollView(
             headerSliverBuilder: (context, innerBoxIsScrolled) {
               return [
                 SliverAppBar(
                   expandedHeight: 320.0,
                   pinned: true,
-                  backgroundColor: AppColors.darkSurface,
+                  backgroundColor: palette.surface,
                   leading: IconButton(
                     icon: const Icon(Icons.arrow_back_rounded),
                     tooltip: 'Library',
@@ -243,41 +248,42 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                     IconButton(
                       icon: const Icon(Icons.delete_outline_rounded),
                       tooltip: 'Delete',
-                      onPressed: () => _handleDelete(series),
+                      onPressed: () => _handleDelete(series, palette),
                     ),
                   ],
                   flexibleSpace: FlexibleSpaceBar(
-                    background: _buildHeaderBackground(series),
+                    background: _buildHeaderBackground(series, palette),
                   ),
                   bottom: PreferredSize(
                     preferredSize: const Size.fromHeight(48),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: AppColors.darkSurface,
+                        color: palette.surface,
                         border: Border(
-                          bottom: BorderSide(color: AppColors.darkBorder, width: 1),
+                          bottom: BorderSide(color: palette.border, width: 1),
                         ),
                       ),
                       child: TabBar(
                         controller: _tabController,
                         isScrollable: true,
                         tabAlignment: TabAlignment.start,
-                        indicatorColor: AppColors.primaryLight,
+                        indicatorColor: palette.accent,
                         indicatorWeight: 2.5,
-                        labelColor: AppColors.primaryLight,
-                        unselectedLabelColor: AppColors.darkTextMuted,
+                        labelColor: palette.accent,
+                        unselectedLabelColor: palette.textSecondary,
                         labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                         unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal, fontSize: 13),
                         tabs: [
-                          _buildTabHeader('Details'),
+                          _buildTabHeader('Details', palette),
                           _buildTabHeader(
                             isStandalone ? 'Thoughts' : 'Volumes',
+                            palette,
                             isStandalone ? null : volumesList.length,
                           ),
-                          _buildTabHeader('Characters', charactersList.length),
-                          _buildTabHeader('Gallery', galleryList.length),
-                          _buildTabHeader('Files', filesTotalCount),
-                          _buildTabHeader('Glossary', glossaryList.length),
+                          _buildTabHeader('Characters', palette, charactersList.length),
+                          _buildTabHeader('Gallery', palette, galleryList.length),
+                          _buildTabHeader('Files', palette, filesTotalCount),
+                          _buildTabHeader('Glossary', palette, glossaryList.length),
                         ],
                       ),
                     ),
@@ -288,32 +294,32 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
             body: TabBarView(
               controller: _tabController,
               children: [
-                _buildDetailsTab(series),
-                _buildVolumesOrThoughtsTab(series, volumesList),
-                _buildCharactersTab(series, charactersList),
-                _buildGalleryTab(series, galleryList),
-                _buildFilesTab(series, linksList, attachmentsList),
-                _buildGlossaryTab(series, glossaryList),
+                _buildDetailsTab(series, palette),
+                _buildVolumesOrThoughtsTab(series, volumesList, palette),
+                _buildCharactersTab(series, charactersList, palette),
+                _buildGalleryTab(series, galleryList, palette),
+                _buildFilesTab(series, linksList, attachmentsList, palette),
+                _buildGlossaryTab(series, glossaryList, palette),
               ],
             ),
           ),
         );
       },
       loading: () => Scaffold(
-        backgroundColor: AppColors.darkBackground,
+        backgroundColor: palette.bg,
         body: Center(
-          child: CircularProgressIndicator(color: AppColors.primaryLight),
+          child: CircularProgressIndicator(color: palette.accent),
         ),
       ),
       error: (err, _) => Scaffold(
-        backgroundColor: AppColors.darkBackground,
+        backgroundColor: palette.bg,
         appBar: AppBar(),
         body: Center(child: Text('Error: $err')),
       ),
     );
   }
 
-  Widget _buildHeaderBackground(Series series) {
+  Widget _buildHeaderBackground(Series series, AppPalette palette) {
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -335,7 +341,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               end: Alignment.bottomCenter,
               colors: [
                 Colors.black.withValues(alpha: 0.6),
-                AppColors.darkBackground.withValues(alpha: 0.95),
+                palette.bg.withValues(alpha: 0.95),
               ],
             ),
           ),
@@ -384,14 +390,14 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: AppColors.darkSurfaceLighter,
+                            color: palette.surfaceHigh,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             series.kind == 'series' ? 'Series' : 'Standalone',
                             style: TextStyle(
                               fontSize: 10,
-                              color: AppColors.darkTextMuted,
+                              color: palette.textSecondary,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -401,7 +407,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                             decoration: BoxDecoration(
-                              color: AppColors.error.withValues(alpha: 0.9),
+                              color: palette.danger.withValues(alpha: 0.9),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: const Text(
@@ -425,7 +431,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                         fontFamily: 'Outfit',
                         fontSize: 19,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.darkText,
+                        color: palette.textMain,
                         height: 1.2,
                       ),
                     ),
@@ -437,7 +443,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 13,
-                          color: AppColors.darkTextMuted,
+                          color: palette.textSecondary,
                         ),
                       ),
                     ],
@@ -452,20 +458,20 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                         children: [
                           if (series.dateStarted == null)
                             InkWell(
-                              onTap: () => _quickUpdateDate(series, isStarted: true),
+                              onTap: () => _quickUpdateDate(series, palette, isStarted: true),
                               borderRadius: BorderRadius.circular(4),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primary.withValues(alpha: 0.15),
+                                  color: palette.primary.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                                  border: Border.all(color: palette.primary.withValues(alpha: 0.3)),
                                 ),
                                 child: Text(
                                   '+ Started Today',
                                   style: TextStyle(
                                     fontSize: 10,
-                                    color: AppColors.primaryLight,
+                                    color: palette.accent,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -475,20 +481,20 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                             const SizedBox(width: 6),
                           if (series.dateFinished == null)
                             InkWell(
-                              onTap: () => _quickUpdateDate(series, isFinished: true),
+                              onTap: () => _quickUpdateDate(series, palette, isFinished: true),
                               borderRadius: BorderRadius.circular(4),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: AppColors.success.withValues(alpha: 0.15),
+                                  color: palette.success.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(4),
-                                  border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+                                  border: Border.all(color: palette.success.withValues(alpha: 0.3)),
                                 ),
-                                child: const Text(
+                                child: Text(
                                   '+ Finished Today',
                                   style: TextStyle(
                                     fontSize: 10,
-                                    color: AppColors.success,
+                                    color: palette.success,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -509,7 +515,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
 
   // ─── Tab 1: Details ────────────────────────────────────────────────────────
 
-  Widget _buildDetailsTab(Series series) {
+  Widget _buildDetailsTab(Series series, AppPalette palette) {
     return ListView(
       padding: const EdgeInsets.all(16.0),
       children: [
@@ -521,7 +527,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 0.8,
-              color: AppColors.error,
+              color: palette.danger,
             ),
           ),
           const SizedBox(height: 8),
@@ -543,7 +549,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 0.8,
-              color: AppColors.darkTextMuted,
+              color: palette.textSecondary,
             ),
           ),
           const SizedBox(height: 8),
@@ -566,7 +572,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 0.8,
-              color: AppColors.darkTextMuted,
+              color: palette.textSecondary,
             ),
           ),
           const SizedBox(height: 8),
@@ -575,7 +581,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
             style: TextStyle(
               fontSize: 14,
               height: 1.5,
-              color: AppColors.darkText,
+              color: palette.textMain,
             ),
           ),
           const SizedBox(height: 24),
@@ -588,11 +594,11 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
             fontSize: 11,
             fontWeight: FontWeight.bold,
             letterSpacing: 0.8,
-            color: AppColors.darkTextMuted,
+            color: palette.textSecondary,
           ),
         ),
         const SizedBox(height: 10),
-        _buildDetailsGrid(series),
+        _buildDetailsGrid(series, palette),
 
         // Overall Thoughts for series (standalone thoughts appear in Tab 2)
         if (series.kind != 'standalone' &&
@@ -605,23 +611,23 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 0.8,
-              color: AppColors.darkTextMuted,
+              color: palette.textSecondary,
             ),
           ),
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppColors.darkSurfaceLight,
+              color: palette.surfaceLight,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.darkBorder),
+              border: Border.all(color: palette.border),
             ),
             child: Text(
               series.overallThoughts!,
               style: TextStyle(
                 fontSize: 13,
                 height: 1.5,
-                color: AppColors.darkText,
+                color: palette.textMain,
               ),
             ),
           ),
@@ -638,23 +644,23 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 0.8,
-              color: AppColors.darkTextMuted,
+              color: palette.textSecondary,
             ),
           ),
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AppColors.darkSurfaceLight,
+              color: palette.surfaceLight,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.darkBorder),
+              border: Border.all(color: palette.border),
             ),
             child: Text(
               series.chapterThoughts!,
               style: TextStyle(
                 fontSize: 13,
                 height: 1.5,
-                color: AppColors.darkText,
+                color: palette.textMain,
               ),
             ),
           ),
@@ -665,7 +671,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     );
   }
 
-  Widget _buildDetailsGrid(Series series) {
+  Widget _buildDetailsGrid(Series series, AppPalette palette) {
     final items = <MapEntry<String, String>>[];
 
     if (series.bookType != null) items.add(MapEntry('Format', series.bookType!));
@@ -709,16 +715,16 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     if (items.isEmpty) {
       return Text(
         'No additional details provided.',
-        style: TextStyle(color: AppColors.darkTextMuted, fontSize: 13),
+        style: TextStyle(color: palette.textSecondary, fontSize: 13),
       );
     }
 
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.darkSurfaceLight,
+        color: palette.surfaceLight,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.darkBorder),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         children: items.map((entry) {
@@ -730,7 +736,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                 Text(
                   entry.key,
                   style: TextStyle(
-                    color: AppColors.darkTextMuted,
+                    color: palette.textSecondary,
                     fontSize: 13,
                   ),
                 ),
@@ -739,7 +745,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                     entry.value,
                     textAlign: TextAlign.end,
                     style: TextStyle(
-                      color: AppColors.darkText,
+                      color: palette.textMain,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -755,17 +761,17 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
 
   // ─── Tab 2: Volumes / Thoughts ─────────────────────────────────────────────
 
-  Widget _buildVolumesOrThoughtsTab(Series series, List<Volume> volumes) {
+  Widget _buildVolumesOrThoughtsTab(Series series, List<Volume> volumes, AppPalette palette) {
     if (series.kind == 'standalone') {
-      return _buildStandaloneThoughtsView(series);
+      return _buildStandaloneThoughtsView(series, palette);
     }
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton.small(
-        backgroundColor: AppColors.primary,
+        backgroundColor: palette.primary,
         foregroundColor: Colors.white,
-        onPressed: () => _showAddVolumeDialog(series.id),
+        onPressed: () => _showAddVolumeDialog(series.id, palette),
         child: const Icon(Icons.add),
       ),
       body: volumes.isEmpty
@@ -773,15 +779,15 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.book_rounded, size: 44, color: AppColors.darkTextMuted),
+                  Icon(Icons.book_rounded, size: 44, color: palette.textSecondary),
                   const SizedBox(height: 12),
                   Text(
                     'No volumes logged yet',
-                    style: TextStyle(color: AppColors.darkTextMuted),
+                    style: TextStyle(color: palette.textSecondary),
                   ),
                   const SizedBox(height: 8),
                   TextButton.icon(
-                    onPressed: () => _showAddVolumeDialog(series.id),
+                    onPressed: () => _showAddVolumeDialog(series.id, palette),
                     icon: const Icon(Icons.add),
                     label: const Text('Add Volume 1'),
                   ),
@@ -794,11 +800,11 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               itemBuilder: (context, index) {
                 final v = volumes[index];
                 return Card(
-                  color: AppColors.darkSurfaceLight,
+                  color: palette.surfaceLight,
                   margin: const EdgeInsets.only(bottom: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: AppColors.darkBorder),
+                    side: BorderSide(color: palette.border),
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(12.0),
@@ -809,7 +815,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                           width: 44,
                           height: 44,
                           decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.2),
+                            color: palette.primary.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Center(
@@ -817,7 +823,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                               'V${v.volumeNumber}',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: AppColors.primaryLight,
+                                color: palette.accent,
                               ),
                             ),
                           ),
@@ -832,7 +838,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 15,
-                                  color: AppColors.darkText,
+                                  color: palette.textMain,
                                 ),
                               ),
                               if (v.chapterRange != null) ...[
@@ -841,7 +847,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                                   'Chapters: ${v.chapterRange}',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: AppColors.darkTextMuted,
+                                    color: palette.textSecondary,
                                   ),
                                 ),
                               ],
@@ -851,7 +857,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                                   'Read on: ${v.dateRead}',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: AppColors.darkTextMuted,
+                                    color: palette.textSecondary,
                                   ),
                                 ),
                               ],
@@ -861,7 +867,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                                   v.thoughts!,
                                   style: TextStyle(
                                     fontSize: 13,
-                                    color: AppColors.darkText,
+                                    color: palette.textMain,
                                   ),
                                 ),
                               ],
@@ -870,7 +876,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                         ),
                         IconButton(
                           icon: const Icon(Icons.delete_outline, size: 18),
-                          color: AppColors.darkTextMuted,
+                          color: palette.textSecondary,
                           onPressed: () async {
                             await ref.read(dataLayerProvider).volumesDelete(v.id);
                             ref.invalidate(seriesVolumesProvider(series.id));
@@ -885,7 +891,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     );
   }
 
-  Widget _buildStandaloneThoughtsView(Series series) {
+  Widget _buildStandaloneThoughtsView(Series series, AppPalette palette) {
     final hasThoughts = (series.overallThoughts != null && series.overallThoughts!.isNotEmpty) ||
         (series.chapterThoughts != null && series.chapterThoughts!.isNotEmpty);
 
@@ -901,11 +907,11 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 0.8,
-                color: AppColors.darkTextMuted,
+                color: palette.textSecondary,
               ),
             ),
             TextButton.icon(
-              onPressed: () => _showEditThoughtsDialog(series),
+              onPressed: () => _showEditThoughtsDialog(series, palette),
               icon: const Icon(Icons.edit_note_rounded, size: 18),
               label: Text(hasThoughts ? 'Edit Thoughts' : 'Add Thoughts'),
             ),
@@ -916,29 +922,29 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
           Container(
             padding: const EdgeInsets.all(28),
             decoration: BoxDecoration(
-              color: AppColors.darkSurfaceLight,
+              color: palette.surfaceLight,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.darkBorder),
+              border: Border.all(color: palette.border),
             ),
             child: Center(
               child: Column(
                 children: [
-                  Icon(Icons.edit_note_rounded, size: 40, color: AppColors.darkTextMuted),
+                  Icon(Icons.edit_note_rounded, size: 40, color: palette.textSecondary),
                   const SizedBox(height: 8),
                   Text(
                     'No thoughts added yet',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.darkText),
+                    style: TextStyle(fontWeight: FontWeight.bold, color: palette.textMain),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Add your overall thoughts and chapter notes for this book.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
+                    style: TextStyle(fontSize: 12, color: palette.textSecondary),
                   ),
                   const SizedBox(height: 12),
                   ElevatedButton(
-                    onPressed: () => _showEditThoughtsDialog(series),
-                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                    onPressed: () => _showEditThoughtsDialog(series, palette),
+                    style: ElevatedButton.styleFrom(backgroundColor: palette.primary),
                     child: const Text('Add Thoughts'),
                   ),
                 ],
@@ -951,9 +957,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppColors.darkSurfaceLight,
+                color: palette.surfaceLight,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.darkBorder),
+                border: Border.all(color: palette.border),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -963,13 +969,13 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
-                      color: AppColors.primaryLight,
+                      color: palette.accent,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     series.overallThoughts!,
-                    style: TextStyle(fontSize: 13, height: 1.5, color: AppColors.darkText),
+                    style: TextStyle(fontSize: 13, height: 1.5, color: palette.textMain),
                   ),
                 ],
               ),
@@ -981,9 +987,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppColors.darkSurfaceLight,
+                color: palette.surfaceLight,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.darkBorder),
+                border: Border.all(color: palette.border),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -993,13 +999,13 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
-                      color: AppColors.primaryLight,
+                      color: palette.accent,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     series.chapterThoughts!,
-                    style: TextStyle(fontSize: 13, height: 1.5, color: AppColors.darkText),
+                    style: TextStyle(fontSize: 13, height: 1.5, color: palette.textMain),
                   ),
                 ],
               ),
@@ -1010,14 +1016,14 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     );
   }
 
-  void _showEditThoughtsDialog(Series series) {
+  void _showEditThoughtsDialog(Series series, AppPalette palette) {
     final overallCtrl = TextEditingController(text: series.overallThoughts ?? '');
     final chapterCtrl = TextEditingController(text: series.chapterThoughts ?? '');
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.darkSurfaceLight,
+        backgroundColor: palette.surfaceLight,
         title: const Text('Edit Thoughts'),
         content: SingleChildScrollView(
           child: Column(
@@ -1052,6 +1058,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
             onPressed: () async {
               final user = ref.read(authStateProvider).value;
               if (user == null) return;
+              final navigator = Navigator.of(ctx);
               final updated = series.copyWith(
                 overallThoughts: overallCtrl.text.trim().isEmpty ? null : overallCtrl.text.trim(),
                 chapterThoughts: chapterCtrl.text.trim().isEmpty ? null : chapterCtrl.text.trim(),
@@ -1064,7 +1071,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                     warningNames: series.contentWarnings.map((w) => w.name).toList(),
                   );
               ref.invalidate(seriesDetailProvider(widget.seriesId));
-              if (mounted) Navigator.pop(ctx);
+              if (mounted) navigator.pop();
             },
             child: const Text('Save'),
           ),
@@ -1073,7 +1080,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     );
   }
 
-  void _showAddVolumeDialog(int seriesId) {
+  void _showAddVolumeDialog(int seriesId, AppPalette palette) {
     final numberCtrl = TextEditingController(text: '1');
     final titleCtrl = TextEditingController();
     final chaptersCtrl = TextEditingController();
@@ -1082,7 +1089,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.darkSurfaceLight,
+        backgroundColor: palette.surfaceLight,
         title: const Text('Add Volume'),
         content: SingleChildScrollView(
           child: Column(
@@ -1117,6 +1124,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
           ElevatedButton(
             onPressed: () async {
               final volNum = int.tryParse(numberCtrl.text) ?? 1;
+              final navigator = Navigator.of(ctx);
               final newVol = Volume(
                 id: 0,
                 seriesId: seriesId,
@@ -1127,7 +1135,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               );
               await ref.read(dataLayerProvider).volumesCreate(newVol);
               ref.invalidate(seriesVolumesProvider(seriesId));
-              if (mounted) Navigator.pop(ctx);
+              if (mounted) navigator.pop();
             },
             child: const Text('Save'),
           ),
@@ -1138,15 +1146,15 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
 
   // ─── Tab 3: Characters ─────────────────────────────────────────────────────
 
-  Widget _buildCharactersTab(Series series, List<Character> characters) {
+  Widget _buildCharactersTab(Series series, List<Character> characters, AppPalette palette) {
     final relationshipsAsync = ref.watch(seriesRelationshipsProvider(series.id));
 
     return Scaffold(
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton.small(
-        backgroundColor: AppColors.primary,
+        backgroundColor: palette.primary,
         foregroundColor: Colors.white,
-        onPressed: () => _showAddCharacterDialog(series.id),
+        onPressed: () => _showAddCharacterDialog(series.id, palette),
         child: const Icon(Icons.person_add_rounded),
       ),
       body: characters.isEmpty
@@ -1154,15 +1162,15 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.people_outline_rounded, size: 44, color: AppColors.darkTextMuted),
+                  Icon(Icons.people_outline_rounded, size: 44, color: palette.textSecondary),
                   const SizedBox(height: 12),
                   Text(
                     'No characters added yet',
-                    style: TextStyle(color: AppColors.darkTextMuted),
+                    style: TextStyle(color: palette.textSecondary),
                   ),
                   const SizedBox(height: 8),
                   TextButton.icon(
-                    onPressed: () => _showAddCharacterDialog(series.id),
+                    onPressed: () => _showAddCharacterDialog(series.id, palette),
                     icon: const Icon(Icons.add),
                     label: const Text('Add Character'),
                   ),
@@ -1172,7 +1180,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
           : ListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
               children: [
-                ...characters.map((c) => _buildCharacterCard(c, series.id)),
+                ...characters.map((c) => _buildCharacterCard(c, series.id, palette)),
 
                 // Relationships Section
                 relationshipsAsync.when(
@@ -1188,7 +1196,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 0.8,
-                            color: AppColors.darkTextMuted,
+                            color: palette.textSecondary,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -1196,9 +1204,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                           margin: const EdgeInsets.only(bottom: 6),
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: AppColors.darkSurfaceLight,
+                            color: palette.surfaceLight,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppColors.darkBorder),
+                            border: Border.all(color: palette.border),
                           ),
                           child: Wrap(
                             crossAxisAlignment: WrapCrossAlignment.center,
@@ -1212,19 +1220,19 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primary.withValues(alpha: 0.2),
+                                  color: palette.primary.withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
                                   r.label ?? r.type,
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: AppColors.primaryLight,
+                                    color: palette.accent,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ),
-                              Icon(Icons.arrow_forward_rounded, size: 14, color: AppColors.darkTextMuted),
+                              Icon(Icons.arrow_forward_rounded, size: 14, color: palette.textSecondary),
                               Text(
                                 r.toCharacterName ?? 'Char #${r.toCharacterId}',
                                 style: const TextStyle(fontWeight: FontWeight.bold),
@@ -1243,17 +1251,17 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     );
   }
 
-  Widget _buildCharacterCard(Character c, int seriesId) {
+  Widget _buildCharacterCard(Character c, int seriesId, AppPalette palette) {
     return Card(
-      color: AppColors.darkSurfaceLight,
+      color: palette.surfaceLight,
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: AppColors.darkBorder),
+        side: BorderSide(color: palette.border),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => _showCharacterDetailSheet(c, seriesId),
+        onTap: () => _showCharacterDetailSheet(c, seriesId, palette),
         child: Padding(
           padding: const EdgeInsets.all(12.0),
           child: Row(
@@ -1263,7 +1271,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                 width: 50,
                 height: 50,
                 decoration: BoxDecoration(
-                  color: AppColors.darkSurfaceLighter,
+                  color: palette.surfaceHigh,
                   borderRadius: BorderRadius.circular(25),
                 ),
                 child: c.profileImagePath != null
@@ -1273,7 +1281,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                         fit: BoxFit.cover,
                       )
                     : Center(
-                        child: Icon(Icons.person, color: AppColors.primaryLight),
+                        child: Icon(Icons.person, color: palette.accent),
                       ),
               ),
               const SizedBox(width: 12),
@@ -1289,7 +1297,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
-                              color: AppColors.darkText,
+                              color: palette.textMain,
                             ),
                           ),
                         ),
@@ -1297,14 +1305,14 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.2),
+                            color: palette.primary.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             c.role,
                             style: TextStyle(
                               fontSize: 11,
-                              color: AppColors.primaryLight,
+                              color: palette.accent,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -1315,14 +1323,14 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                       const SizedBox(height: 2),
                       Text(
                         c.statusRole!,
-                        style: TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
+                        style: TextStyle(fontSize: 12, color: palette.textSecondary),
                       ),
                     ],
                     if (c.personality != null) ...[
                       const SizedBox(height: 4),
                       Text(
                         'Personality: ${c.personality!}',
-                        style: TextStyle(fontSize: 12, color: AppColors.darkText),
+                        style: TextStyle(fontSize: 12, color: palette.textMain),
                       ),
                     ],
                     if (c.notes != null && c.notes!.isNotEmpty) ...[
@@ -1331,7 +1339,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                         c.notes!,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
+                        style: TextStyle(fontSize: 12, color: palette.textSecondary),
                       ),
                     ],
                   ],
@@ -1339,7 +1347,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               ),
               IconButton(
                 icon: const Icon(Icons.delete_outline, size: 18),
-                color: AppColors.darkTextMuted,
+                color: palette.textSecondary,
                 onPressed: () async {
                   await ref.read(dataLayerProvider).charactersDelete(c.id);
                   ref.invalidate(seriesCharactersProvider(seriesId));
@@ -1348,7 +1356,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               ),
               Padding(
                 padding: EdgeInsets.only(top: 4.0),
-                child: Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.darkTextMuted),
+                child: Icon(Icons.chevron_right_rounded, size: 18, color: palette.textSecondary),
               ),
             ],
           ),
@@ -1359,10 +1367,10 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
 
   // ─── Character Detail Sheet ─────────────────────────────────────────────
 
-  void _showCharacterDetailSheet(Character c, int seriesId) {
+  void _showCharacterDetailSheet(Character c, int seriesId, AppPalette palette) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.darkSurfaceLight,
+      backgroundColor: palette.surfaceLight,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -1386,7 +1394,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                       height: 4,
                       margin: const EdgeInsets.only(bottom: 16),
                       decoration: BoxDecoration(
-                        color: AppColors.darkBorder,
+                        color: palette.border,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -1397,7 +1405,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                         width: 64,
                         height: 64,
                         decoration: BoxDecoration(
-                          color: AppColors.darkSurfaceLighter,
+                          color: palette.surfaceHigh,
                           borderRadius: BorderRadius.circular(32),
                         ),
                         child: c.profileImagePath != null
@@ -1408,7 +1416,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                               )
                             : Center(
                                 child: Icon(Icons.person,
-                                    color: AppColors.primaryLight, size: 30),
+                                    color: palette.accent, size: 30),
                               ),
                       ),
                       const SizedBox(width: 14),
@@ -1422,7 +1430,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                                 fontFamily: 'Outfit',
                                 fontSize: 19,
                                 fontWeight: FontWeight.bold,
-                                color: AppColors.darkText,
+                                color: palette.textMain,
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -1434,14 +1442,14 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(alpha: 0.2),
+                                    color: palette.primary.withValues(alpha: 0.2),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
                                     c.role,
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: AppColors.primaryLight,
+                                      color: palette.accent,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -1451,13 +1459,13 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 8, vertical: 3),
                                     decoration: BoxDecoration(
-                                      color: AppColors.darkSurfaceLighter,
+                                      color: palette.surfaceHigh,
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
                                       c.statusRole!,
                                       style: TextStyle(
-                                          fontSize: 11, color: AppColors.darkTextMuted),
+                                          fontSize: 11, color: palette.textSecondary),
                                     ),
                                   ),
                               ],
@@ -1468,30 +1476,30 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                     ],
                   ),
                   const SizedBox(height: 20),
-                  if (c.age != null && c.age!.isNotEmpty) _detailRow('Age', c.age!),
+                  if (c.age != null && c.age!.isNotEmpty) _detailRow('Age', c.age!, palette),
                   if (c.lifeStatus != null && c.lifeStatus!.isNotEmpty)
-                    _detailRow('Life Status', c.lifeStatus!),
+                    _detailRow('Life Status', c.lifeStatus!, palette),
                   if (c.volumeAppearances != null && c.volumeAppearances!.isNotEmpty)
-                    _detailRow('Appears In', c.volumeAppearances!),
+                    _detailRow('Appears In', c.volumeAppearances!, palette),
                   if (c.personality != null && c.personality!.isNotEmpty) ...[
                     const SizedBox(height: 14),
-                    _detailSection('Personality', c.personality!),
+                    _detailSection('Personality', c.personality!, palette),
                   ],
                   if (c.overallVibes != null && c.overallVibes!.isNotEmpty) ...[
                     const SizedBox(height: 14),
-                    _detailSection('Overall Vibes', c.overallVibes!),
+                    _detailSection('Overall Vibes', c.overallVibes!, palette),
                   ],
                   if (c.appearsText != null && c.appearsText!.isNotEmpty) ...[
                     const SizedBox(height: 14),
-                    _detailSection('How They Appear', c.appearsText!),
+                    _detailSection('How They Appear', c.appearsText!, palette),
                   ],
                   if (c.realityText != null && c.realityText!.isNotEmpty) ...[
                     const SizedBox(height: 14),
-                    _detailSection('Reality Behind It', c.realityText!),
+                    _detailSection('Reality Behind It', c.realityText!, palette),
                   ],
                   if (c.notes != null && c.notes!.isNotEmpty) ...[
                     const SizedBox(height: 14),
-                    _detailSection('Notes / Bio', c.notes!),
+                    _detailSection('Notes / Bio', c.notes!, palette),
                   ],
                   const SizedBox(height: 24),
                   Row(
@@ -1500,13 +1508,13 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                         child: OutlinedButton.icon(
                           onPressed: () {
                             Navigator.pop(ctx);
-                            _showAddCharacterDialog(seriesId, existingCharacter: c);
+                            _showAddCharacterDialog(seriesId, palette, existingCharacter: c);
                           },
                           icon: const Icon(Icons.edit_outlined, size: 16),
                           label: const Text('Edit'),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.primaryLight,
-                            side: BorderSide(color: AppColors.darkBorder),
+                            foregroundColor: palette.accent,
+                            side: BorderSide(color: palette.border),
                           ),
                         ),
                       ),
@@ -1514,17 +1522,18 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () async {
+                            final navigator = Navigator.of(ctx);
                             await ref.read(dataLayerProvider).charactersDelete(c.id);
                             ref.invalidate(seriesCharactersProvider(seriesId));
                             ref.invalidate(seriesRelationshipsProvider(seriesId));
-                            if (mounted) Navigator.pop(ctx);
+                            if (mounted) navigator.pop();
                           },
                           icon: Icon(Icons.delete_outline,
-                              size: 16, color: AppColors.error),
+                              size: 16, color: palette.danger),
                           label: Text('Delete',
-                              style: TextStyle(color: AppColors.error)),
+                              style: TextStyle(color: palette.danger)),
                           style: OutlinedButton.styleFrom(
-                            side: BorderSide(color: AppColors.darkBorder),
+                            side: BorderSide(color: palette.border),
                           ),
                         ),
                       ),
@@ -1539,7 +1548,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     );
   }
 
-  Widget _detailRow(String label, String value) {
+  Widget _detailRow(String label, String value, AppPalette palette) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Row(
@@ -1551,7 +1560,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               label,
               style: TextStyle(
                 fontSize: 12,
-                color: AppColors.darkTextMuted,
+                color: palette.textSecondary,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -1559,7 +1568,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
           Expanded(
             child: Text(
               value,
-              style: TextStyle(fontSize: 13, color: AppColors.darkText),
+              style: TextStyle(fontSize: 13, color: palette.textMain),
             ),
           ),
         ],
@@ -1567,7 +1576,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     );
   }
 
-  Widget _detailSection(String title, String value) {
+  Widget _detailSection(String title, String value, AppPalette palette) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1577,7 +1586,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
             fontSize: 11,
             fontWeight: FontWeight.bold,
             letterSpacing: 0.6,
-            color: AppColors.darkTextMuted,
+            color: palette.textSecondary,
           ),
         ),
         const SizedBox(height: 6),
@@ -1585,20 +1594,20 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
           width: double.infinity,
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: AppColors.darkBackground,
+            color: palette.bg,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppColors.darkBorder),
+            border: Border.all(color: palette.border),
           ),
           child: Text(
             value,
-            style: TextStyle(fontSize: 13, height: 1.4, color: AppColors.darkText),
+            style: TextStyle(fontSize: 13, height: 1.4, color: palette.textMain),
           ),
         ),
       ],
     );
   }
 
-  void _showAddCharacterDialog(int seriesId, {Character? existingCharacter}) {
+  void _showAddCharacterDialog(int seriesId, AppPalette palette, {Character? existingCharacter}) {
     final nameCtrl = TextEditingController(text: existingCharacter?.name ?? '');
     final roleCtrl = TextEditingController(text: existingCharacter?.role ?? 'Protagonist');
     final statusRoleCtrl = TextEditingController(text: existingCharacter?.statusRole ?? '');
@@ -1615,7 +1624,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.darkSurfaceLight,
+        backgroundColor: palette.surfaceLight,
         title: Text(existingCharacter == null ? 'Add Character' : 'Edit Character'),
         content: SizedBox(
           width: double.maxFinite,
@@ -1694,6 +1703,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
           ElevatedButton(
             onPressed: () async {
               if (nameCtrl.text.trim().isEmpty) return;
+              final navigator = Navigator.of(ctx);
               String? orNull(String s) => s.trim().isEmpty ? null : s.trim();
 
               if (existingCharacter == null) {
@@ -1730,7 +1740,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                 await ref.read(dataLayerProvider).charactersUpdate(updated);
               }
               ref.invalidate(seriesCharactersProvider(seriesId));
-              if (mounted) Navigator.pop(ctx);
+              if (mounted) navigator.pop();
             },
             child: const Text('Save'),
           ),
@@ -1741,13 +1751,13 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
 
   // ─── Tab 4: Gallery ────────────────────────────────────────────────────────
 
-  Widget _buildGalleryTab(Series series, List<GalleryImage> images) {
+  Widget _buildGalleryTab(Series series, List<GalleryImage> images, AppPalette palette) {
     return Scaffold(
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton.small(
-        backgroundColor: AppColors.primary,
+        backgroundColor: palette.primary,
         foregroundColor: Colors.white,
-        onPressed: () => _showAddGalleryDialog(series.id),
+        onPressed: () => _showAddGalleryDialog(series.id, palette),
         child: const Icon(Icons.add_photo_alternate_rounded),
       ),
       body: images.isEmpty
@@ -1755,15 +1765,15 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.photo_library_outlined, size: 44, color: AppColors.darkTextMuted),
+                  Icon(Icons.photo_library_outlined, size: 44, color: palette.textSecondary),
                   const SizedBox(height: 12),
                   Text(
                     'No gallery pictures yet',
-                    style: TextStyle(color: AppColors.darkTextMuted),
+                    style: TextStyle(color: palette.textSecondary),
                   ),
                   const SizedBox(height: 8),
                   TextButton.icon(
-                    onPressed: () => _showAddGalleryDialog(series.id),
+                    onPressed: () => _showAddGalleryDialog(series.id, palette),
                     icon: const Icon(Icons.add_photo_alternate_rounded),
                     label: const Text('Add Picture'),
                   ),
@@ -1782,11 +1792,11 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               itemBuilder: (context, index) {
                 final img = images[index];
                 return GestureDetector(
-                  onTap: () => _showGalleryImageDetail(img, series.id),
+                  onTap: () => _showGalleryImageDetail(img, series.id, palette),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
-                      color: AppColors.darkSurfaceLight,
+                      color: palette.surfaceLight,
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
@@ -1817,11 +1827,11 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     );
   }
 
-  void _showGalleryImageDetail(GalleryImage img, int seriesId) {
+  void _showGalleryImageDetail(GalleryImage img, int seriesId, AppPalette palette) {
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
-        backgroundColor: AppColors.darkSurfaceLight,
+        backgroundColor: palette.surfaceLight,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1839,7 +1849,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                 padding: const EdgeInsets.all(12),
                 child: Text(
                   img.caption!,
-                  style: TextStyle(fontSize: 13, color: AppColors.darkText),
+                  style: TextStyle(fontSize: 13, color: palette.textMain),
                 ),
               ),
             Padding(
@@ -1848,11 +1858,12 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton.icon(
-                    style: TextButton.styleFrom(foregroundColor: AppColors.error),
+                    style: TextButton.styleFrom(foregroundColor: palette.danger),
                     onPressed: () async {
+                      final navigator = Navigator.of(ctx);
                       await ref.read(dataLayerProvider).galleryDelete(img.id);
                       ref.invalidate(seriesGalleryProvider(seriesId));
-                      if (mounted) Navigator.pop(ctx);
+                      if (mounted) navigator.pop();
                     },
                     icon: const Icon(Icons.delete_outline, size: 16),
                     label: const Text('Delete'),
@@ -1871,14 +1882,14 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     );
   }
 
-  void _showAddGalleryDialog(int seriesId) {
+  void _showAddGalleryDialog(int seriesId, AppPalette palette) {
     final pathCtrl = TextEditingController();
     final captionCtrl = TextEditingController();
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.darkSurfaceLight,
+        backgroundColor: palette.surfaceLight,
         title: const Text('Add Gallery Picture'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1905,6 +1916,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
           ElevatedButton(
             onPressed: () async {
               if (pathCtrl.text.trim().isEmpty) return;
+              final navigator = Navigator.of(ctx);
               final img = GalleryImage(
                 id: 0,
                 seriesId: seriesId,
@@ -1913,7 +1925,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               );
               await ref.read(dataLayerProvider).galleryAdd(img);
               ref.invalidate(seriesGalleryProvider(seriesId));
-              if (mounted) Navigator.pop(ctx);
+              if (mounted) navigator.pop();
             },
             child: const Text('Add'),
           ),
@@ -1924,7 +1936,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
 
   // ─── Tab 5: Files (Links & Attachments) ─────────────────────────────────────
 
-  Widget _buildFilesTab(Series series, List<LinkAttachment> links, List<Attachment> attachments) {
+  Widget _buildFilesTab(Series series, List<LinkAttachment> links, List<Attachment> attachments, AppPalette palette) {
     final isEmpty = links.isEmpty && attachments.isEmpty;
 
     return Scaffold(
@@ -1944,7 +1956,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 0.8,
-                    color: AppColors.darkTextMuted,
+                    color: palette.textSecondary,
                   ),
                 ),
               ),
@@ -1954,19 +1966,19 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                onPressed: () => _showAddLinkDialog(series.id),
+                onPressed: () => _showAddLinkDialog(series.id, palette),
                 icon: const Icon(Icons.link_rounded, size: 16),
                 label: const Text('+ Link'),
               ),
               const SizedBox(width: 6),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: palette.primary,
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                onPressed: () => _showAddFileDialog(series.id),
+                onPressed: () => _showAddFileDialog(series.id, palette),
                 icon: const Icon(Icons.upload_file_rounded, size: 16),
                 label: const Text('+ File'),
               ),
@@ -1978,24 +1990,24 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
             Container(
               padding: const EdgeInsets.all(28),
               decoration: BoxDecoration(
-                color: AppColors.darkSurfaceLight,
+                color: palette.surfaceLight,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.darkBorder),
+                border: Border.all(color: palette.border),
               ),
               child: Center(
                 child: Column(
                   children: [
-                    Icon(Icons.folder_open_rounded, size: 40, color: AppColors.darkTextMuted),
+                    Icon(Icons.folder_open_rounded, size: 40, color: palette.textSecondary),
                     const SizedBox(height: 8),
                     Text(
                       'No files or links yet',
-                      style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.darkText),
+                      style: TextStyle(fontWeight: FontWeight.bold, color: palette.textMain),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Attach PDFs, external bookmarks, notes, or reading resources.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
+                      style: TextStyle(fontSize: 12, color: palette.textSecondary),
                     ),
                   ],
                 ),
@@ -2010,11 +2022,11 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 0.8,
-                  color: AppColors.primaryLight,
+                  color: palette.accent,
                 ),
               ),
               const SizedBox(height: 8),
-              ...links.map((l) => _buildLinkTile(l, series.id)),
+              ...links.map((l) => _buildLinkTile(l, series.id, palette)),
               const SizedBox(height: 20),
             ],
 
@@ -2026,11 +2038,11 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 0.8,
-                  color: AppColors.primaryLight,
+                  color: palette.accent,
                 ),
               ),
               const SizedBox(height: 8),
-              ...attachments.map((f) => _buildAttachmentTile(f, series.id)),
+              ...attachments.map((f) => _buildAttachmentTile(f, series.id, palette)),
             ],
           ],
         ],
@@ -2038,7 +2050,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     );
   }
 
-  Widget _buildLinkTile(LinkAttachment l, int seriesId) {
+  Widget _buildLinkTile(LinkAttachment l, int seriesId, AppPalette palette) {
     String displayLabel = l.label ?? '';
     if (displayLabel.isEmpty) {
       final uri = Uri.tryParse(l.url);
@@ -2049,19 +2061,19 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.darkSurfaceLight,
+        color: palette.surfaceLight,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.darkBorder),
+        border: Border.all(color: palette.border),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.15),
+              color: palette.primary.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(Icons.link_rounded, size: 20, color: AppColors.primaryLight),
+            child: Icon(Icons.link_rounded, size: 20, color: palette.accent),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -2077,7 +2089,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                 const SizedBox(height: 2),
                 Text(
                   l.url,
-                  style: TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
+                  style: TextStyle(fontSize: 12, color: palette.textSecondary),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -2086,13 +2098,13 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
           ),
           IconButton(
             icon: const Icon(Icons.open_in_new_rounded, size: 18),
-            color: AppColors.primaryLight,
+            color: palette.accent,
             tooltip: 'Open',
-            onPressed: () => _launchExternalUrl(l.url),
+            onPressed: () => _launchExternalUrl(l.url, palette),
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline, size: 18),
-            color: AppColors.darkTextMuted,
+            color: palette.textSecondary,
             tooltip: 'Delete',
             onPressed: () async {
               await ref.read(dataLayerProvider).linksDelete(l.id);
@@ -2104,7 +2116,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     );
   }
 
-  Widget _buildAttachmentTile(Attachment f, int seriesId) {
+  Widget _buildAttachmentTile(Attachment f, int seriesId, AppPalette palette) {
     String formattedSize = '';
     if (f.fileSize != null) {
       if (f.fileSize! < 1024) {
@@ -2120,19 +2132,19 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.darkSurfaceLight,
+        color: palette.surfaceLight,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.darkBorder),
+        border: Border.all(color: palette.border),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppColors.darkSurfaceLighter,
+              color: palette.surfaceHigh,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(Icons.insert_drive_file_rounded, size: 20, color: AppColors.primaryLight),
+            child: Icon(Icons.insert_drive_file_rounded, size: 20, color: palette.accent),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -2149,7 +2161,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                   const SizedBox(height: 2),
                   Text(
                     formattedSize,
-                    style: TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
+                    style: TextStyle(fontSize: 12, color: palette.textSecondary),
                   ),
                 ],
               ],
@@ -2157,13 +2169,13 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
           ),
           IconButton(
             icon: const Icon(Icons.open_in_new_rounded, size: 18),
-            color: AppColors.primaryLight,
+            color: palette.accent,
             tooltip: 'Open',
-            onPressed: () => _launchExternalUrl(f.filePath),
+            onPressed: () => _launchExternalUrl(f.filePath, palette),
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline, size: 18),
-            color: AppColors.darkTextMuted,
+            color: palette.textSecondary,
             tooltip: 'Delete',
             onPressed: () async {
               await ref.read(dataLayerProvider).attachmentsDelete(f.id);
@@ -2175,14 +2187,14 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     );
   }
 
-  void _showAddLinkDialog(int seriesId) {
+  void _showAddLinkDialog(int seriesId, AppPalette palette) {
     final urlCtrl = TextEditingController();
     final labelCtrl = TextEditingController();
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.darkSurfaceLight,
+        backgroundColor: palette.surfaceLight,
         title: const Text('Add Link Attachment'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -2206,6 +2218,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
           ElevatedButton(
             onPressed: () async {
               if (urlCtrl.text.trim().isEmpty) return;
+              final navigator = Navigator.of(ctx);
               final link = LinkAttachment(
                 id: 0,
                 seriesId: seriesId,
@@ -2214,7 +2227,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               );
               await ref.read(dataLayerProvider).linksAdd(link);
               ref.invalidate(seriesLinksProvider(seriesId));
-              if (mounted) Navigator.pop(ctx);
+              if (mounted) navigator.pop();
             },
             child: const Text('Add Link'),
           ),
@@ -2223,14 +2236,14 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     );
   }
 
-  void _showAddFileDialog(int seriesId) {
+  void _showAddFileDialog(int seriesId, AppPalette palette) {
     final nameCtrl = TextEditingController();
     final pathCtrl = TextEditingController();
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.darkSurfaceLight,
+        backgroundColor: palette.surfaceLight,
         title: const Text('Add File Attachment'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -2257,6 +2270,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
           ElevatedButton(
             onPressed: () async {
               if (nameCtrl.text.trim().isEmpty || pathCtrl.text.trim().isEmpty) return;
+              final navigator = Navigator.of(ctx);
               final attachment = Attachment(
                 id: 0,
                 seriesId: seriesId,
@@ -2265,7 +2279,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               );
               await ref.read(dataLayerProvider).attachmentsAdd(attachment);
               ref.invalidate(seriesAttachmentsProvider(seriesId));
-              if (mounted) Navigator.pop(ctx);
+              if (mounted) navigator.pop();
             },
             child: const Text('Add File'),
           ),
@@ -2276,13 +2290,13 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
 
   // ─── Tab 6: Glossary ───────────────────────────────────────────────────────
 
-  Widget _buildGlossaryTab(Series series, List<GlossaryTerm> terms) {
+  Widget _buildGlossaryTab(Series series, List<GlossaryTerm> terms, AppPalette palette) {
     return Scaffold(
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton.small(
-        backgroundColor: AppColors.primary,
+        backgroundColor: palette.primary,
         foregroundColor: Colors.white,
-        onPressed: () => _showAddOrEditGlossaryTermDialog(series.id),
+        onPressed: () => _showAddOrEditGlossaryTermDialog(series.id, palette),
         child: const Icon(Icons.add),
       ),
       body: terms.isEmpty
@@ -2290,21 +2304,21 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.menu_book_rounded, size: 44, color: AppColors.darkTextMuted),
+                  Icon(Icons.menu_book_rounded, size: 44, color: palette.textSecondary),
                   const SizedBox(height: 12),
                   Text(
                     'No glossary terms yet',
-                    style: TextStyle(color: AppColors.darkTextMuted),
+                    style: TextStyle(color: palette.textSecondary),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Track in-world jargon, honorifics, or lore terms specific to this title.',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
+                    style: TextStyle(fontSize: 12, color: palette.textSecondary),
                   ),
                   const SizedBox(height: 8),
                   TextButton.icon(
-                    onPressed: () => _showAddOrEditGlossaryTermDialog(series.id),
+                    onPressed: () => _showAddOrEditGlossaryTermDialog(series.id, palette),
                     icon: const Icon(Icons.add),
                     label: const Text('Add Term'),
                   ),
@@ -2317,11 +2331,11 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               itemBuilder: (context, index) {
                 final t = terms[index];
                 return Card(
-                  color: AppColors.darkSurfaceLight,
+                  color: palette.surfaceLight,
                   margin: const EdgeInsets.only(bottom: 10),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
-                    side: BorderSide(color: AppColors.darkBorder),
+                    side: BorderSide(color: palette.border),
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(14.0),
@@ -2337,7 +2351,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                                 fontFamily: 'Outfit',
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
-                                color: AppColors.primaryLight,
+                                color: palette.accent,
                               ),
                             ),
                             Row(
@@ -2345,12 +2359,12 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                               children: [
                                 IconButton(
                                   icon: const Icon(Icons.edit_outlined, size: 18),
-                                  color: AppColors.darkTextMuted,
-                                  onPressed: () => _showAddOrEditGlossaryTermDialog(series.id, existingTerm: t),
+                                  color: palette.textSecondary,
+                                  onPressed: () => _showAddOrEditGlossaryTermDialog(series.id, palette, existingTerm: t),
                                 ),
                                 IconButton(
                                   icon: const Icon(Icons.delete_outline, size: 18),
-                                  color: AppColors.darkTextMuted,
+                                  color: palette.textSecondary,
                                   onPressed: () async {
                                     await ref.read(dataLayerProvider).glossaryDelete(t.id);
                                     ref.invalidate(seriesGlossaryProvider(series.id));
@@ -2367,7 +2381,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                             style: TextStyle(
                               fontSize: 13,
                               height: 1.4,
-                              color: AppColors.darkText,
+                              color: palette.textMain,
                             ),
                           ),
                         ],
@@ -2380,14 +2394,14 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     );
   }
 
-  void _showAddOrEditGlossaryTermDialog(int seriesId, {GlossaryTerm? existingTerm}) {
+  void _showAddOrEditGlossaryTermDialog(int seriesId, AppPalette palette, {GlossaryTerm? existingTerm}) {
     final termCtrl = TextEditingController(text: existingTerm?.term ?? '');
     final defCtrl = TextEditingController(text: existingTerm?.definition ?? '');
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.darkSurfaceLight,
+        backgroundColor: palette.surfaceLight,
         title: Text(existingTerm == null ? 'Add Glossary Term' : 'Edit Glossary Term'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -2412,6 +2426,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
           ElevatedButton(
             onPressed: () async {
               if (termCtrl.text.trim().isEmpty) return;
+              final navigator = Navigator.of(ctx);
               if (existingTerm == null) {
                 final newTerm = GlossaryTerm(
                   id: 0,
@@ -2428,7 +2443,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                 await ref.read(dataLayerProvider).glossaryUpdate(updated);
               }
               ref.invalidate(seriesGlossaryProvider(seriesId));
-              if (mounted) Navigator.pop(ctx);
+              if (mounted) navigator.pop();
             },
             child: const Text('Save'),
           ),

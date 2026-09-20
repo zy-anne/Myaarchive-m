@@ -5,7 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../models/metadata.dart';
 import '../../models/series.dart';
 import '../../providers/app_providers.dart';
-import '../../theme/colors.dart';
+import '../../theme/app_palette.dart';
 import '../../widgets/cover_image.dart';
 import '../../widgets/rating_stars.dart';
 import '../../widgets/tag_chip.dart';
@@ -165,12 +165,13 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
   }
 
   Future<void> _pickAndUploadCover() async {
+    final palette = context.palette;
     final XFile? image = await _picker.pickImage(
       source: ImageSource.gallery,
       maxWidth: 1200,
       imageQuality: 85,
     );
-    if (image == null) return;
+    if (image == null || !mounted) return;
 
     setState(() => _isUploadingImage = true);
 
@@ -191,7 +192,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Cover uploaded to Cloudflare R2!'),
-            backgroundColor: AppColors.primary,
+            backgroundColor: palette.primary,
           ),
         );
       }
@@ -202,7 +203,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Cloud upload skipped (using local image): $e'),
-            backgroundColor: AppColors.primaryLight,
+            backgroundColor: palette.accent,
           ),
         );
       }
@@ -218,6 +219,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
     if (user == null) return;
 
     setState(() => _isLoading = true);
+    final palette = context.palette;
 
     try {
       final dataLayer = ref.read(dataLayerProvider);
@@ -294,7 +296,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to save: $e'),
-            backgroundColor: AppColors.error,
+            backgroundColor: palette.danger,
           ),
         );
       }
@@ -305,6 +307,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     final librariesAsync = ref.watch(librariesProvider);
 
     // Dynamic reading statuses (Settings → Manage Statuses), falling back
@@ -322,7 +325,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
     }
 
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: palette.bg,
       appBar: AppBar(
         title: Text(
           widget.seriesId == null ? 'Add Series' : 'Edit Series',
@@ -339,7 +342,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
                   )
                 : const Icon(Icons.check_rounded),
             label: const Text('Save'),
-            style: TextButton.styleFrom(foregroundColor: AppColors.primaryLight),
+            style: TextButton.styleFrom(foregroundColor: palette.accent),
           ),
         ],
       ),
@@ -356,9 +359,9 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
                     width: 130,
                     height: 190,
                     decoration: BoxDecoration(
-                      color: AppColors.darkSurfaceLight,
+                      color: palette.surfaceLight,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.darkBorder),
+                      border: Border.all(color: palette.border),
                     ),
                     child: _coverPathCtrl.text.isNotEmpty
                         ? CoverImage(
@@ -369,7 +372,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
                             child: Icon(
                               Icons.add_photo_alternate_rounded,
                               size: 40,
-                              color: AppColors.darkTextMuted,
+                              color: palette.textSecondary,
                             ),
                           ),
                   ),
@@ -377,7 +380,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
                     right: 4,
                     bottom: 4,
                     child: FloatingActionButton.small(
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: palette.primary,
                       foregroundColor: Colors.white,
                       onPressed: _isUploadingImage ? null : _pickAndUploadCover,
                       child: _isUploadingImage
@@ -400,7 +403,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
               child: Text(
                 'Tap camera icon to pick & upload cover image to R2',
                 style: TextStyle(
-                  color: AppColors.darkTextMuted.withValues(alpha: 0.8),
+                  color: palette.textSecondary.withValues(alpha: 0.8),
                   fontSize: 12,
                 ),
               ),
@@ -410,7 +413,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
             // Title (Required)
             TextFormField(
               controller: _titleCtrl,
-              style: TextStyle(color: AppColors.darkText),
+              style: TextStyle(color: palette.textMain),
               decoration: const InputDecoration(
                 labelText: 'Title *',
                 prefixIcon: Icon(Icons.title_rounded),
@@ -423,7 +426,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
             // Author
             TextFormField(
               controller: _authorCtrl,
-              style: TextStyle(color: AppColors.darkText),
+              style: TextStyle(color: palette.textMain),
               decoration: const InputDecoration(
                 labelText: 'Author / Creator',
                 prefixIcon: Icon(Icons.person_rounded),
@@ -443,7 +446,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
                         initialValue: libs.any((l) => l.id == _selectedLibraryId)
                             ? _selectedLibraryId
                             : libs.first.id,
-                        dropdownColor: AppColors.darkSurfaceLight,
+                        dropdownColor: palette.surfaceLight,
                         decoration: const InputDecoration(
                           labelText: 'Library',
                           prefixIcon: Icon(Icons.folder_rounded),
@@ -471,7 +474,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
                     initialValue: statusNames.contains(_selectedStatus)
                         ? _selectedStatus
                         : (statusNames.isNotEmpty ? statusNames.first : null),
-                    dropdownColor: AppColors.darkSurfaceLight,
+                    dropdownColor: palette.surfaceLight,
                     decoration: const InputDecoration(
                       labelText: 'Status',
                       prefixIcon: Icon(Icons.bookmark_rounded),
@@ -494,7 +497,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
                 Expanded(
                   child: DropdownButtonFormField<String>(
                     initialValue: _selectedBookType,
-                    dropdownColor: AppColors.darkSurfaceLight,
+                    dropdownColor: palette.surfaceLight,
                     decoration: const InputDecoration(
                       labelText: 'Format',
                       prefixIcon: Icon(Icons.category_rounded),
@@ -512,9 +515,9 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: AppColors.darkSurfaceLight,
+                      color: palette.surfaceLight,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.darkBorder),
+                      border: Border.all(color: palette.border),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -522,7 +525,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
                         Text(
                           'Rating',
                           style: TextStyle(
-                              fontSize: 12, color: AppColors.darkTextMuted),
+                              fontSize: 12, color: palette.textSecondary),
                         ),
                         const SizedBox(height: 4),
                         RatingStars(
@@ -545,11 +548,11 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
               title: const Text('Adult / 18+ Content'),
               subtitle: const Text('Flags entry with NSFW danger pill'),
               value: _isNsfw,
-              activeThumbColor: AppColors.error,
-              tileColor: AppColors.darkSurfaceLight,
+              activeThumbColor: palette.danger,
+              tileColor: palette.surfaceLight,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: AppColors.darkBorder),
+                side: BorderSide(color: palette.border),
               ),
               onChanged: (val) => setState(() => _isNsfw = val),
             ),
@@ -558,7 +561,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
             // Synopsis
             TextFormField(
               controller: _synopsisCtrl,
-              style: TextStyle(color: AppColors.darkText),
+              style: TextStyle(color: palette.textMain),
               decoration: const InputDecoration(
                 labelText: 'Synopsis',
                 alignLabelWithHint: true,
@@ -572,6 +575,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
               title: 'Tags',
               controller: _tagInputCtrl,
               items: _tags,
+              palette: palette,
               onAdd: (val) {
                 if (!_tags.contains(val)) setState(() => _tags.add(val));
               },
@@ -584,6 +588,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
               title: 'Genres',
               controller: _genreInputCtrl,
               items: _genres,
+              palette: palette,
               onAdd: (val) {
                 if (!_genres.contains(val)) setState(() => _genres.add(val));
               },
@@ -596,6 +601,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
               title: 'Content Warnings',
               controller: _warningInputCtrl,
               items: _contentWarnings,
+              palette: palette,
               isWarning: true,
               onAdd: (val) {
                 if (!_contentWarnings.contains(val)) {
@@ -609,7 +615,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
             // Overall Thoughts
             TextFormField(
               controller: _overallThoughtsCtrl,
-              style: TextStyle(color: AppColors.darkText),
+              style: TextStyle(color: palette.textMain),
               decoration: const InputDecoration(
                 labelText: 'Overall Thoughts',
                 alignLabelWithHint: true,
@@ -621,7 +627,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
             // Chapter Thoughts
             TextFormField(
               controller: _chapterThoughtsCtrl,
-              style: TextStyle(color: AppColors.darkText),
+              style: TextStyle(color: palette.textMain),
               decoration: const InputDecoration(
                 labelText: 'Chapter Thoughts / Reading Log',
                 alignLabelWithHint: true,
@@ -717,7 +723,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _handleSave,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: palette.primary,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -745,6 +751,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
     required List<String> items,
     required ValueChanged<String> onAdd,
     required ValueChanged<String> onRemove,
+    required AppPalette palette,
     bool isWarning = false,
   }) {
     return Column(
@@ -755,7 +762,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.bold,
-            color: AppColors.darkTextMuted,
+            color: palette.textSecondary,
           ),
         ),
         const SizedBox(height: 6),
@@ -764,7 +771,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
             Expanded(
               child: TextField(
                 controller: controller,
-                style: TextStyle(color: AppColors.darkText, fontSize: 13),
+                style: TextStyle(color: palette.textMain, fontSize: 13),
                 decoration: InputDecoration(
                   hintText: 'Add $title...',
                   contentPadding:
@@ -783,7 +790,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
             const SizedBox(width: 8),
             IconButton(
               icon: Icon(Icons.add_circle_outline,
-                  color: AppColors.primaryLight),
+                  color: palette.accent),
               onPressed: () {
                 final trimmed = controller.text.trim();
                 if (trimmed.isNotEmpty) {

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../theme/colors.dart';
+import '../theme/app_palette.dart';
 
 /// Rating stars widget for display or interactive user rating.
 class RatingStars extends StatelessWidget {
@@ -18,6 +18,7 @@ class RatingStars extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     final current = rating ?? 0;
 
     return Row(
@@ -29,7 +30,7 @@ class RatingStars extends StatelessWidget {
         final icon = Icon(
           isFilled ? Icons.star_rounded : Icons.star_outline_rounded,
           size: size,
-          color: isFilled ? AppColors.gold : AppColors.darkTextMuted.withValues(alpha: 0.4),
+          color: isFilled ? palette.gold : palette.textSecondary.withValues(alpha: 0.4),
         );
 
         if (onRatingChanged != null) {

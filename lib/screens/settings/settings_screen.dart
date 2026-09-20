@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../theme/app_color_palette.dart';
 import '../../providers/app_providers.dart';
-import '../../theme/colors.dart';
+import '../../theme/app_palette.dart';
 
 /// User settings, cloud sync status, library management, theme/content
 /// preferences, and account options.
@@ -55,13 +55,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  void _showAddLibraryDialog() {
+  void _showAddLibraryDialog(AppPalette palette) {
     final nameCtrl = TextEditingController();
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.darkSurfaceLight,
+        backgroundColor: palette.surfaceLight,
         title: const Text('New Library Collection'),
         content: TextField(
           controller: nameCtrl,
@@ -79,13 +79,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               final name = nameCtrl.text.trim();
               if (name.isEmpty) return;
               final user = ref.read(authStateProvider).value;
+              final navigator = Navigator.of(ctx);
               if (user != null) {
                 await ref
                     .read(dataLayerProvider)
                     .librariesCreate(ownerId: user.id, name: name);
                 ref.invalidate(librariesProvider);
               }
-              if (mounted) Navigator.pop(ctx);
+              if (mounted) navigator.pop();
             },
             child: const Text('Create'),
           ),
@@ -94,14 +95,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  void _showChangePasswordDialog(String userId) {
+  void _showChangePasswordDialog(String userId, AppPalette palette) {
     final currentCtrl = TextEditingController();
     final newCtrl = TextEditingController();
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.darkSurfaceLight,
+        backgroundColor: palette.surfaceLight,
         title: const Text('Change Password'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -126,6 +127,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
+              final navigator = Navigator.of(ctx);
+              final messenger = ScaffoldMessenger.of(context);
               try {
                 await ref.read(authServiceProvider).changePassword(
                       userId,
@@ -133,20 +136,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       newCtrl.text,
                     );
                 if (mounted) {
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  navigator.pop();
+                  messenger.showSnackBar(
                     SnackBar(
                       content: Text('Password updated successfully!'),
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: palette.primary,
                     ),
                   );
                 }
               } catch (e) {
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  messenger.showSnackBar(
                     SnackBar(
                       content: Text(e.toString()),
-                      backgroundColor: AppColors.error,
+                      backgroundColor: palette.danger,
                     ),
                   );
                 }
@@ -189,6 +192,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     // runs early regardless of which tab is visible.
     ref.watch(themeInitProvider);
 
+    final palette = context.palette;
+
     final user = ref.watch(authStateProvider).value;
     final themeMode = ref.watch(themeModeProvider);
     final selectedPaletteId = ref.watch(colorPaletteIdProvider);
@@ -196,7 +201,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final librariesAsync = ref.watch(librariesProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: palette.bg,
       appBar: AppBar(
         title: const Text(
           'Settings & Account',
@@ -209,10 +214,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           // User Profile Card
           if (user != null)
             Card(
-              color: AppColors.darkSurfaceLight,
+              color: palette.surfaceLight,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
-                side: BorderSide(color: AppColors.darkBorder),
+                side: BorderSide(color: palette.border),
               ),
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
@@ -223,7 +228,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       height: 56,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [AppColors.primary, AppColors.primaryLight],
+                          colors: [palette.primary, palette.accent],
                         ),
                         shape: BoxShape.circle,
                       ),
@@ -250,7 +255,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.darkText,
+                              color: palette.textMain,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -258,7 +263,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             'User ID: ${user.id.substring(0, 8)}...',
                             style: TextStyle(
                               fontSize: 12,
-                              color: AppColors.darkTextMuted,
+                              color: palette.textSecondary,
                             ),
                           ),
                         ],
@@ -277,21 +282,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 0.8,
-              color: AppColors.darkTextMuted,
+              color: palette.textSecondary,
             ),
           ),
           const SizedBox(height: 8),
           Card(
-            color: AppColors.darkSurfaceLight,
+            color: palette.surfaceLight,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
-              side: BorderSide(color: AppColors.darkBorder),
+              side: BorderSide(color: palette.border),
             ),
             child: Column(
               children: [
                 ListTile(
                   leading: Icon(Icons.cloud_sync_rounded,
-                      color: AppColors.primaryLight),
+                      color: palette.accent),
                   title: const Text('Turso & R2 Connectivity'),
                   subtitle: Text(
                     _tursoPingResult == null
@@ -325,12 +330,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 0.8,
-                  color: AppColors.darkTextMuted,
+                  color: palette.textSecondary,
                 ),
               ),
               IconButton(
-                icon: Icon(Icons.add_rounded, color: AppColors.primaryLight),
-                onPressed: _showAddLibraryDialog,
+                icon: Icon(Icons.add_rounded, color: palette.accent),
+                onPressed: () => _showAddLibraryDialog(palette),
               ),
             ],
           ),
@@ -339,15 +344,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             data: (libs) => Column(
               children: libs.map((lib) {
                 return Card(
-                  color: AppColors.darkSurfaceLight,
+                  color: palette.surfaceLight,
                   margin: const EdgeInsets.only(bottom: 8),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
-                    side: BorderSide(color: AppColors.darkBorder),
+                    side: BorderSide(color: palette.border),
                   ),
                   child: ListTile(
                     leading: Icon(Icons.collections_bookmark_rounded,
-                        color: AppColors.primaryLight),
+                        color: palette.accent),
                     title: Text(lib.name,
                         style: const TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: Text('${lib.seriesCount} entries'),
@@ -367,7 +372,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               }).toList(),
             ),
             loading: () => Center(
-              child: CircularProgressIndicator(color: AppColors.primaryLight),
+              child: CircularProgressIndicator(color: palette.accent),
             ),
             error: (e, _) => Text('Error: $e'),
           ),
@@ -380,13 +385,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 0.8,
-              color: AppColors.darkTextMuted,
+              color: palette.textSecondary,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             'Switch between Light Mode and Dark Mode reading palettes.',
-            style: TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
+            style: TextStyle(fontSize: 12, color: palette.textSecondary),
           ),
           const SizedBox(height: 10),
           Row(
@@ -395,6 +400,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 child: _buildThemePill(
                   label: 'DARK MODE',
                   selected: themeMode == ThemeMode.dark,
+                  palette: palette,
                   onTap: () =>
                       ref.read(themeModeProvider.notifier).state = ThemeMode.dark,
                 ),
@@ -404,6 +410,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 child: _buildThemePill(
                   label: 'LIGHT MODE',
                   selected: themeMode == ThemeMode.light,
+                  palette: palette,
                   onTap: () =>
                       ref.read(themeModeProvider.notifier).state = ThemeMode.light,
                 ),
@@ -419,22 +426,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 0.8,
-              color: AppColors.darkTextMuted,
+              color: palette.textSecondary,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             'Pick an accent palette — it applies to both Light and Dark Mode.',
-            style: TextStyle(fontSize: 12, color: AppColors.darkTextMuted),
+            style: TextStyle(fontSize: 12, color: palette.textSecondary),
           ),
           const SizedBox(height: 10),
           Wrap(
             spacing: 10,
             runSpacing: 10,
-            children: AppColorPalettes.all.map((palette) {
+            children: AppColorPalettes.all.map((p) {
               return _buildPaletteCard(
+                p,
+                p.id == selectedPaletteId,
                 palette,
-                palette.id == selectedPaletteId,
               );
             }).toList(),
           ),
@@ -447,15 +455,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 0.8,
-              color: AppColors.darkTextMuted,
+              color: palette.textSecondary,
             ),
           ),
           const SizedBox(height: 8),
           Card(
-            color: AppColors.darkSurfaceLight,
+            color: palette.surfaceLight,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
-              side: BorderSide(color: AppColors.darkBorder),
+              side: BorderSide(color: palette.border),
             ),
             child: SwitchListTile(
               title: const Text('Show NSFW Content'),
@@ -465,7 +473,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 "Filters, which only searches within what's shown here.",
               ),
               value: showNsfw,
-              activeThumbColor: AppColors.primaryLight,
+              activeThumbColor: palette.accent,
               onChanged: _toggleNsfw,
             ),
           ),
@@ -478,19 +486,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 0.8,
-              color: AppColors.darkTextMuted,
+              color: palette.textSecondary,
             ),
           ),
           const SizedBox(height: 8),
           Card(
-            color: AppColors.darkSurfaceLight,
+            color: palette.surfaceLight,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
-              side: BorderSide(color: AppColors.darkBorder),
+              side: BorderSide(color: palette.border),
             ),
             child: ListTile(
               leading:
-                  Icon(Icons.bookmark_outline_rounded, color: AppColors.primaryLight),
+                  Icon(Icons.bookmark_outline_rounded, color: palette.accent),
               title: const Text('Manage Statuses'),
               subtitle: const Text(
                 'Add, rename, recolor, or delete the reading statuses used '
@@ -511,18 +519,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 0.8,
-              color: AppColors.darkTextMuted,
+              color: palette.textSecondary,
             ),
           ),
           const SizedBox(height: 8),
           Card(
-            color: AppColors.darkSurfaceLight,
+            color: palette.surfaceLight,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
-              side: BorderSide(color: AppColors.darkBorder),
+              side: BorderSide(color: palette.border),
             ),
             child: ListTile(
-              leading: Icon(Icons.sell_outlined, color: AppColors.primaryLight),
+              leading: Icon(Icons.sell_outlined, color: palette.accent),
               title: const Text('Manage Tags'),
               subtitle: const Text(
                 'Rename, recolor, or delete tags — fix typos or clean up '
@@ -544,15 +552,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               fontSize: 11,
               fontWeight: FontWeight.bold,
               letterSpacing: 0.8,
-              color: AppColors.darkTextMuted,
+              color: palette.textSecondary,
             ),
           ),
           const SizedBox(height: 8),
           Card(
-            color: AppColors.darkSurfaceLight,
+            color: palette.surfaceLight,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14),
-              side: BorderSide(color: AppColors.darkBorder),
+              side: BorderSide(color: palette.border),
             ),
             child: Column(
               children: [
@@ -561,17 +569,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     leading: const Icon(Icons.lock_reset_rounded),
                     title: const Text('Change Password'),
                     trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
-                    onTap: () => _showChangePasswordDialog(user.id),
+                    onTap: () => _showChangePasswordDialog(user.id, palette),
                   ),
-                  Divider(height: 1, color: AppColors.darkBorder),
+                  Divider(height: 1, color: palette.border),
                 ],
                 ListTile(
                   leading:
-                      Icon(Icons.logout_rounded, color: AppColors.error),
+                      Icon(Icons.logout_rounded, color: palette.danger),
                   title: Text(
                     'Sign Out',
                     style: TextStyle(
-                        color: AppColors.error, fontWeight: FontWeight.bold),
+                        color: palette.danger, fontWeight: FontWeight.bold),
                   ),
                   onTap: () async {
                     await ref.read(authStateProvider.notifier).signOut();
@@ -593,6 +601,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     required String label,
     required bool selected,
     required VoidCallback onTap,
+    required AppPalette palette,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -600,10 +609,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         padding: const EdgeInsets.symmetric(vertical: 12),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? AppColors.primary : AppColors.darkSurfaceLight,
+          color: selected ? palette.primary : palette.surfaceLight,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: selected ? AppColors.primaryLight : AppColors.darkBorder,
+            color: selected ? palette.accent : palette.border,
             width: 1.2,
           ),
         ),
@@ -613,24 +622,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             fontSize: 11,
             fontWeight: FontWeight.bold,
             letterSpacing: 0.6,
-            color: selected ? Colors.white : AppColors.darkTextMuted,
+            color: selected ? Colors.white : palette.textSecondary,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildPaletteCard(AppColorPalette palette, bool selected) {
+  Widget _buildPaletteCard(AppColorPalette p, bool selected, AppPalette palette) {
     return GestureDetector(
-      onTap: () => _selectPalette(palette),
+      onTap: () => _selectPalette(p),
       child: Container(
         width: 134,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: AppColors.darkSurfaceLight,
+          color: palette.surfaceLight,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: selected ? AppColors.primaryLight : AppColors.darkBorder,
+            color: selected ? palette.accent : palette.border,
             width: selected ? 1.6 : 1,
           ),
         ),
@@ -638,7 +647,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              children: palette.swatches
+              children: p.swatches
                   .map((c) => Padding(
                         padding: const EdgeInsets.only(right: 4),
                         child: Container(
@@ -652,11 +661,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              palette.label,
+              p.label,
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: AppColors.darkText,
+                color: palette.textMain,
               ),
             ),
           ],

@@ -69,6 +69,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             ),
             onPressed: () async {
               final val = int.tryParse(controller.text.trim());
+              final navigator = Navigator.of(ctx);
               if (val != null && val > 0) {
                 final user = ref.read(authStateProvider).value;
                 if (user != null) {
@@ -78,7 +79,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                   ref.invalidate(appSettingsProvider);
                 }
               }
-              if (mounted) Navigator.pop(ctx);
+              if (mounted) navigator.pop();
             },
             child: const Text('Save Goal'),
           ),
@@ -538,7 +539,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
         _buildStatCard('Active', '$readingCount', 'Reading Now',
             palette.accent, Icons.menu_book_rounded, palette),
         _buildStatCard('Queued', '$planningCount', 'In Planning',
-            palette.textMain, Icons.schedule_rounded, palette),
+            palette.secondary, Icons.schedule_rounded, palette),
         _buildStatCard('Finished', '$completedCount', 'Completed',
             palette.success, Icons.check_circle_outline_rounded, palette),
         _buildStatCard('Avg Rating', avgRating, '$ratedCount rated titles',
