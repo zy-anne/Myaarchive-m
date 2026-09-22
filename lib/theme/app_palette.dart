@@ -103,27 +103,30 @@ class AppPalette extends ThemeExtension<AppPalette> {
 
   factory AppPalette.light([AppColorPalette? colorPalette]) {
     final p = colorPalette ?? AppColorPalettes.twilightReadingRoom;
-    // Warm cream reading-room base — matches `AppColors.lightBg` /
-    // `lightSurface` / `lightTextPrimary`, instead of the near-white
-    // FDFDFF/F9FAFE pair this used to resolve to.
-    const textMain = Color(0xFF2C2420); // AppColors.lightTextPrimary
+    // Neutral, palette-agnostic base — none of the AppColorPalette entries
+    // (Twilight Reading Room, Pink Lemonade, Mysterious Purple, Green
+    // Strawberry Latte, Saffron Serenity, Sakura Blossom) are built around
+    // a warm cream/tan, so the neutral surfaces stay a true cool-neutral
+    // gray instead of tying the whole app to one hue family that only
+    // matches some accent choices.
+    const textMain = Color(0xFF1A1E2B);
     return AppPalette(
-      bg: const Color(0xFFFAF6F0), // AppColors.lightBg — warm cream
-      surface: const Color(0xFFFFFFFF), // clean card pop off the cream bg
-      surfaceLight: const Color(0xFFF5E6CC), // AppColors.softCream
-      surfaceHigh: const Color(0xFFF1D8A3), // BrandColors.doubleCream
-      border: const Color(0xFFE6D9C3),
+      bg: const Color(0xFFF7F7FA),
+      surface: const Color(0xFFFFFFFF),
+      surfaceLight: const Color(0xFFF0F1F6),
+      surfaceHigh: const Color(0xFFE4E6EE),
+      border: const Color(0xFFE1E3EC),
       textMain: textMain,
       textSecondary: textMain.withValues(alpha: 0.62),
       primary: p.primaryLight,
       accent: p.accent,
-      secondary: BrandColors.twilight, // muted indigo-blue, reads on cream
+      secondary: BrandColors.twilight, // muted indigo-blue, neutral enough to pair with any accent
       danger: BrandColors.dangerLight,
       success: const Color(0xFF2ECC71),
       gold: _warmGold,
       onSolid: BrandColors.white,
       star: BrandColors.champagne,
-      starEmpty: const Color(0xFFE6D9C3),
+      starEmpty: const Color(0xFFE1E3EC),
       tagPalette: _tagPaletteConstant,
     );
   }

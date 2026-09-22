@@ -409,6 +409,30 @@ class DataLayer {
     await _turso.execute('DELETE FROM libraries WHERE id = ?', [id]);
   }
 
+  /// Persists a new drag-to-reorder order for a user's libraries.
+  /// [orderedIds] is the full list of library ids in their new display
+  /// order — position is written as each id's index in the list.
+  Future<void> librariesReorder(List<int> orderedIds) async {
+    if (orderedIds.isEmpty) return;
+    final statements = <MapEntry<String, List<dynamic>>>[];
+    for (int i = 0; i < orderedIds.length; i++) {
+      statements.add(MapEntry(
+        'UPDATE libraries SET position = ? WHERE id = ?',
+        [i, orderedIds[i]],
+      ));
+    }
+    await _turso.batch(statements);
+  }
+
+  Future<String?> _libraryOwnerId(int libraryId) async {
+    final res = await _turso.execute(
+      'SELECT owner_id FROM libraries WHERE id = ?',
+      [libraryId],
+    );
+    if (res.rows.isEmpty) return null;
+    return res.rows.first['owner_id']?.toString();
+  }
+
   // ─── Series Query & Detail ──────────────────────────────────────────
 
   static const String _seriesSelect = '''
@@ -427,13 +451,30 @@ class DataLayer {
     FROM series s
   ''';
 
+  /// Fetches titles for [ownerId]'s libraries, applying every filter the
+  /// Library screen's Sort & Filters sheet can set. Genre and tag filters
+  /// combine per [matchAllGenresTags]: false ("Any") matches a title that
+  /// has at least one of the selected genres OR tags; true ("All") requires
+  /// every selected genre AND every selected tag to be present.
   Future<List<Series>> seriesGetAll(
     String ownerId, {
     int? libraryId,
     String? status,
     String? search,
-    List<String>? tags,
-    List<String>? genres,
+    List<String> genres = const [],
+    List<String> tags = const [],
+    bool matchAllGenresTags = false,
+    int? minRating,
+    int? yearFrom,
+    int? yearTo,
+    String? bookType,
+    String? languageRead,
+    String? originalLanguage,
+    String? countryOfOrigin,
+    String? translationStatus,
+    String? author,
+    String? artist,
+    String? publisher,
     String sortBy = 'title',
     bool sortAsc = true,
     bool includeNsfw = true,
@@ -463,14 +504,137 @@ class DataLayer {
       args.addAll([term, term, term]);
     }
 
+    if (minRating != null && minRating > 0) {
+      whereClauses.add('s.rating >= ?');
+      args.add(minRating);
+    }
+
+    if (yearFrom != null) {
+      whereClauses.add(
+          "s.year_published IS NOT NULL AND s.year_published != '' AND CAST(s.year_published AS INTEGER) >= ?");
+      args.add(yearFrom);
+    }
+    if (yearTo != null) {
+      whereClauses.add(
+          "s.year_published IS NOT NULL AND s.year_published != '' AND CAST(s.year_published AS INTEGER) <= ?");
+      args.add(yearTo);
+    }
+
+    if (bookType != null && bookType.isNotEmpty) {
+      whereClauses.add('s.book_type = ?');
+      args.add(bookType);
+    }
+    if (languageRead != null && languageRead.isNotEmpty) {
+      whereClauses.add('s.language_read = ?');
+      args.add(languageRead);
+    }
+    if (originalLanguage != null && originalLanguage.isNotEmpty) {
+      whereClauses.add('s.original_language LIKE ?');
+      args.add('%$originalLanguage%');
+    }
+    if (countryOfOrigin != null && countryOfOrigin.isNotEmpty) {
+      whereClauses.add('s.country_of_origin LIKE ?');
+      args.add('%$countryOfOrigin%');
+    }
+    if (translationStatus != null && translationStatus.isNotEmpty) {
+      whereClauses.add('s.completely_translated = ?');
+      args.add(translationStatus);
+    }
+    if (author != null && author.isNotEmpty) {
+      whereClauses.add('s.author LIKE ?');
+      args.add('%$author%');
+    }
+    if (artist != null && artist.isNotEmpty) {
+      whereClauses.add('s.artist LIKE ?');
+      args.add('%$artist%');
+    }
+    if (publisher != null && publisher.isNotEmpty) {
+      whereClauses
+          .add('(s.original_publisher LIKE ? OR s.english_publisher LIKE ?)');
+      final term = '%$publisher%';
+      args.addAll([term, term]);
+    }
+
+    // ── Genre / Tag combined filter (Any / All matching) ────────────
+    final cleanGenres = genres.where((g) => g.trim().isNotEmpty).toList();
+    final cleanTags = tags.where((t) => t.trim().isNotEmpty).toList();
+
+    if (cleanGenres.isNotEmpty || cleanTags.isNotEmpty) {
+      if (matchAllGenresTags) {
+        // ALL: every selected genre AND every selected tag must be present.
+        if (cleanGenres.isNotEmpty) {
+          final placeholders = List.filled(cleanGenres.length, '?').join(',');
+          whereClauses.add('''
+            (SELECT COUNT(DISTINCT g.name) FROM series_genres sg
+               JOIN genres g ON sg.genre_id = g.id
+               WHERE sg.series_id = s.id AND g.name IN ($placeholders)) = ?
+          ''');
+          args.addAll(cleanGenres);
+          args.add(cleanGenres.length);
+        }
+        if (cleanTags.isNotEmpty) {
+          final placeholders = List.filled(cleanTags.length, '?').join(',');
+          whereClauses.add('''
+            (SELECT COUNT(DISTINCT t.name) FROM series_tags st
+               JOIN tags t ON st.tag_id = t.id
+               WHERE st.series_id = s.id AND t.name IN ($placeholders)) = ?
+          ''');
+          args.addAll(cleanTags);
+          args.add(cleanTags.length);
+        }
+      } else {
+        // ANY: at least one selected genre OR one selected tag.
+        final orParts = <String>[];
+        if (cleanGenres.isNotEmpty) {
+          final placeholders = List.filled(cleanGenres.length, '?').join(',');
+          orParts.add('''
+            s.id IN (SELECT sg.series_id FROM series_genres sg
+               JOIN genres g ON sg.genre_id = g.id
+               WHERE g.name IN ($placeholders))
+          ''');
+          args.addAll(cleanGenres);
+        }
+        if (cleanTags.isNotEmpty) {
+          final placeholders = List.filled(cleanTags.length, '?').join(',');
+          orParts.add('''
+            s.id IN (SELECT st.series_id FROM series_tags st
+               JOIN tags t ON st.tag_id = t.id
+               WHERE t.name IN ($placeholders))
+          ''');
+          args.addAll(cleanTags);
+        }
+        whereClauses.add('(${orParts.join(' OR ')})');
+      }
+    }
+
     final where = 'WHERE ${whereClauses.join(' AND ')}';
-    String order = 'ORDER BY s.title COLLATE NOCASE ASC';
-    if (sortBy == 'rating') {
-      order = 'ORDER BY s.rating ${sortAsc ? 'ASC' : 'DESC'}, s.title ASC';
-    } else if (sortBy == 'id') {
-      order = 'ORDER BY s.id ${sortAsc ? 'ASC' : 'DESC'}';
-    } else {
-      order = 'ORDER BY s.title COLLATE NOCASE ${sortAsc ? 'ASC' : 'DESC'}';
+
+    String order;
+    switch (sortBy) {
+      case 'rating':
+        order = 'ORDER BY s.rating ${sortAsc ? 'ASC' : 'DESC'}, s.title ASC';
+        break;
+      case 'id':
+        order = 'ORDER BY s.id ${sortAsc ? 'ASC' : 'DESC'}';
+        break;
+      case 'author':
+        order =
+            'ORDER BY s.author COLLATE NOCASE ${sortAsc ? 'ASC' : 'DESC'}, s.title ASC';
+        break;
+      case 'year':
+        order =
+            'ORDER BY CAST(s.year_published AS INTEGER) ${sortAsc ? 'ASC' : 'DESC'}, s.title ASC';
+        break;
+      case 'date_started':
+        order =
+            'ORDER BY s.date_started ${sortAsc ? 'ASC' : 'DESC'}, s.title ASC';
+        break;
+      case 'date_finished':
+        order =
+            'ORDER BY s.date_finished ${sortAsc ? 'ASC' : 'DESC'}, s.title ASC';
+        break;
+      default:
+        order = 'ORDER BY s.title COLLATE NOCASE ${sortAsc ? 'ASC' : 'DESC'}';
     }
 
     final sql = '$_seriesSelect $where $order';
@@ -625,6 +789,118 @@ class DataLayer {
       MapEntry('DELETE FROM series_group_items WHERE series_id = ?', [id]),
       MapEntry('DELETE FROM series WHERE id = ?', [id]),
     ]);
+  }
+
+  // ─── Transfer / Copy a title to another Library ────────────────────
+
+  /// Moves a title to a different library in place (same row, new
+  /// `library_id`). Everything attached to it — volumes, characters,
+  /// gallery, attachments, series-group membership — moves with it
+  /// automatically since it's keyed by `series_id`, not `library_id`.
+  Future<void> seriesTransferTo(int seriesId, int targetLibraryId) async {
+    await _turso.execute(
+      'UPDATE series SET library_id = ? WHERE id = ?',
+      [targetLibraryId, seriesId],
+    );
+  }
+
+  /// Duplicates a title into another library, optionally bringing its
+  /// volumes, characters (with their relationships to each other),
+  /// gallery images, and file/link attachments along. Returns the new
+  /// series id.
+  Future<int> seriesCopyTo(
+    int seriesId,
+    int targetLibraryId, {
+    bool includeVolumes = true,
+    bool includeCharacters = true,
+    bool includeGallery = true,
+    bool includeAttachments = true,
+  }) async {
+    final original = await seriesGetById(seriesId);
+    if (original == null) {
+      throw StateError('Series $seriesId not found');
+    }
+
+    final ownerId = await _libraryOwnerId(targetLibraryId) ?? '';
+    final copy = original.copyWith(id: 0, libraryId: targetLibraryId);
+    final newSeriesId = await seriesCreate(
+      ownerId,
+      copy,
+      tagNames: original.tags.map((t) => t.name).toList(),
+      genreNames: original.genres.map((g) => g.name).toList(),
+      warningNames: original.contentWarnings.map((w) => w.name).toList(),
+    );
+
+    if (includeVolumes) {
+      final volumes = await volumesGetBySeries(seriesId);
+      for (final v in volumes) {
+        await volumesCreate(v.copyWith(id: 0, seriesId: newSeriesId));
+      }
+    }
+
+    if (includeCharacters) {
+      final characters = await charactersGetBySeries(seriesId);
+      final idMap = <int, int>{};
+      for (final c in characters) {
+        final newId =
+            await charactersCreate(c.copyWith(id: 0, seriesId: newSeriesId));
+        idMap[c.id] = newId;
+      }
+      // Bring along relationships between characters that both got copied.
+      final relationships = await relationshipsGetBySeries(seriesId);
+      for (final r in relationships) {
+        final fromId = idMap[r.fromCharacterId];
+        final toId = idMap[r.toCharacterId];
+        if (fromId != null && toId != null) {
+          await relationshipsCreate(Relationship(
+            id: 0,
+            fromCharacterId: fromId,
+            toCharacterId: toId,
+            type: r.type,
+            label: r.label,
+            isBidirectional: r.isBidirectional,
+            notes: r.notes,
+          ));
+        }
+      }
+    }
+
+    if (includeGallery) {
+      final gallery = await galleryGetBySeries(seriesId);
+      for (final img in gallery) {
+        await galleryAdd(GalleryImage(
+          id: 0,
+          seriesId: newSeriesId,
+          imagePath: img.imagePath,
+          caption: img.caption,
+          position: img.position,
+        ));
+      }
+    }
+
+    if (includeAttachments) {
+      final attachments = await attachmentsGetBySeries(seriesId);
+      for (final a in attachments) {
+        await attachmentsAdd(Attachment(
+          id: 0,
+          seriesId: newSeriesId,
+          filePath: a.filePath,
+          fileName: a.fileName,
+          fileSize: a.fileSize,
+        ));
+      }
+      final links = await linksGetBySeries(seriesId);
+      for (final l in links) {
+        await linksAdd(LinkAttachment(
+          id: 0,
+          seriesId: newSeriesId,
+          url: l.url,
+          label: l.label,
+        ));
+      }
+    }
+
+    return newSeriesId;
   }
 
   Future<void> _syncTags(String ownerId, int seriesId, List<String> tagNames) async {

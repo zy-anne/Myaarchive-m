@@ -167,7 +167,15 @@ final selectedLibraryIdProvider = StateProvider<int?>((ref) => null);
 
 // ─── Filter & View Mode Providers ────────────────────────────────────
 
-enum ViewMode { grid, list }
+/// Grid = cover-forward cards; List = full-width row cards; Table = a
+/// dense, sortable spreadsheet-style view.
+enum ViewMode { grid, list, table }
+
+/// Any/All combined matching for the Genre + Tag filters — mirrors the
+/// desktop app's Any/All toggle. "Any" matches a title that has at least
+/// one of the selected genres OR tags; "All" requires every selected
+/// genre AND every selected tag to be present.
+enum GenreTagMatchMode { any, all }
 
 final viewModeProvider = StateProvider<ViewMode>((ref) => ViewMode.grid);
 
@@ -177,24 +185,137 @@ class SeriesFilter {
   final String sortBy;
   final bool sortAsc;
 
+  // Genre / Tag filters
+  final List<String> genres;
+  final List<String> tags;
+  final GenreTagMatchMode matchMode;
+
+  // Rating (minimum stars, 1-5)
+  final int? minRating;
+
+  // Publication year range (inclusive)
+  final int? yearFrom;
+  final int? yearTo;
+
+  // Metadata filters
+  final String? bookType;
+  final String? languageRead;
+  final String? originalLanguage;
+  final String? countryOfOrigin;
+  final String? translationStatus; // maps to `completely_translated`
+  final String? author;
+  final String? artist;
+  final String? publisher; // matches original OR english publisher
+
   const SeriesFilter({
     this.search = '',
     this.status = 'All',
     this.sortBy = 'title',
     this.sortAsc = true,
+    this.genres = const [],
+    this.tags = const [],
+    this.matchMode = GenreTagMatchMode.any,
+    this.minRating,
+    this.yearFrom,
+    this.yearTo,
+    this.bookType,
+    this.languageRead,
+    this.originalLanguage,
+    this.countryOfOrigin,
+    this.translationStatus,
+    this.author,
+    this.artist,
+    this.publisher,
   });
+
+  /// Whether any of the "advanced" (non search/status) filters are active —
+  /// used to badge the Filters button so the user knows something is applied.
+  bool get hasAdvancedFilters =>
+      genres.isNotEmpty ||
+      tags.isNotEmpty ||
+      minRating != null ||
+      yearFrom != null ||
+      yearTo != null ||
+      bookType != null ||
+      languageRead != null ||
+      originalLanguage != null ||
+      countryOfOrigin != null ||
+      translationStatus != null ||
+      (author != null && author!.isNotEmpty) ||
+      (artist != null && artist!.isNotEmpty) ||
+      (publisher != null && publisher!.isNotEmpty);
+
+  int get advancedFilterCount {
+    int c = 0;
+    if (genres.isNotEmpty) c++;
+    if (tags.isNotEmpty) c++;
+    if (minRating != null) c++;
+    if (yearFrom != null || yearTo != null) c++;
+    if (bookType != null) c++;
+    if (languageRead != null) c++;
+    if (originalLanguage != null) c++;
+    if (countryOfOrigin != null) c++;
+    if (translationStatus != null) c++;
+    if (author != null && author!.isNotEmpty) c++;
+    if (artist != null && artist!.isNotEmpty) c++;
+    if (publisher != null && publisher!.isNotEmpty) c++;
+    return c;
+  }
 
   SeriesFilter copyWith({
     String? search,
     String? status,
     String? sortBy,
     bool? sortAsc,
+    List<String>? genres,
+    List<String>? tags,
+    GenreTagMatchMode? matchMode,
+    int? minRating,
+    bool clearMinRating = false,
+    int? yearFrom,
+    bool clearYearFrom = false,
+    int? yearTo,
+    bool clearYearTo = false,
+    String? bookType,
+    bool clearBookType = false,
+    String? languageRead,
+    bool clearLanguageRead = false,
+    String? originalLanguage,
+    bool clearOriginalLanguage = false,
+    String? countryOfOrigin,
+    bool clearCountryOfOrigin = false,
+    String? translationStatus,
+    bool clearTranslationStatus = false,
+    String? author,
+    String? artist,
+    String? publisher,
   }) {
     return SeriesFilter(
       search: search ?? this.search,
       status: status ?? this.status,
       sortBy: sortBy ?? this.sortBy,
       sortAsc: sortAsc ?? this.sortAsc,
+      genres: genres ?? this.genres,
+      tags: tags ?? this.tags,
+      matchMode: matchMode ?? this.matchMode,
+      minRating: clearMinRating ? null : (minRating ?? this.minRating),
+      yearFrom: clearYearFrom ? null : (yearFrom ?? this.yearFrom),
+      yearTo: clearYearTo ? null : (yearTo ?? this.yearTo),
+      bookType: clearBookType ? null : (bookType ?? this.bookType),
+      languageRead:
+          clearLanguageRead ? null : (languageRead ?? this.languageRead),
+      originalLanguage: clearOriginalLanguage
+          ? null
+          : (originalLanguage ?? this.originalLanguage),
+      countryOfOrigin: clearCountryOfOrigin
+          ? null
+          : (countryOfOrigin ?? this.countryOfOrigin),
+      translationStatus: clearTranslationStatus
+          ? null
+          : (translationStatus ?? this.translationStatus),
+      author: author ?? this.author,
+      artist: artist ?? this.artist,
+      publisher: publisher ?? this.publisher,
     );
   }
 }
@@ -221,6 +342,20 @@ final seriesListProvider = FutureProvider<List<Series>>((ref) async {
     sortBy: filter.sortBy,
     sortAsc: filter.sortAsc,
     includeNsfw: showNsfw,
+    genres: filter.genres,
+    tags: filter.tags,
+    matchAllGenresTags: filter.matchMode == GenreTagMatchMode.all,
+    minRating: filter.minRating,
+    yearFrom: filter.yearFrom,
+    yearTo: filter.yearTo,
+    bookType: filter.bookType,
+    languageRead: filter.languageRead,
+    originalLanguage: filter.originalLanguage,
+    countryOfOrigin: filter.countryOfOrigin,
+    translationStatus: filter.translationStatus,
+    author: filter.author,
+    artist: filter.artist,
+    publisher: filter.publisher,
   );
 });
 

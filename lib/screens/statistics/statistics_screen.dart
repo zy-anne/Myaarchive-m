@@ -327,23 +327,16 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            palette.primary.withValues(alpha: 0.35),
-            palette.surfaceLight,
-          ],
+          colors: [palette.primary, palette.accent],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: palette.primary.withValues(alpha: 0.4),
-          width: 1.2,
-        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: palette.primary.withValues(alpha: 0.35),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -362,23 +355,23 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.0,
-                      color: palette.accent,
+                      color: Colors.white.withValues(alpha: 0.85),
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     '$_selectedYear Reading Journey',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: palette.textMain,
+                      color: Colors.white,
                     ),
                   ),
                 ],
               ),
               IconButton(
                 icon: const Icon(Icons.edit_outlined, size: 20),
-                color: palette.accent,
+                color: Colors.white,
                 tooltip: 'Set Reading Goal',
                 onPressed: () => _showSetGoalDialog(goal?.toString(), palette),
               ),
@@ -403,33 +396,33 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                 const SizedBox(width: 6),
                 Text(
                   'of',
-                  style: TextStyle(color: palette.textSecondary, fontSize: 14),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 14),
                 ),
                 const SizedBox(width: 6),
                 Text(
                   '$goal',
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: palette.accent,
+                    color: Colors.white,
                   ),
                 ),
                 const SizedBox(width: 6),
                 Text(
                   'works read',
-                  style: TextStyle(color: palette.textSecondary, fontSize: 13),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 13),
                 ),
                 const Spacer(),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: palette.primary.withValues(alpha: 0.3),
+                    color: Colors.white.withValues(alpha: 0.22),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     '$pctText%',
-                    style: TextStyle(
-                      color: palette.accent,
+                    style: const TextStyle(
+                      color: Colors.white,
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
                     ),
@@ -445,10 +438,8 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
               child: LinearProgressIndicator(
                 value: progressPct,
                 minHeight: 10,
-                backgroundColor: palette.surfaceHigh,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  palette.accent,
-                ),
+                backgroundColor: Colors.white.withValues(alpha: 0.22),
+                valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
               ),
             ),
             const SizedBox(height: 10),
@@ -460,7 +451,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                   : '🎉 Congratulations! You reached your reading goal!',
               style: TextStyle(
                 fontSize: 12,
-                color: palette.textSecondary,
+                color: Colors.white.withValues(alpha: 0.85),
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -469,25 +460,25 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: palette.bg.withValues(alpha: 0.6),
+                color: Colors.black.withValues(alpha: 0.18),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.flag_outlined,
-                      color: palette.gold, size: 24),
+                  const Icon(Icons.flag_outlined,
+                      color: Colors.white, size: 24),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       'No annual goal set yet for this year.',
-                      style: TextStyle(fontSize: 13, color: palette.textMain),
+                      style: TextStyle(fontSize: 13, color: Colors.white.withValues(alpha: 0.9)),
                     ),
                   ),
                   ElevatedButton(
                     onPressed: () => _showSetGoalDialog(null, palette),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: palette.primary,
-                      foregroundColor: Colors.white,
+                      backgroundColor: Colors.white,
+                      foregroundColor: palette.primary,
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 8),
                       minimumSize: Size.zero,

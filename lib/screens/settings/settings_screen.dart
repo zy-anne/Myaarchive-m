@@ -340,10 +340,32 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ],
           ),
           const SizedBox(height: 4),
+          Text(
+            'Drag the handle to reorder — this is the order libraries appear in throughout the app.',
+            style: TextStyle(fontSize: 11.5, color: palette.textSecondary),
+          ),
+          const SizedBox(height: 8),
           librariesAsync.when(
-            data: (libs) => Column(
-              children: libs.map((lib) {
+            data: (libs) => ReorderableListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: libs.length,
+              onReorderItem: (oldIndex, newIndex) async {
+                // onReorderItem's newIndex already accounts for the removed
+                // item at oldIndex, unlike the deprecated onReorder — so no
+                // manual adjustment is needed here.
+                final reordered = List.of(libs);
+                final moved = reordered.removeAt(oldIndex);
+                reordered.insert(newIndex, moved);
+                await ref
+                    .read(dataLayerProvider)
+                    .librariesReorder(reordered.map((l) => l.id).toList());
+                ref.invalidate(librariesProvider);
+              },
+              itemBuilder: (context, index) {
+                final lib = libs[index];
                 return Card(
+                  key: ValueKey(lib.id),
                   color: palette.surfaceLight,
                   margin: const EdgeInsets.only(bottom: 8),
                   shape: RoundedRectangleBorder(
@@ -356,8 +378,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     title: Text(lib.name,
                         style: const TextStyle(fontWeight: FontWeight.w600)),
                     subtitle: Text('${lib.seriesCount} entries'),
-                    trailing: libs.length > 1
-                        ? IconButton(
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (libs.length > 1)
+                          IconButton(
                             icon: const Icon(Icons.delete_outline, size: 18),
                             onPressed: () async {
                               await ref
@@ -365,11 +390,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                   .librariesDelete(lib.id);
                               ref.invalidate(librariesProvider);
                             },
-                          )
-                        : null,
+                          ),
+                        ReorderableDragStartListener(
+                          index: index,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                            child: Icon(
+                              Icons.drag_handle_rounded,
+                              color: palette.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 );
-              }).toList(),
+              },
             ),
             loading: () => Center(
               child: CircularProgressIndicator(color: palette.accent),

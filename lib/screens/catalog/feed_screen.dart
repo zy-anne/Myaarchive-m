@@ -10,7 +10,9 @@ import '../../theme/app_palette.dart';
 import '../../widgets/cover_image.dart';
 import '../../widgets/rating_stars.dart';
 import '../../widgets/series_card.dart';
+import '../../widgets/series_table_view.dart';
 import '../../widgets/status_badge.dart';
+import '../../widgets/transfer_copy_dialog.dart';
 
 /// Catalog Feed screen matching the wireframe layout.
 class FeedScreen extends ConsumerStatefulWidget {
@@ -25,18 +27,94 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
   bool _groupsSectionCollapsed = false;
   final Set<int> _expandedGroupIds = {};
 
+  static const List<String> _bookTypeOptions = [
+    'Manga',
+    'Light Novel',
+    'Webtoon',
+    'Novel',
+    'Manhwa',
+    'Manhua',
+    'Comic',
+    'Fanfic',
+    'Other',
+  ];
+  static const List<String> _languageOptions = [
+    'English',
+    'Japanese',
+    'Korean',
+    'Chinese',
+    'Other',
+  ];
+  static const List<String> _translationOptions = [
+    'Yes',
+    'No',
+    'In Progress',
+    'N/A',
+  ];
+
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
 
+  IconData _viewModeIcon(ViewMode mode) {
+    switch (mode) {
+      case ViewMode.grid:
+        return Icons.grid_view_rounded;
+      case ViewMode.list:
+        return Icons.view_list_rounded;
+      case ViewMode.table:
+        return Icons.table_rows_rounded;
+    }
+  }
+
+  ViewMode _nextViewMode(ViewMode mode) {
+    switch (mode) {
+      case ViewMode.grid:
+        return ViewMode.list;
+      case ViewMode.list:
+        return ViewMode.table;
+      case ViewMode.table:
+        return ViewMode.grid;
+    }
+  }
+
+  TextStyle _sectionLabelStyle(AppPalette palette) => TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 0.8,
+        color: palette.textSecondary,
+      );
+
   void _openFilterBottomSheet(AppPalette palette) {
     final filter = ref.read(seriesFilterProvider);
+    final genresAsync = ref.read(allGenresProvider);
+    final tagsAsync = ref.read(userTagsProvider);
+
+    final selectedGenres = List<String>.from(filter.genres);
+    final selectedTags = List<String>.from(filter.tags);
+    GenreTagMatchMode matchMode = filter.matchMode;
+    int minRating = filter.minRating ?? 0;
+    final yearFromCtrl =
+        TextEditingController(text: filter.yearFrom?.toString() ?? '');
+    final yearToCtrl =
+        TextEditingController(text: filter.yearTo?.toString() ?? '');
+    final authorCtrl = TextEditingController(text: filter.author ?? '');
+    final artistCtrl = TextEditingController(text: filter.artist ?? '');
+    final publisherCtrl = TextEditingController(text: filter.publisher ?? '');
+    final originalLanguageCtrl =
+        TextEditingController(text: filter.originalLanguage ?? '');
+    final countryCtrl =
+        TextEditingController(text: filter.countryOfOrigin ?? '');
+    String? bookType = filter.bookType;
+    String? languageRead = filter.languageRead;
+    String? translationStatus = filter.translationStatus;
 
     showModalBottomSheet(
       context: context,
       backgroundColor: palette.surfaceLight,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -44,79 +122,348 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
         return StatefulBuilder(
           builder: (context, setModalState) {
             return Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Sort & Filters',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: palette.textMain,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded),
-                        onPressed: () => Navigator.pop(ctx),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'SORT BY',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.8,
-                      color: palette.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      _buildSortChip('Title A-Z', 'title', true, filter, palette),
-                      _buildSortChip('Title Z-A', 'title', false, filter, palette),
-                      _buildSortChip('Highest Rated', 'rating', false, filter, palette),
-                      _buildSortChip('Recently Added', 'id', false, filter, palette),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () {
-                            ref.read(seriesFilterProvider.notifier).state =
-                                const SeriesFilter();
-                            Navigator.pop(ctx);
-                          },
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: palette.textSecondary,
-                            side: BorderSide(color: palette.border),
+              padding: EdgeInsets.fromLTRB(
+                  20, 20, 20, 32 + MediaQuery.of(ctx).viewInsets.bottom),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Sort & Filters',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: palette.textMain,
                           ),
-                          child: const Text('Reset All'),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded),
                           onPressed: () => Navigator.pop(ctx),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: palette.primary,
-                            foregroundColor: Colors.white,
-                          ),
-                          child: const Text('Apply'),
                         ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ── Sort ──────────────────────────────────────────
+                    Text('SORT BY', style: _sectionLabelStyle(palette)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _buildSortChip('Title A-Z', 'title', true, filter, palette),
+                        _buildSortChip('Title Z-A', 'title', false, filter, palette),
+                        _buildSortChip('Author A-Z', 'author', true, filter, palette),
+                        _buildSortChip('Highest Rated', 'rating', false, filter, palette),
+                        _buildSortChip('Year (Newest)', 'year', false, filter, palette),
+                        _buildSortChip('Recently Started', 'date_started', false, filter, palette),
+                        _buildSortChip('Recently Finished', 'date_finished', false, filter, palette),
+                        _buildSortChip('Recently Added', 'id', false, filter, palette),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+
+                    // ── Genres ────────────────────────────────────────
+                    genresAsync.when(
+                      data: (genres) {
+                        if (genres.isEmpty) return const SizedBox.shrink();
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('GENRES', style: _sectionLabelStyle(palette)),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: genres.map((g) {
+                                final isSel = selectedGenres.contains(g.name);
+                                return FilterChip(
+                                  label: Text(g.name, style: const TextStyle(fontSize: 12)),
+                                  selected: isSel,
+                                  onSelected: (_) => setModalState(() {
+                                    isSel
+                                        ? selectedGenres.remove(g.name)
+                                        : selectedGenres.add(g.name);
+                                  }),
+                                  selectedColor: palette.primary,
+                                  backgroundColor: palette.surface,
+                                  labelStyle: TextStyle(
+                                      color: isSel ? Colors.white : palette.textSecondary),
+                                );
+                              }).toList(),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                        );
+                      },
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
+                    ),
+
+                    // ── Tags ──────────────────────────────────────────
+                    tagsAsync.when(
+                      data: (tags) {
+                        if (tags.isEmpty) return const SizedBox.shrink();
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('TAGS', style: _sectionLabelStyle(palette)),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: tags.map((t) {
+                                final isSel = selectedTags.contains(t.name);
+                                return FilterChip(
+                                  label: Text(t.name, style: const TextStyle(fontSize: 12)),
+                                  selected: isSel,
+                                  onSelected: (_) => setModalState(() {
+                                    isSel
+                                        ? selectedTags.remove(t.name)
+                                        : selectedTags.add(t.name);
+                                  }),
+                                  selectedColor: palette.primary,
+                                  backgroundColor: palette.surface,
+                                  labelStyle: TextStyle(
+                                      color: isSel ? Colors.white : palette.textSecondary),
+                                );
+                              }).toList(),
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                        );
+                      },
+                      loading: () => const SizedBox.shrink(),
+                      error: (_, __) => const SizedBox.shrink(),
+                    ),
+
+                    if (selectedGenres.isNotEmpty || selectedTags.isNotEmpty) ...[
+                      Row(
+                        children: [
+                          Text('Match: ',
+                              style: TextStyle(fontSize: 12, color: palette.textSecondary)),
+                          ChoiceChip(
+                            label: const Text('Any', style: TextStyle(fontSize: 12)),
+                            selected: matchMode == GenreTagMatchMode.any,
+                            onSelected: (_) =>
+                                setModalState(() => matchMode = GenreTagMatchMode.any),
+                          ),
+                          const SizedBox(width: 6),
+                          ChoiceChip(
+                            label: const Text('All', style: TextStyle(fontSize: 12)),
+                            selected: matchMode == GenreTagMatchMode.all,
+                            onSelected: (_) =>
+                                setModalState(() => matchMode = GenreTagMatchMode.all),
+                          ),
+                        ],
                       ),
+                      const SizedBox(height: 16),
                     ],
-                  ),
-                ],
+
+                    // ── Rating ────────────────────────────────────────
+                    Text('MINIMUM RATING', style: _sectionLabelStyle(palette)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        RatingStars(
+                          rating: minRating,
+                          size: 24,
+                          onRatingChanged: (r) => setModalState(() => minRating = r),
+                        ),
+                        if (minRating > 0)
+                          TextButton(
+                            onPressed: () => setModalState(() => minRating = 0),
+                            child: const Text('Clear'),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ── Publication year range ────────────────────────
+                    Text('PUBLICATION YEAR', style: _sectionLabelStyle(palette)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: yearFromCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(labelText: 'From', isDense: true),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            controller: yearToCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(labelText: 'To', isDense: true),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ── Format / language ─────────────────────────────
+                    Text('FORMAT & LANGUAGE', style: _sectionLabelStyle(palette)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<String?>(
+                            initialValue: bookType,
+                            isExpanded: true,
+                            dropdownColor: palette.surfaceLight,
+                            decoration: const InputDecoration(labelText: 'Book Type', isDense: true),
+                            items: [
+                              const DropdownMenuItem<String?>(value: null, child: Text('Any')),
+                              ..._bookTypeOptions
+                                  .map((b) => DropdownMenuItem<String?>(value: b, child: Text(b))),
+                            ],
+                            onChanged: (v) => setModalState(() => bookType = v),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: DropdownButtonFormField<String?>(
+                            initialValue: languageRead,
+                            isExpanded: true,
+                            dropdownColor: palette.surfaceLight,
+                            decoration:
+                                const InputDecoration(labelText: 'Language Read', isDense: true),
+                            items: [
+                              const DropdownMenuItem<String?>(value: null, child: Text('Any')),
+                              ..._languageOptions
+                                  .map((l) => DropdownMenuItem<String?>(value: l, child: Text(l))),
+                            ],
+                            onChanged: (v) => setModalState(() => languageRead = v),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: originalLanguageCtrl,
+                            decoration: const InputDecoration(
+                                labelText: 'Original Language', isDense: true),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            controller: countryCtrl,
+                            decoration: const InputDecoration(
+                                labelText: 'Country of Origin', isDense: true),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String?>(
+                      initialValue: translationStatus,
+                      isExpanded: true,
+                      dropdownColor: palette.surfaceLight,
+                      decoration:
+                          const InputDecoration(labelText: 'Translation Status', isDense: true),
+                      items: [
+                        const DropdownMenuItem<String?>(value: null, child: Text('Any')),
+                        ..._translationOptions
+                            .map((t) => DropdownMenuItem<String?>(value: t, child: Text(t))),
+                      ],
+                      onChanged: (v) => setModalState(() => translationStatus = v),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ── People & publishers ───────────────────────────
+                    Text('PEOPLE & PUBLISHERS', style: _sectionLabelStyle(palette)),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: authorCtrl,
+                      decoration: const InputDecoration(labelText: 'Author', isDense: true),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: artistCtrl,
+                      decoration: const InputDecoration(labelText: 'Artist', isDense: true),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: publisherCtrl,
+                      decoration: const InputDecoration(
+                          labelText: 'Publisher (Original or English)', isDense: true),
+                    ),
+                    const SizedBox(height: 24),
+
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () {
+                              ref.read(seriesFilterProvider.notifier).state =
+                                  const SeriesFilter();
+                              Navigator.pop(ctx);
+                            },
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: palette.textSecondary,
+                              side: BorderSide(color: palette.border),
+                            ),
+                            child: const Text('Reset All'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              final currentFilter = ref.read(seriesFilterProvider);
+                              ref.read(seriesFilterProvider.notifier).state =
+                                  currentFilter.copyWith(
+                                genres: selectedGenres,
+                                tags: selectedTags,
+                                matchMode: matchMode,
+                                minRating: minRating > 0 ? minRating : null,
+                                clearMinRating: minRating == 0,
+                                yearFrom: int.tryParse(yearFromCtrl.text.trim()),
+                                clearYearFrom: yearFromCtrl.text.trim().isEmpty,
+                                yearTo: int.tryParse(yearToCtrl.text.trim()),
+                                clearYearTo: yearToCtrl.text.trim().isEmpty,
+                                bookType: bookType,
+                                clearBookType: bookType == null,
+                                languageRead: languageRead,
+                                clearLanguageRead: languageRead == null,
+                                originalLanguage: originalLanguageCtrl.text.trim().isEmpty
+                                    ? null
+                                    : originalLanguageCtrl.text.trim(),
+                                clearOriginalLanguage:
+                                    originalLanguageCtrl.text.trim().isEmpty,
+                                countryOfOrigin: countryCtrl.text.trim().isEmpty
+                                    ? null
+                                    : countryCtrl.text.trim(),
+                                clearCountryOfOrigin: countryCtrl.text.trim().isEmpty,
+                                translationStatus: translationStatus,
+                                clearTranslationStatus: translationStatus == null,
+                                author: authorCtrl.text.trim(),
+                                artist: artistCtrl.text.trim(),
+                                publisher: publisherCtrl.text.trim(),
+                              );
+                              Navigator.pop(ctx);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: palette.primary,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text('Apply'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             );
           },
@@ -163,6 +510,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     final librariesAsync = ref.watch(librariesProvider);
     final selectedLibId = ref.watch(selectedLibraryIdProvider);
     final filter = ref.watch(seriesFilterProvider);
+    final viewMode = ref.watch(viewModeProvider);
 
     // Dynamic reading statuses (Settings → Manage Statuses), falling back
     // to the built-in 5 while loading or if the user has none.
@@ -258,7 +606,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 14)),
 
-              // ── 3. Search Bar + Purple Filter Button ─────────────────────
+              // ── 3. Search Bar + View Toggle + Filter Button ──────────────
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 18.0),
@@ -321,6 +669,30 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                       ),
                       const SizedBox(width: 10),
 
+                      // View Mode Toggle (Grid → List → Table)
+                      Container(
+                        height: 46,
+                        width: 46,
+                        decoration: BoxDecoration(
+                          color: palette.surface,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: palette.border, width: 1.2),
+                        ),
+                        child: IconButton(
+                          icon: Icon(
+                            _viewModeIcon(viewMode),
+                            color: palette.textSecondary,
+                            size: 20,
+                          ),
+                          tooltip: 'Change view',
+                          onPressed: () {
+                            ref.read(viewModeProvider.notifier).state =
+                                _nextViewMode(viewMode);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+
                       // Purple Filter Square Button
                       Container(
                         height: 46,
@@ -336,14 +708,32 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                             ),
                           ],
                         ),
-                        child: IconButton(
-                          icon: Icon(
-                            Icons.filter_alt_rounded,
-                            color: palette.onSolid,
-                            size: 22,
-                          ),
-                          tooltip: 'Sort & Filters',
-                          onPressed: () => _openFilterBottomSheet(palette),
+                        child: Stack(
+                          children: [
+                            IconButton(
+                              icon: Icon(
+                                Icons.filter_alt_rounded,
+                                color: palette.onSolid,
+                                size: 22,
+                              ),
+                              tooltip: 'Sort & Filters',
+                              onPressed: () => _openFilterBottomSheet(palette),
+                            ),
+                            if (filter.hasAdvancedFilters)
+                              Positioned(
+                                right: 4,
+                                top: 4,
+                                child: Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: palette.gold,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: palette.primary, width: 1.5),
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                     ],
@@ -387,7 +777,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
               if (selectedLibId != null)
                 SliverToBoxAdapter(child: _buildGroupsSection(selectedLibId, palette)),
 
-              // ── 6. Series Grid (2-Column Wireframe) ──────────────────────
+              // ── 6. Series Grid / List / Table ─────────────────────────────
               seriesAsync.when(
                 data: (seriesList) {
                   final items = _filteredList(seriesList);
@@ -396,6 +786,41 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     return SliverFillRemaining(
                       hasScrollBody: false,
                       child: _buildEmptyState(context, palette),
+                    );
+                  }
+
+                  if (viewMode == ViewMode.table) {
+                    return SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 40),
+                        child: SeriesTableView(
+                          items: items,
+                          filter: filter,
+                          onFilterChanged: (f) =>
+                              ref.read(seriesFilterProvider.notifier).state = f,
+                        ),
+                      ),
+                    );
+                  }
+
+                  if (viewMode == ViewMode.list) {
+                    return SliverPadding(
+                      padding: const EdgeInsets.only(bottom: 80),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            final item = items[index];
+                            return SeriesCard(
+                              series: item,
+                              isGrid: false,
+                              onTap: () => context.push('/series/${item.id}'),
+                              onLongPress: () =>
+                                  showTransferCopyDialog(context, ref, item, palette),
+                            );
+                          },
+                          childCount: items.length,
+                        ),
+                      ),
                     );
                   }
 
@@ -416,6 +841,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                             series: item,
                             isGrid: true,
                             onTap: () => context.push('/series/${item.id}'),
+                            onLongPress: () =>
+                                showTransferCopyDialog(context, ref, item, palette),
                           );
                         },
                         childCount: items.length,

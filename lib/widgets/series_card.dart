@@ -10,12 +10,14 @@ import 'status_badge.dart';
 class SeriesCard extends StatelessWidget {
   final Series series;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
   final bool isGrid;
 
   const SeriesCard({
     super.key,
     required this.series,
     required this.onTap,
+    this.onLongPress,
     this.isGrid = true,
   });
 
@@ -41,6 +43,7 @@ class SeriesCard extends StatelessWidget {
 
   return GestureDetector(
     onTap: onTap,
+    onLongPress: onLongPress,
     child: Container(
       decoration: BoxDecoration(
         color: palette.surface,
@@ -212,6 +215,7 @@ Widget _buildOverlayTag(String text, Color bg, Color fg) {
       ),
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(10.0),
