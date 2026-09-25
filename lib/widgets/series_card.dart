@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../models/metadata.dart';
 import '../models/series.dart';
 import '../theme/app_palette.dart';
@@ -122,7 +123,7 @@ class SeriesCard extends StatelessWidget {
                   series.title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+                  style: GoogleFonts.outfit(
                     color: palette.textMain,
                     fontSize: 13.5,
                     fontWeight: FontWeight.bold,
@@ -134,7 +135,7 @@ class SeriesCard extends StatelessWidget {
                   series.author ?? 'Unknown Author',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+                  style: GoogleFonts.inter(
                     color: palette.textSecondary,
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
@@ -155,7 +156,7 @@ class SeriesCard extends StatelessWidget {
                       ),
                       child: Text(
                         series.status.toUpperCase(),
-                        style: TextStyle(
+                        style: GoogleFonts.inter(
                           color: statusColor,
                           fontSize: 9,
                           fontWeight: FontWeight.bold,
@@ -166,7 +167,7 @@ class SeriesCard extends StatelessWidget {
                     if (countLabel != null)
                       Text(
                         countLabel,
-                        style: TextStyle(
+                        style: GoogleFonts.inter(
                           color: palette.accent,
                           fontSize: 10.5,
                           fontWeight: FontWeight.w600,
@@ -192,7 +193,7 @@ Widget _buildOverlayTag(String text, Color bg, Color fg) {
     ),
     child: Text(
       text,
-      style: TextStyle(
+      style: GoogleFonts.inter(
         color: fg,
         fontSize: 9,
         fontWeight: FontWeight.w700,
@@ -247,7 +248,7 @@ Widget _buildOverlayTag(String text, Color bg, Color fg) {
                             series.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
+                            style: GoogleFonts.outfit(
                               color: palette.textMain,
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
@@ -262,7 +263,7 @@ Widget _buildOverlayTag(String text, Color bg, Color fg) {
                       const SizedBox(height: 2),
                       Text(
                         series.author!,
-                        style: TextStyle(
+                        style: GoogleFonts.inter(
                           color: palette.textSecondary,
                           fontSize: 12,
                         ),
@@ -280,7 +281,7 @@ Widget _buildOverlayTag(String text, Color bg, Color fg) {
                         if (series.volumeCount > 0)
                           Text(
                             '${series.volumeCount} vols',
-                            style: TextStyle(
+                            style: GoogleFonts.inter(
                               color: palette.textSecondary,
                               fontSize: 11,
                             ),
@@ -289,7 +290,7 @@ Widget _buildOverlayTag(String text, Color bg, Color fg) {
                             series.standaloneChapterCount != null)
                           Text(
                             ' • ',
-                            style: TextStyle(
+                            style: GoogleFonts.inter(
                               color: palette.textSecondary,
                               fontSize: 11,
                             ),
@@ -297,7 +298,7 @@ Widget _buildOverlayTag(String text, Color bg, Color fg) {
                         if (series.standaloneChapterCount != null)
                           Text(
                             '${series.standaloneChapterCount} chs',
-                            style: TextStyle(
+                            style: GoogleFonts.inter(
                               color: palette.textSecondary,
                               fontSize: 11,
                             ),

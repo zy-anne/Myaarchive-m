@@ -286,7 +286,7 @@ class _ModePill extends StatelessWidget {
           label,
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: selected ? Colors.white : palette.textSecondary,
+            color: selected ? palette.onSolid : palette.textSecondary,
           ),
         ),
       ),

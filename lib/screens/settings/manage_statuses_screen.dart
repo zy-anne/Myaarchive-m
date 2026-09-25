@@ -148,16 +148,13 @@ class ManageStatusesScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: palette.bg,
       appBar: AppBar(
-        title: const Text(
-          'Manage Statuses',
-          style: TextStyle(fontFamily: 'Outfit', fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Manage Statuses'),
       ),
       floatingActionButton: user == null
           ? null
           : FloatingActionButton(
               backgroundColor: palette.primary,
-              foregroundColor: Colors.white,
+              foregroundColor: palette.onSolid,
               onPressed: () => _showEditDialog(context, ref, user.id, palette),
               child: const Icon(Icons.add_rounded),
             ),

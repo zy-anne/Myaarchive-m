@@ -98,14 +98,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     return Scaffold(
       backgroundColor: palette.bg,
       appBar: AppBar(
-        title: const Text(
-          'Reading Statistics',
-          style: TextStyle(
-            fontFamily: 'Outfit',
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
-        ),
+        title: const Text('Reading Statistics'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
@@ -869,7 +862,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
               ),
               alignment: Alignment.center,
               child: Text('$day', style: TextStyle(fontSize: 10,
-                  color: count > 0 ? Colors.white : palette.textSecondary)),
+                  color: count > 0 ? palette.onSolid : palette.textSecondary)),
             );
           },
         ),

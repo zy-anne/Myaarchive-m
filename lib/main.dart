@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'theme/app_color_palette.dart';
 import 'providers/app_providers.dart';
 import 'router/app_router.dart';
@@ -8,9 +9,24 @@ import 'theme/colors.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final prefs = await SharedPreferences.getInstance();
+  final savedThemeMode = prefs.getString('myaarchive_theme_mode');
+  final ThemeMode initialThemeMode = savedThemeMode == 'light'
+      ? ThemeMode.light
+      : savedThemeMode == 'dark'
+          ? ThemeMode.dark
+          : ThemeMode.dark;
+  final savedPaletteId = prefs.getString('myaarchive_color_palette_id');
+
   runApp(
-    const ProviderScope(
-      child: MyaarchiveApp(),
+    ProviderScope(
+      overrides: [
+        if (savedThemeMode != null)
+          themeModeProvider.overrideWith((ref) => initialThemeMode),
+        if (savedPaletteId != null)
+          colorPaletteIdProvider.overrideWith((ref) => savedPaletteId),
+      ],
+      child: const MyaarchiveApp(),
     ),
   );
 }
@@ -20,6 +36,7 @@ class MyaarchiveApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(themeInitProvider);
     final router = ref.watch(appRouterProvider);
     final themeMode = ref.watch(themeModeProvider);
     final palette = AppColorPalettes.byId(ref.watch(colorPaletteIdProvider));

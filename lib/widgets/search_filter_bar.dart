@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/metadata.dart';
 import '../providers/app_providers.dart';
-import '../theme/colors.dart';
+import '../theme/app_palette.dart';
 
 /// Interactive search and filter header for the series catalog.
 class SearchFilterBar extends ConsumerStatefulWidget {
@@ -27,6 +27,7 @@ class _SearchFilterBarState extends ConsumerState<SearchFilterBar> {
     final viewMode = ref.watch(viewModeProvider);
     final librariesAsync = ref.watch(librariesProvider);
     final selectedLibId = ref.watch(selectedLibraryIdProvider);
+    final palette = context.palette;
 
     return Column(
       children: [
@@ -40,10 +41,10 @@ class _SearchFilterBarState extends ConsumerState<SearchFilterBar> {
                 child: Container(
                   height: 44,
                   decoration: BoxDecoration(
-                    color: AppColors.darkSurfaceLight,
+                    color: palette.surfaceLight,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: AppColors.darkBorder.withValues(alpha: 0.8),
+                      color: palette.border,
                       width: 1,
                     ),
                   ),
@@ -54,18 +55,18 @@ class _SearchFilterBarState extends ConsumerState<SearchFilterBar> {
                           filter.copyWith(search: val);
                     },
                     style: TextStyle(
-                      color: AppColors.darkText,
+                      color: palette.textMain,
                       fontSize: 14,
                     ),
                     decoration: InputDecoration(
                       hintText: 'Search title, author, fandom...',
                       hintStyle: TextStyle(
-                        color: AppColors.darkTextMuted.withValues(alpha: 0.7),
+                        color: palette.textSecondary,
                         fontSize: 13,
                       ),
                       prefixIcon: Icon(
                         Icons.search_rounded,
-                        color: AppColors.darkTextMuted,
+                        color: palette.textSecondary,
                         size: 20,
                       ),
                       suffixIcon: _searchController.text.isNotEmpty
@@ -73,7 +74,7 @@ class _SearchFilterBarState extends ConsumerState<SearchFilterBar> {
                               icon: Icon(
                                 Icons.close_rounded,
                                 size: 18,
-                                color: AppColors.darkTextMuted,
+                                color: palette.textSecondary,
                               ),
                               onPressed: () {
                                 _searchController.clear();
@@ -95,10 +96,10 @@ class _SearchFilterBarState extends ConsumerState<SearchFilterBar> {
                 height: 44,
                 width: 44,
                 decoration: BoxDecoration(
-                  color: AppColors.darkSurfaceLight,
+                  color: palette.surfaceLight,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: AppColors.darkBorder.withValues(alpha: 0.8),
+                    color: palette.border,
                     width: 1,
                   ),
                 ),
@@ -107,7 +108,7 @@ class _SearchFilterBarState extends ConsumerState<SearchFilterBar> {
                     viewMode == ViewMode.grid
                         ? Icons.view_list_rounded
                         : Icons.grid_view_rounded,
-                    color: AppColors.primaryLight,
+                    color: palette.accent,
                     size: 20,
                   ),
                   onPressed: () {
@@ -141,10 +142,10 @@ class _SearchFilterBarState extends ConsumerState<SearchFilterBar> {
                     margin: const EdgeInsets.only(right: 8),
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.2),
+                      color: palette.primary.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: AppColors.primary.withValues(alpha: 0.5),
+                        color: palette.primary.withValues(alpha: 0.4),
                         width: 1,
                       ),
                     ),
@@ -153,14 +154,14 @@ class _SearchFilterBarState extends ConsumerState<SearchFilterBar> {
                       onSelected: (id) {
                         ref.read(selectedLibraryIdProvider.notifier).state = id;
                       },
-                      color: AppColors.darkSurfaceLight,
+                      color: palette.surfaceLight,
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             Icons.collections_bookmark_rounded,
                             size: 14,
-                            color: AppColors.primaryLight,
+                            color: palette.primary,
                           ),
                           const SizedBox(width: 6),
                           Text(
@@ -168,7 +169,7 @@ class _SearchFilterBarState extends ConsumerState<SearchFilterBar> {
                                 ? 'All Libraries'
                                 : currentLib.name,
                             style: TextStyle(
-                              color: AppColors.primaryLight,
+                              color: palette.primary,
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                             ),
@@ -177,7 +178,7 @@ class _SearchFilterBarState extends ConsumerState<SearchFilterBar> {
                           Icon(
                             Icons.arrow_drop_down_rounded,
                             size: 16,
-                            color: AppColors.primaryLight,
+                            color: palette.primary,
                           ),
                         ],
                       ),
@@ -204,13 +205,13 @@ class _SearchFilterBarState extends ConsumerState<SearchFilterBar> {
               _buildFilterChip('All', filter.status == 'All', () {
                 ref.read(seriesFilterProvider.notifier).state =
                     filter.copyWith(status: 'All');
-              }),
+              }, palette),
               ...ReadingStatus.all.map((status) {
                 final isSelected = filter.status == status;
                 return _buildFilterChip(status, isSelected, () {
                   ref.read(seriesFilterProvider.notifier).state =
                       filter.copyWith(status: status);
-                });
+                }, palette);
               }),
             ],
           ),
@@ -219,28 +220,28 @@ class _SearchFilterBarState extends ConsumerState<SearchFilterBar> {
     );
   }
 
-  Widget _buildFilterChip(String label, bool isSelected, VoidCallback onTap) {
+  Widget _buildFilterChip(String label, bool isSelected, VoidCallback onTap, AppPalette palette) {
     return Padding(
       padding: const EdgeInsets.only(right: 6.0),
       child: FilterChip(
         label: Text(
           label,
           style: TextStyle(
-            color: isSelected ? Colors.white : AppColors.darkTextMuted,
+            color: isSelected ? palette.onSolid : palette.textSecondary,
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
           ),
         ),
         selected: isSelected,
         onSelected: (_) => onTap(),
-        backgroundColor: AppColors.darkSurfaceLight,
-        selectedColor: AppColors.primary,
+        backgroundColor: palette.surfaceLight,
+        selectedColor: palette.primary,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
           side: BorderSide(
             color: isSelected
-                ? AppColors.primaryLight
-                : AppColors.darkBorder.withValues(alpha: 0.6),
+                ? palette.accent
+                : palette.border,
             width: 1,
           ),
         ),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/app_color_palette.dart';
 import '../../providers/app_providers.dart';
 import '../../theme/app_palette.dart';
@@ -162,13 +164,36 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  Future<void> _selectThemeMode(ThemeMode mode) async {
+    ref.read(themeModeProvider.notifier).state = mode;
+    final modeStr = mode == ThemeMode.light ? 'light' : 'dark';
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('myaarchive_theme_mode', modeStr);
+      final user = ref.read(authStateProvider).value;
+      if (user != null) {
+        await ref
+            .read(dataLayerProvider)
+            .settingsSet(user.id, 'themeMode', modeStr);
+      }
+    } catch (e) {
+      debugPrint('Error saving theme mode: $e');
+    }
+  }
+
   Future<void> _selectPalette(AppColorPalette palette) async {
     ref.read(colorPaletteIdProvider.notifier).state = palette.id;
-    final user = ref.read(authStateProvider).value;
-    if (user != null) {
-      await ref
-          .read(dataLayerProvider)
-          .settingsSet(user.id, 'colorPaletteId', palette.id);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('myaarchive_color_palette_id', palette.id);
+      final user = ref.read(authStateProvider).value;
+      if (user != null) {
+        await ref
+            .read(dataLayerProvider)
+            .settingsSet(user.id, 'colorPaletteId', palette.id);
+      }
+    } catch (e) {
+      debugPrint('Error saving color palette: $e');
     }
   }
 
@@ -203,10 +228,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return Scaffold(
       backgroundColor: palette.bg,
       appBar: AppBar(
-        title: const Text(
-          'Settings & Account',
-          style: TextStyle(fontFamily: 'Outfit', fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Settings & Account'),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16.0),
@@ -237,10 +259,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           user.username.isNotEmpty
                               ? user.username[0].toUpperCase()
                               : 'U',
-                          style: const TextStyle(
+                          style: GoogleFonts.outfit(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: palette.onSolid,
                           ),
                         ),
                       ),
@@ -252,7 +274,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         children: [
                           Text(
                             user.username,
-                            style: TextStyle(
+                            style: GoogleFonts.outfit(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                               color: palette.textMain,
@@ -261,7 +283,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           const SizedBox(height: 2),
                           Text(
                             'User ID: ${user.id.substring(0, 8)}...',
-                            style: TextStyle(
+                            style: GoogleFonts.inter(
                               fontSize: 12,
                               color: palette.textSecondary,
                             ),
@@ -276,15 +298,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 20),
 
           // Cloud Sync Section
-          Text(
-            'CLOUD SYNC & DATABASE',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.8,
-              color: palette.textSecondary,
-            ),
-          ),
+          _buildSectionHeader('CLOUD SYNC & DATABASE', palette),
           const SizedBox(height: 8),
           Card(
             color: palette.surfaceLight,
@@ -324,25 +338,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'LIBRARIES & COLLECTIONS',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.8,
-                  color: palette.textSecondary,
-                ),
-              ),
+              _buildSectionHeader('LIBRARIES & COLLECTIONS', palette),
               IconButton(
                 icon: Icon(Icons.add_rounded, color: palette.accent),
                 onPressed: () => _showAddLibraryDialog(palette),
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          Text(
+          _buildSectionDescription(
             'Drag the handle to reorder — this is the order libraries appear in throughout the app.',
-            style: TextStyle(fontSize: 11.5, color: palette.textSecondary),
+            palette,
           ),
           const SizedBox(height: 8),
           librariesAsync.when(
@@ -415,19 +420,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 20),
 
           // ── Color Theme ──────────────────────────────────────────────
-          Text(
-            'COLOR THEME',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.8,
-              color: palette.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
+          _buildSectionHeader('COLOR THEME', palette),
+          _buildSectionDescription(
             'Switch between Light Mode and Dark Mode reading palettes.',
-            style: TextStyle(fontSize: 12, color: palette.textSecondary),
+            palette,
           ),
           const SizedBox(height: 10),
           Row(
@@ -437,8 +433,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   label: 'DARK MODE',
                   selected: themeMode == ThemeMode.dark,
                   palette: palette,
-                  onTap: () =>
-                      ref.read(themeModeProvider.notifier).state = ThemeMode.dark,
+                  onTap: () => _selectThemeMode(ThemeMode.dark),
                 ),
               ),
               const SizedBox(width: 10),
@@ -447,8 +442,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   label: 'LIGHT MODE',
                   selected: themeMode == ThemeMode.light,
                   palette: palette,
-                  onTap: () =>
-                      ref.read(themeModeProvider.notifier).state = ThemeMode.light,
+                  onTap: () => _selectThemeMode(ThemeMode.light),
                 ),
               ),
             ],
@@ -456,19 +450,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 24),
 
           // ── Color Palette ────────────────────────────────────────────
-          Text(
-            'COLOR PALETTE',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.8,
-              color: palette.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
+          _buildSectionHeader('COLOR PALETTE', palette),
+          _buildSectionDescription(
             'Pick an accent palette — it applies to both Light and Dark Mode.',
-            style: TextStyle(fontSize: 12, color: palette.textSecondary),
+            palette,
           ),
           const SizedBox(height: 10),
           Wrap(
@@ -485,15 +470,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 24),
 
           // ── Content ──────────────────────────────────────────────────
-          Text(
-            'CONTENT',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.8,
-              color: palette.textSecondary,
-            ),
-          ),
+          _buildSectionHeader('CONTENT', palette),
           const SizedBox(height: 8),
           Card(
             color: palette.surfaceLight,
@@ -516,15 +493,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 24),
 
           // ── Reading Statuses ────────────────────────────────────────
-          Text(
-            'READING STATUSES',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.8,
-              color: palette.textSecondary,
-            ),
-          ),
+          _buildSectionHeader('READING STATUSES', palette),
           const SizedBox(height: 8),
           Card(
             color: palette.surfaceLight,
@@ -549,15 +518,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 24),
 
           // ── Tags ─────────────────────────────────────────────────────
-          Text(
-            'TAGS',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.8,
-              color: palette.textSecondary,
-            ),
-          ),
+          _buildSectionHeader('TAGS', palette),
           const SizedBox(height: 8),
           Card(
             color: palette.surfaceLight,
@@ -582,15 +543,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 20),
 
           // Account Actions
-          Text(
-            'ACCOUNT & SECURITY',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.8,
-              color: palette.textSecondary,
-            ),
-          ),
+          _buildSectionHeader('ACCOUNT & SECURITY', palette),
           const SizedBox(height: 8),
           Card(
             color: palette.surfaceLight,
@@ -633,6 +586,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  Widget _buildSectionHeader(String title, AppPalette palette) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Text(
+        title,
+        style: GoogleFonts.inter(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.8,
+          color: palette.textSecondary,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionDescription(String description, AppPalette palette) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Text(
+        description,
+        style: GoogleFonts.inter(
+          fontSize: 12,
+          color: palette.textSecondary,
+          height: 1.35,
+        ),
+      ),
+    );
+  }
+
   Widget _buildThemePill({
     required String label,
     required bool selected,
@@ -654,11 +636,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: GoogleFonts.inter(
             fontSize: 11,
             fontWeight: FontWeight.bold,
-            letterSpacing: 0.6,
-            color: selected ? Colors.white : palette.textSecondary,
+            letterSpacing: 0.8,
+            color: selected ? palette.onSolid : palette.textSecondary,
           ),
         ),
       ),
@@ -698,7 +680,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             const SizedBox(height: 8),
             Text(
               p.label,
-              style: TextStyle(
+              style: GoogleFonts.inter(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: palette.textMain,

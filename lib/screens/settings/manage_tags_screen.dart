@@ -129,10 +129,7 @@ class ManageTagsScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: palette.bg,
       appBar: AppBar(
-        title: const Text(
-          'Manage Tags',
-          style: TextStyle(fontFamily: 'Outfit', fontWeight: FontWeight.bold),
-        ),
+        title: const Text('Manage Tags'),
       ),
       body: tagsAsync.when(
         data: (tags) {

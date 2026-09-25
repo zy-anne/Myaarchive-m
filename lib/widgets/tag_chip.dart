@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../models/metadata.dart';
 import '../theme/colors.dart';
 
@@ -84,7 +85,7 @@ class TagChip extends StatelessWidget {
             ],
             Text(
               label,
-              style: TextStyle(
+              style: GoogleFonts.inter(
                 color: chipColor,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../models/library.dart';
 import '../../models/metadata.dart';
 import '../../models/series.dart';
@@ -192,7 +193,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                                   selectedColor: palette.primary,
                                   backgroundColor: palette.surface,
                                   labelStyle: TextStyle(
-                                      color: isSel ? Colors.white : palette.textSecondary),
+                                      color: isSel ? palette.onSolid : palette.textSecondary),
                                 );
                               }).toList(),
                             ),
@@ -229,7 +230,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                                   selectedColor: palette.primary,
                                   backgroundColor: palette.surface,
                                   labelStyle: TextStyle(
-                                      color: isSel ? Colors.white : palette.textSecondary),
+                                      color: isSel ? palette.onSolid : palette.textSecondary),
                                 );
                               }).toList(),
                             ),
@@ -488,7 +489,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
       selectedColor: palette.primary,
       backgroundColor: palette.surfaceHigh,
       labelStyle: TextStyle(
-        color: isSelected ? Colors.white : palette.textSecondary,
+        color: isSelected ? palette.onSolid : palette.textSecondary,
         fontSize: 12,
         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
       ),
@@ -570,8 +571,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     children: [
                       Text(
                         libraryTitle,
-                        style: TextStyle(
-                          fontFamily: 'Outfit',
+                        style: GoogleFonts.outfit(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
                           color: palette.textMain,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
 import '../theme/app_color_palette.dart';
 import '../models/attachment.dart';
@@ -69,18 +70,37 @@ final colorPaletteIdProvider =
 final showNsfwProvider = StateProvider<bool>((ref) => true);
 
 /// Loads persisted theme/content settings once and seeds
-/// [colorPaletteIdProvider] / [showNsfwProvider] from them. Watch this
-/// (ignoring its value) anywhere early in the widget tree — e.g. the
+/// [themeModeProvider] / [colorPaletteIdProvider] / [showNsfwProvider] from them.
+/// Watch this anywhere early in the widget tree — e.g. at the root app or
 /// Settings screen — so it fires as soon as a user is available.
 final themeInitProvider = FutureProvider<void>((ref) async {
   final user = ref.watch(authStateProvider).value;
   if (user == null) return;
   final dataLayer = ref.watch(dataLayerProvider);
   final settings = await dataLayer.settingsGetAll(user.id);
+  final prefs = await SharedPreferences.getInstance();
+
+  final storedThemeMode = settings['themeMode'];
+  if (storedThemeMode != null) {
+    final mode = storedThemeMode == 'light' ? ThemeMode.light : ThemeMode.dark;
+    ref.read(themeModeProvider.notifier).state = mode;
+    await prefs.setString('myaarchive_theme_mode', storedThemeMode);
+  } else {
+    final localTheme = prefs.getString('myaarchive_theme_mode');
+    if (localTheme != null) {
+      await dataLayer.settingsSet(user.id, 'themeMode', localTheme);
+    }
+  }
 
   final storedPalette = settings['colorPaletteId'];
   if (storedPalette != null) {
     ref.read(colorPaletteIdProvider.notifier).state = storedPalette;
+    await prefs.setString('myaarchive_color_palette_id', storedPalette);
+  } else {
+    final localPalette = prefs.getString('myaarchive_color_palette_id');
+    if (localPalette != null) {
+      await dataLayer.settingsSet(user.id, 'colorPaletteId', localPalette);
+    }
   }
 
   final storedNsfw = settings['showNsfwContent'];

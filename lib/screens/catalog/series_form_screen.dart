@@ -329,7 +329,6 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
       appBar: AppBar(
         title: Text(
           widget.seriesId == null ? 'Add Series' : 'Edit Series',
-          style: const TextStyle(fontFamily: 'Outfit', fontWeight: FontWeight.bold),
         ),
         actions: [
           TextButton.icon(

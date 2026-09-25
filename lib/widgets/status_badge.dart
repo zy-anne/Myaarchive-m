@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../models/metadata.dart';
 
 /// Pill badge showing series reading status with glowing accent.
@@ -50,7 +51,7 @@ class StatusBadge extends StatelessWidget {
           SizedBox(width: compact ? 4 : 6),
           Text(
             status,
-            style: TextStyle(
+            style: GoogleFonts.inter(
               color: statusColor,
               fontSize: compact ? 10 : 12,
               fontWeight: FontWeight.w600,
