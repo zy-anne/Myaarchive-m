@@ -106,6 +106,18 @@ class AppTheme {
           borderSide: BorderSide(color: palette.accent, width: 1.5),
         ),
       ),
+      // FIX: Without this, ElevatedButton defaults its label/icon color to
+      // colorScheme.primary (= palette.primary). Any call site that only
+      // sets `backgroundColor: palette.primary` via styleFrom() ends up
+      // rendering pink-on-pink (or accent-on-accent) text — invisible
+      // buttons like the "Add Thoughts" pill. This makes onSolid (white in
+      // light mode, near-black in dark mode) the default label color for
+      // every ElevatedButton unless a call site explicitly overrides it.
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          foregroundColor: palette.onSolid,
+        ),
+      ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: palette.textMain,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../providers/app_providers.dart';
 import '../../theme/app_palette.dart';
 
@@ -85,8 +86,12 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                   Text(
                     'Create Account',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontFamily: 'Outfit',
+                    // FIX: was TextStyle(fontFamily: 'Outfit', ...), which
+                    // silently falls back to the platform default font since
+                    // "Outfit" isn't declared as a bundled asset font in
+                    // pubspec.yaml. GoogleFonts.outfit(...) fetches/caches
+                    // the real typeface, matching AppTheme's headings.
+                    style: GoogleFonts.outfit(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
                       color: palette.textMain,

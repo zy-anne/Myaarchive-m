@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/attachment.dart';
@@ -427,8 +428,13 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                       series.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: 'Outfit',
+                      // FIX: was TextStyle(fontFamily: 'Outfit', ...) — the raw
+                      // font family string never resolved (no bundled asset
+                      // font named "Outfit" declared in pubspec.yaml), so it
+                      // silently fell back to the platform default and looked
+                      // mismatched against everything else using
+                      // GoogleFonts.outfit(...). Switched to the real loader.
+                      style: GoogleFonts.outfit(
                         fontSize: 19,
                         fontWeight: FontWeight.bold,
                         color: palette.textMain,
@@ -944,7 +950,18 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                   const SizedBox(height: 12),
                   ElevatedButton(
                     onPressed: () => _showEditThoughtsDialog(series, palette),
-                    style: ElevatedButton.styleFrom(backgroundColor: palette.primary),
+                    // NOTE: this button used to render its "Add Thoughts"
+                    // label invisibly — ElevatedButton defaults label color
+                    // to colorScheme.primary when only backgroundColor is
+                    // set, and here they're the same color. Fixed at the
+                    // theme level in AppTheme (elevatedButtonTheme now
+                    // defaults foregroundColor to palette.onSolid), so no
+                    // change is needed here as long as that theme fix is
+                    // applied. Left explicit for clarity/robustness:
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: palette.primary,
+                      foregroundColor: palette.onSolid,
+                    ),
                     child: const Text('Add Thoughts'),
                   ),
                 ],
@@ -1426,8 +1443,11 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                           children: [
                             Text(
                               c.name,
-                              style: TextStyle(
-                                fontFamily: 'Outfit',
+                              // FIX: was TextStyle(fontFamily: 'Outfit', ...)
+                              // — same unresolved-font-family issue as the
+                              // series title above. Switched to the real
+                              // Google Fonts loader.
+                              style: GoogleFonts.outfit(
                                 fontSize: 19,
                                 fontWeight: FontWeight.bold,
                                 color: palette.textMain,
@@ -2347,8 +2367,10 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                           children: [
                             Text(
                               t.term,
-                              style: TextStyle(
-                                fontFamily: 'Outfit',
+                              // FIX: same unresolved-fontFamily bug as the
+                              // two spots above — switched to the real
+                              // Google Fonts loader.
+                              style: GoogleFonts.outfit(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
                                 color: palette.accent,

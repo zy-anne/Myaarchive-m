@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../providers/app_providers.dart';
 import '../../theme/app_palette.dart';
 
@@ -101,8 +102,15 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   Text(
                     'Myaarchive',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontFamily: 'Outfit',
+                    // FIX: was TextStyle(fontFamily: 'Outfit', ...) — that raw
+                    // font family string doesn't resolve to anything because
+                    // "Outfit" isn't a bundled asset font declared in
+                    // pubspec.yaml, so it silently fell back to the platform
+                    // default font instead. GoogleFonts.outfit(...) actually
+                    // loads/caches the correct typeface, matching how the
+                    // rest of the app (AppTheme, series_card.dart, etc.)
+                    // renders Outfit headings.
+                    style: GoogleFonts.outfit(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
                       color: palette.textMain,
