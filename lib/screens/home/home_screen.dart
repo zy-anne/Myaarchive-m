@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/app_providers.dart';
 import '../../theme/app_palette.dart';
 import '../catalog/feed_screen.dart';
 import '../settings/settings_screen.dart';
@@ -17,13 +18,23 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  int _currentIndex = 0;
+  late int _currentIndex;
 
   final List<Widget> _screens = const [
     FeedScreen(),
     StatisticsScreen(),
     SettingsScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Settings → "Default Start View" — falls back to Library (0) if the
+    // stored value is somehow out of range.
+    final startTab = ref.read(defaultStartTabProvider);
+    _currentIndex =
+        (startTab >= 0 && startTab < _screens.length) ? startTab : 0;
+  }
 
   @override
   Widget build(BuildContext context) {

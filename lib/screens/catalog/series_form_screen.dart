@@ -220,6 +220,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
 
     setState(() => _isLoading = true);
     final palette = context.palette;
+    final isCreating = widget.seriesId == null;
 
     try {
       final dataLayer = ref.read(dataLayerProvider);
@@ -266,8 +267,10 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
             : _chapterThoughtsCtrl.text.trim(),
       );
 
-      if (widget.seriesId == null) {
-        await dataLayer.seriesCreate(
+      int? createdSeriesId;
+
+      if (isCreating) {
+        createdSeriesId = await dataLayer.seriesCreate(
           user.id,
           series,
           tagNames: _tags,
@@ -289,7 +292,21 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
       ref.invalidate(librariesProvider);
 
       if (mounted) {
-        context.pop();
+        // Settings → "Auto-Open Detail Page After Adding": only applies to
+        // a fresh create, not an edit — editing already returns to the
+        // detail page it came from.
+        final autoOpenDetail = ref.read(autoOpenDetailAfterAddProvider);
+        if (isCreating &&
+            autoOpenDetail &&
+            createdSeriesId != null &&
+            createdSeriesId > 0) {
+          // Replace this form in the stack (rather than push) so the back
+          // button from the detail page returns to the library, not to a
+          // now-stale, already-submitted form.
+          context.pushReplacement('/series/$createdSeriesId');
+        } else {
+          context.pop();
+        }
       }
     } catch (e) {
       if (mounted) {

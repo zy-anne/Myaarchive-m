@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/app_providers.dart';
+import '../screens/auth/forgot_password_screen.dart';
 import '../screens/auth/sign_in_screen.dart';
 import '../screens/auth/sign_up_screen.dart';
 import '../screens/catalog/series_detail_screen.dart';
@@ -19,7 +20,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (authState.isLoading) return null;
 
       final user = authState.value;
-      final isAuthRoute = state.uri.path == '/sign-in' || state.uri.path == '/sign-up';
+      final isAuthRoute = state.uri.path == '/sign-in' ||
+          state.uri.path == '/sign-up' ||
+          state.uri.path == '/forgot-password';
 
       // If not signed in, redirect to /sign-in
       if (user == null) {
@@ -41,6 +44,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/sign-up',
         builder: (context, state) => const SignUpScreen(),
+      ),
+      GoRoute(
+        path: '/forgot-password',
+        builder: (context, state) => const ForgotPasswordScreen(),
       ),
       GoRoute(
         path: '/home',

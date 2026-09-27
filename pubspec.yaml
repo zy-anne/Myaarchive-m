@@ -28,6 +28,10 @@ dependencies:
   shared_preferences: ^2.5.2
   path_provider: ^2.1.5
 
+  # Secure, keychain/EncryptedSharedPreferences-backed storage — used for
+  # the signed-in session instead of plain SharedPreferences.
+  flutter_secure_storage: ^9.2.2
+
   # Image handling
   image_picker: ^1.1.2
   cached_network_image: ^3.4.1

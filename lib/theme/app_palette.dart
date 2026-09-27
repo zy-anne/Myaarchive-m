@@ -4,18 +4,18 @@ import 'app_color_palette.dart';
 
 /// Semantic color roles for the app, resolved per-mode from the style guide.
 ///
-/// The background/surface tiers below are drawn from the "Twilight Reading
-/// Room" swatch family (documented in `AppColors` as `deepIndigo`,
-/// `midnightPurple`, `duskBlue`, `twilightAccent` for dark mode, and
-/// `lightBg` / `lightSurface` / `softCream` / `doubleCream` for light mode).
-/// Those constants existed in the codebase but were never actually wired
-/// into a theme — this is what makes the background a real color instead
-/// of a barely-tinted near-black / near-white pair.
+/// Light mode's background/surface tiers are a fixed, palette-agnostic
+/// cool neutral (see [AppPalette.light]'s doc comment for why) — only the
+/// primary/accent roles change with the selected [AppColorPalette].
 ///
-/// The primary/accent roles still come from an [AppColorPalette] chosen in
-/// Settings → Color Palette; the bg/surface/text tiers below follow the
-/// fixed Twilight Reading Room base regardless of which accent palette is
-/// active — same split as before, just with real color in it now.
+/// Dark mode is different: its background/surface/border tiers are
+/// generated at runtime by tinting a dark neutral scale with the hue of
+/// the *selected* palette's `accent` color (which stays constant across
+/// light/dark). That means switching the Color Palette in Settings
+/// actually changes the dark-mode background — Pink Lemonade Bliss gets a
+/// warm amber-black, Sakura Blossom a dusky rose-black, Twilight Reading
+/// Room its original indigo — rather than every palette sharing the same
+/// fixed navy with only the accent chips differing.
 ///
 /// This extension is resolved through `Theme.of(context)`, so any widget
 /// that reads it via `context.palette` rebuilds automatically whenever the
@@ -134,12 +134,30 @@ class AppPalette extends ThemeExtension<AppPalette> {
   factory AppPalette.dark([AppColorPalette? colorPalette]) {
     final p = colorPalette ?? AppColorPalettes.twilightReadingRoom;
     const textMain = Color(0xFFFAFBFE); // white + 8% Frost Fairy
+
+    // Tint a dark neutral scale with the *selected* palette's accent hue
+    // (accent is constant across light/dark, so it's a stable identity
+    // color per palette) instead of always falling back to Twilight
+    // Reading Room's fixed navy. Saturation stays low enough that text
+    // and borders remain readable at every step; only the hue and a
+    // gentle amount of chroma change between palettes.
+    final hue = HSLColor.fromColor(p.accent).hue;
+    Color tint(double lightness, double saturation) {
+      return HSLColor.fromAHSL(1.0, hue, saturation, lightness).toColor();
+    }
+
+    final bg = tint(0.10, 0.32); // was the fixed deepIndigo #1a1a2e
+    final surface = tint(0.135, 0.30); // was the fixed midnightPurple #16213e
+    final surfaceLight = tint(0.185, 0.28); // was the fixed duskBlue #0f3460
+    final surfaceHigh = tint(0.32, 0.38); // was the fixed twilightAccent #533483
+    final border = tint(0.24, 0.22); // was the fixed #313471
+
     return AppPalette(
-      bg: const Color(0xFF1A1A2E), // AppColors.deepIndigo
-      surface: const Color(0xFF16213E), // AppColors.midnightPurple
-      surfaceLight: const Color(0xFF0F3460), // AppColors.duskBlue
-      surfaceHigh: const Color(0xFF533483), // AppColors.twilightAccent
-      border: const Color(0xFF313471), // blend of duskBlue / twilightAccent
+      bg: bg,
+      surface: surface,
+      surfaceLight: surfaceLight,
+      surfaceHigh: surfaceHigh,
+      border: border,
       textMain: textMain,
       textSecondary: textMain.withValues(alpha: 0.6),
       primary: p.primaryDark, // deliberate role-swap
@@ -148,9 +166,9 @@ class AppPalette extends ThemeExtension<AppPalette> {
       danger: BrandColors.dangerDark,
       success: const Color(0xFF2ECC71),
       gold: _warmGold,
-      onSolid: const Color(0xFF1A1A2E), // matches the new deepIndigo bg
+      onSolid: bg, // matches the tinted background, whatever hue it lands on
       star: BrandColors.sunlight,
-      starEmpty: const Color(0xFF313471),
+      starEmpty: border,
       tagPalette: _tagPaletteConstant,
     );
   }

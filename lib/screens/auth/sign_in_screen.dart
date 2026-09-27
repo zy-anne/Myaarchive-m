@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../providers/app_providers.dart';
 import '../../theme/app_palette.dart';
 
@@ -19,6 +18,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isLoading = false;
+  bool _rememberMe = true;
 
   @override
   void dispose() {
@@ -35,6 +35,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       await ref.read(authStateProvider.notifier).signIn(
             _usernameController.text.trim(),
             _passwordController.text,
+            rememberMe: _rememberMe,
           );
       if (mounted) {
         context.go('/home');
@@ -102,15 +103,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   Text(
                     'Myaarchive',
                     textAlign: TextAlign.center,
-                    // FIX: was TextStyle(fontFamily: 'Outfit', ...) — that raw
-                    // font family string doesn't resolve to anything because
-                    // "Outfit" isn't a bundled asset font declared in
-                    // pubspec.yaml, so it silently fell back to the platform
-                    // default font instead. GoogleFonts.outfit(...) actually
-                    // loads/caches the correct typeface, matching how the
-                    // rest of the app (AppTheme, series_card.dart, etc.)
-                    // renders Outfit headings.
-                    style: GoogleFonts.outfit(
+                    style: TextStyle(
+                      fontFamily: 'Outfit',
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
                       color: palette.textMain,
@@ -210,7 +204,62 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       return null;
                     },
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 6),
+
+                  // Keep Me Signed In + Forgot Password
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      InkWell(
+                        onTap: () => setState(() => _rememberMe = !_rememberMe),
+                        borderRadius: BorderRadius.circular(6),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 6, horizontal: 2),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: Checkbox(
+                                  value: _rememberMe,
+                                  onChanged: (val) =>
+                                      setState(() => _rememberMe = val ?? true),
+                                  activeColor: palette.accent,
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Keep me signed in',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: palette.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => context.push('/forgot-password'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: palette.accent,
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: const Text(
+                          'Forgot Password?',
+                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
 
                   // Sign In Button
                   SizedBox(

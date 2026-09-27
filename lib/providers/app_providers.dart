@@ -69,8 +69,27 @@ final colorPaletteIdProvider =
 
 final showNsfwProvider = StateProvider<bool>((ref) => true);
 
-/// Loads persisted theme/content settings once and seeds
-/// [themeModeProvider] / [colorPaletteIdProvider] / [showNsfwProvider] from them.
+// ─── Startup & Behavior Providers ─────────────────────────────────────
+//
+// Back Settings → "Startup & Behavior". Same load/persist pattern as the
+// theme/palette/NSFW providers above: a live StateProvider for instant UI
+// reaction, seeded from `app_settings` (and a local SharedPreferences
+// cache, so the very first frame doesn't flash the default) by
+// [themeInitProvider] / `main()`'s ProviderScope overrides.
+
+/// Which bottom-nav tab the app opens to: 0 = Library, 1 = Statistics,
+/// 2 = Settings. Without a saved preference the app always lands on
+/// Library (index 0), matching the previous hardcoded behavior.
+final defaultStartTabProvider = StateProvider<int>((ref) => 0);
+
+/// Whether saving a *newly created* title from the Add Title form jumps
+/// straight to its detail page, instead of returning to the library feed
+/// (the previous, and still-default, behavior).
+final autoOpenDetailAfterAddProvider = StateProvider<bool>((ref) => false);
+
+/// Loads persisted theme/content/startup settings once and seeds
+/// [themeModeProvider] / [colorPaletteIdProvider] / [showNsfwProvider] /
+/// [defaultStartTabProvider] / [autoOpenDetailAfterAddProvider] from them.
 /// Watch this anywhere early in the widget tree — e.g. at the root app or
 /// Settings screen — so it fires as soon as a user is available.
 final themeInitProvider = FutureProvider<void>((ref) async {
@@ -107,6 +126,33 @@ final themeInitProvider = FutureProvider<void>((ref) async {
   if (storedNsfw != null) {
     ref.read(showNsfwProvider.notifier).state = storedNsfw == '1';
   }
+
+  final storedStartTab = settings['defaultStartTab'];
+  if (storedStartTab != null) {
+    final idx = int.tryParse(storedStartTab) ?? 0;
+    ref.read(defaultStartTabProvider.notifier).state = idx;
+    await prefs.setString('myaarchive_default_start_tab', storedStartTab);
+  } else {
+    final localStartTab = prefs.getString('myaarchive_default_start_tab');
+    if (localStartTab != null) {
+      await dataLayer.settingsSet(user.id, 'defaultStartTab', localStartTab);
+    }
+  }
+
+  final storedAutoOpenDetail = settings['autoOpenDetailAfterAdd'];
+  if (storedAutoOpenDetail != null) {
+    ref.read(autoOpenDetailAfterAddProvider.notifier).state =
+        storedAutoOpenDetail == '1';
+    await prefs.setString(
+        'myaarchive_auto_open_detail_after_add', storedAutoOpenDetail);
+  } else {
+    final localAutoOpenDetail =
+        prefs.getString('myaarchive_auto_open_detail_after_add');
+    if (localAutoOpenDetail != null) {
+      await dataLayer.settingsSet(
+          user.id, 'autoOpenDetailAfterAdd', localAutoOpenDetail);
+    }
+  }
 });
 
 // ─── Auth State Provider ─────────────────────────────────────────────
@@ -127,10 +173,18 @@ class AuthStateNotifier extends StateNotifier<AsyncValue<User?>> {
     }
   }
 
-  Future<void> signIn(String username, String password) async {
+  Future<void> signIn(
+    String username,
+    String password, {
+    bool rememberMe = true,
+  }) async {
     state = const AsyncValue.loading();
     try {
-      final user = await _auth.signIn(username: username, password: password);
+      final user = await _auth.signIn(
+        username: username,
+        password: password,
+        rememberMe: rememberMe,
+      );
       state = AsyncValue.data(user);
     } catch (e, st) {
       state = AsyncValue.error(e, st);

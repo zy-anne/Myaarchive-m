@@ -18,6 +18,13 @@ void main() async {
           : ThemeMode.dark;
   final savedPaletteId = prefs.getString('myaarchive_color_palette_id');
 
+  // Startup & behavior prefs — cached locally so the very first frame
+  // reflects the user's choice instead of flashing the hardcoded default
+  // while [themeInitProvider]'s async `app_settings` fetch is in flight.
+  final savedStartTab = prefs.getString('myaarchive_default_start_tab');
+  final savedAutoOpenDetail =
+      prefs.getString('myaarchive_auto_open_detail_after_add');
+
   runApp(
     ProviderScope(
       overrides: [
@@ -25,6 +32,12 @@ void main() async {
           themeModeProvider.overrideWith((ref) => initialThemeMode),
         if (savedPaletteId != null)
           colorPaletteIdProvider.overrideWith((ref) => savedPaletteId),
+        if (savedStartTab != null)
+          defaultStartTabProvider.overrideWith(
+              (ref) => int.tryParse(savedStartTab) ?? 0),
+        if (savedAutoOpenDetail != null)
+          autoOpenDetailAfterAddProvider.overrideWith(
+              (ref) => savedAutoOpenDetail == '1'),
       ],
       child: const MyaarchiveApp(),
     ),

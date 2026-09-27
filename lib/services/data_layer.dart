@@ -976,6 +976,100 @@ class DataLayer {
     }
   }
 
+  // ─── Account Deletion (cascading purge of everything an owner has) ──
+  //
+  // Deletes every library the user owns, every series in those libraries
+  // and everything attached to them (tags/genres/warnings links, volumes,
+  // characters, character relationships, gallery images, file & link
+  // attachments, glossary terms, series-group membership), any series
+  // groups in those libraries, and the user's own vocabulary (tags,
+  // content warnings, reading statuses) and settings. Does NOT delete the
+  // `users` row itself — `AuthService.deleteAccount` does that after
+  // verifying the password, since that's an auth concern, not a data one.
+  Future<void> deleteAllDataForOwner(String ownerId) async {
+    final libRes = await _turso.execute(
+      'SELECT id FROM libraries WHERE owner_id = ?',
+      [ownerId],
+    );
+    final libraryIds = libRes.rows.map((r) => r['id']).toList();
+
+    if (libraryIds.isNotEmpty) {
+      final libPlaceholders = List.filled(libraryIds.length, '?').join(',');
+
+      final seriesRes = await _turso.execute(
+        'SELECT id FROM series WHERE library_id IN ($libPlaceholders)',
+        libraryIds,
+      );
+      final seriesIds = seriesRes.rows.map((r) => r['id']).toList();
+
+      if (seriesIds.isNotEmpty) {
+        final sPlaceholders = List.filled(seriesIds.length, '?').join(',');
+
+        // Relationships are keyed off character ids, not series ids
+        // directly, so resolve the character ids first.
+        final charRes = await _turso.execute(
+          'SELECT id FROM characters WHERE series_id IN ($sPlaceholders)',
+          seriesIds,
+        );
+        final characterIds = charRes.rows.map((r) => r['id']).toList();
+
+        if (characterIds.isNotEmpty) {
+          final cPlaceholders =
+              List.filled(characterIds.length, '?').join(',');
+          await _turso.execute(
+            'DELETE FROM relationships WHERE from_character_id IN ($cPlaceholders) OR to_character_id IN ($cPlaceholders)',
+            [...characterIds, ...characterIds],
+          );
+        }
+
+        await _turso.batch([
+          MapEntry('DELETE FROM series_tags WHERE series_id IN ($sPlaceholders)',
+              seriesIds),
+          MapEntry(
+              'DELETE FROM series_genres WHERE series_id IN ($sPlaceholders)',
+              seriesIds),
+          MapEntry(
+              'DELETE FROM series_content_warnings WHERE series_id IN ($sPlaceholders)',
+              seriesIds),
+          MapEntry('DELETE FROM volumes WHERE series_id IN ($sPlaceholders)',
+              seriesIds),
+          MapEntry('DELETE FROM characters WHERE series_id IN ($sPlaceholders)',
+              seriesIds),
+          MapEntry(
+              'DELETE FROM gallery_images WHERE series_id IN ($sPlaceholders)',
+              seriesIds),
+          MapEntry(
+              'DELETE FROM link_attachments WHERE series_id IN ($sPlaceholders)',
+              seriesIds),
+          MapEntry('DELETE FROM attachments WHERE series_id IN ($sPlaceholders)',
+              seriesIds),
+          MapEntry(
+              'DELETE FROM glossary_terms WHERE series_id IN ($sPlaceholders)',
+              seriesIds),
+          MapEntry(
+              'DELETE FROM series_group_items WHERE series_id IN ($sPlaceholders)',
+              seriesIds),
+          MapEntry('DELETE FROM series WHERE id IN ($sPlaceholders)', seriesIds),
+        ]);
+      }
+
+      await _turso.batch([
+        MapEntry(
+            'DELETE FROM series_groups WHERE library_id IN ($libPlaceholders)',
+            libraryIds),
+        MapEntry('DELETE FROM libraries WHERE id IN ($libPlaceholders)',
+            libraryIds),
+      ]);
+    }
+
+    await _turso.batch([
+      MapEntry('DELETE FROM tags WHERE owner_id = ?', [ownerId]),
+      MapEntry('DELETE FROM content_warnings WHERE owner_id = ?', [ownerId]),
+      MapEntry('DELETE FROM reading_statuses WHERE owner_id = ?', [ownerId]),
+      MapEntry('DELETE FROM app_settings WHERE owner_id = ?', [ownerId]),
+    ]);
+  }
+
   // ─── Series Groups (Umbrella Groups / Shared Universes) ────────────
   //
   // Mirrors the Electron app's series_groups / series_group_items tables

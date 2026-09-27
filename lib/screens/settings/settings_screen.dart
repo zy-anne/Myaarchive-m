@@ -8,7 +8,7 @@ import '../../providers/app_providers.dart';
 import '../../theme/app_palette.dart';
 
 /// User settings, cloud sync status, library management, theme/content
-/// preferences, and account options.
+/// preferences, startup behavior, and account options.
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
@@ -20,6 +20,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String? _tursoPingResult;
   String? _r2PingResult;
   bool _isTestingSync = false;
+
+  static const List<String> _startTabLabels = ['LIBRARY', 'STATS', 'SETTINGS'];
 
   Future<void> _testCloudSync() async {
     setState(() {
@@ -164,6 +166,133 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  /// "Danger Zone" — permanently deletes the signed-in user's account.
+  /// Requires re-entering the current password and typing DELETE to
+  /// confirm, since this cannot be undone: it wipes every library, title,
+  /// and piece of attached data the account owns before removing the
+  /// account itself.
+  void _showDeleteAccountDialog(String userId, AppPalette palette) {
+    final passwordCtrl = TextEditingController();
+    final confirmCtrl = TextEditingController();
+    bool isDeleting = false;
+    String? errorText;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final canSubmit = !isDeleting &&
+              passwordCtrl.text.isNotEmpty &&
+              confirmCtrl.text.trim().toUpperCase() == 'DELETE';
+
+          return AlertDialog(
+            backgroundColor: palette.surfaceLight,
+            title: Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: palette.danger),
+                const SizedBox(width: 8),
+                const Text('Delete Account'),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'This permanently deletes your account and everything in '
+                    'it — every library, title, character, volume, gallery '
+                    'image, and attachment. This cannot be undone.',
+                    style: TextStyle(fontSize: 13, color: palette.textSecondary),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: passwordCtrl,
+                    obscureText: true,
+                    onChanged: (_) => setDialogState(() {}),
+                    decoration: const InputDecoration(
+                      labelText: 'Confirm Your Password',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: confirmCtrl,
+                    onChanged: (_) => setDialogState(() {}),
+                    textCapitalization: TextCapitalization.characters,
+                    decoration: const InputDecoration(
+                      labelText: 'Type DELETE to confirm',
+                    ),
+                  ),
+                  if (errorText != null) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      errorText!,
+                      style: TextStyle(fontSize: 12, color: palette.danger),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isDeleting ? null : () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: palette.danger),
+                onPressed: !canSubmit
+                    ? null
+                    : () async {
+                        setDialogState(() {
+                          isDeleting = true;
+                          errorText = null;
+                        });
+                        final navigator = Navigator.of(ctx);
+                        final router = GoRouter.of(context);
+                        try {
+                          // Wipe owned data first, then remove the account
+                          // row and clear the local session.
+                          await ref
+                              .read(dataLayerProvider)
+                              .deleteAllDataForOwner(userId);
+                          await ref
+                              .read(authServiceProvider)
+                              .deleteAccount(userId, passwordCtrl.text);
+
+                          ref.invalidate(librariesProvider);
+                          ref.invalidate(seriesListProvider);
+                          ref.invalidate(allSeriesForStatsProvider);
+
+                          if (mounted) {
+                            navigator.pop();
+                            router.go('/sign-in');
+                          }
+                        } catch (e) {
+                          setDialogState(() {
+                            isDeleting = false;
+                            errorText = e.toString();
+                          });
+                        }
+                      },
+                child: isDeleting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('Delete Forever'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   Future<void> _selectThemeMode(ThemeMode mode) async {
     ref.read(themeModeProvider.notifier).state = mode;
     final modeStr = mode == ThemeMode.light ? 'light' : 'dark';
@@ -209,9 +338,45 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     ref.invalidate(allSeriesForStatsProvider);
   }
 
+  /// Settings → "Default Start View" — which bottom-nav tab the app opens
+  /// to next launch (0 = Library, 1 = Statistics, 2 = Settings).
+  Future<void> _selectDefaultStartTab(int index) async {
+    ref.read(defaultStartTabProvider.notifier).state = index;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('myaarchive_default_start_tab', index.toString());
+      final user = ref.read(authStateProvider).value;
+      if (user != null) {
+        await ref
+            .read(dataLayerProvider)
+            .settingsSet(user.id, 'defaultStartTab', index.toString());
+      }
+    } catch (e) {
+      debugPrint('Error saving default start tab: $e');
+    }
+  }
+
+  /// Settings → "Auto-Open Detail Page After Adding".
+  Future<void> _toggleAutoOpenDetail(bool val) async {
+    ref.read(autoOpenDetailAfterAddProvider.notifier).state = val;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+          'myaarchive_auto_open_detail_after_add', val ? '1' : '0');
+      final user = ref.read(authStateProvider).value;
+      if (user != null) {
+        await ref.read(dataLayerProvider).settingsSet(
+            user.id, 'autoOpenDetailAfterAdd', val ? '1' : '0');
+      }
+    } catch (e) {
+      debugPrint('Error saving auto-open detail setting: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Fire-and-forget: seeds colorPaletteIdProvider / showNsfwProvider from
+    // Fire-and-forget: seeds colorPaletteIdProvider / showNsfwProvider /
+    // defaultStartTabProvider / autoOpenDetailAfterAddProvider from
     // persisted app_settings as soon as a user is available. Settings is
     // always mounted (home's IndexedStack keeps all 3 tabs alive), so this
     // runs early regardless of which tab is visible.
@@ -224,6 +389,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final selectedPaletteId = ref.watch(colorPaletteIdProvider);
     final showNsfw = ref.watch(showNsfwProvider);
     final librariesAsync = ref.watch(librariesProvider);
+    final defaultStartTab = ref.watch(defaultStartTabProvider);
+    final autoOpenDetail = ref.watch(autoOpenDetailAfterAddProvider);
 
     return Scaffold(
       backgroundColor: palette.bg,
@@ -419,6 +586,60 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const SizedBox(height: 20),
 
+          // ── Startup & Behavior ───────────────────────────────────────
+          _buildSectionHeader('STARTUP & BEHAVIOR', palette),
+          _buildSectionDescription(
+            "Choose which tab the app opens to, and what happens right "
+            "after you add a new title.",
+            palette,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'DEFAULT START VIEW',
+            style: GoogleFonts.inter(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.6,
+              color: palette.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: List.generate(_startTabLabels.length, (i) {
+              return Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(
+                      right: i < _startTabLabels.length - 1 ? 8 : 0),
+                  child: _buildThemePill(
+                    label: _startTabLabels[i],
+                    selected: defaultStartTab == i,
+                    palette: palette,
+                    onTap: () => _selectDefaultStartTab(i),
+                  ),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            color: palette.surfaceLight,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: BorderSide(color: palette.border),
+            ),
+            child: SwitchListTile(
+              title: const Text('Auto-Open Detail Page After Adding'),
+              subtitle: const Text(
+                'When on, saving a new title takes you straight to its '
+                'detail page instead of back to your library.',
+              ),
+              value: autoOpenDetail,
+              activeThumbColor: palette.accent,
+              onChanged: _toggleAutoOpenDetail,
+            ),
+          ),
+          const SizedBox(height: 24),
+
           // ── Color Theme ──────────────────────────────────────────────
           _buildSectionHeader('COLOR THEME', palette),
           _buildSectionDescription(
@@ -580,7 +801,34 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 40),
+          const SizedBox(height: 24),
+
+          // ── Danger Zone ──────────────────────────────────────────────
+          if (user != null) ...[
+            _buildSectionHeader('DANGER ZONE', palette),
+            const SizedBox(height: 8),
+            Card(
+              color: palette.surfaceLight,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(color: palette.danger.withValues(alpha: 0.4)),
+              ),
+              child: ListTile(
+                leading: Icon(Icons.delete_forever_rounded, color: palette.danger),
+                title: Text(
+                  'Delete Account',
+                  style: TextStyle(color: palette.danger, fontWeight: FontWeight.bold),
+                ),
+                subtitle: const Text(
+                  'Permanently deletes your account and every library, '
+                  'title, and file attached to it. This cannot be undone.',
+                ),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                onTap: () => _showDeleteAccountDialog(user.id, palette),
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
         ],
       ),
     );
@@ -636,10 +884,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         child: Text(
           label,
+          textAlign: TextAlign.center,
           style: GoogleFonts.inter(
             fontSize: 11,
             fontWeight: FontWeight.bold,
-            letterSpacing: 0.8,
+            letterSpacing: 0.6,
             color: selected ? palette.onSolid : palette.textSecondary,
           ),
         ),

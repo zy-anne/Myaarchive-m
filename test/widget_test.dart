@@ -33,7 +33,11 @@ class _MockAuthStateNotifier extends StateNotifier<AsyncValue<User?>>
   _MockAuthStateNotifier() : super(const AsyncValue.data(null));
 
   @override
-  Future<void> signIn(String username, String password) async {}
+  Future<void> signIn(
+    String username,
+    String password, {
+    bool rememberMe = true,
+  }) async {}
 
   @override
   Future<void> signUp({
