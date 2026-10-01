@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/attachment.dart';
@@ -10,12 +9,16 @@ import '../../models/gallery_image.dart';
 import '../../models/glossary_term.dart';
 import '../../models/link_attachment.dart';
 import '../../models/metadata.dart';
+import '../../models/relationship.dart';
 import '../../models/series.dart';
 import '../../models/volume.dart';
 import '../../providers/app_providers.dart';
 import '../../theme/app_palette.dart';
 import '../../widgets/cover_image.dart';
 import '../../widgets/rating_stars.dart';
+import '../../widgets/relationship_editor_sheet.dart';
+import '../../widgets/relationship_graph.dart';
+import '../../widgets/relationship_style.dart';
 import '../../widgets/status_badge.dart';
 import '../../widgets/tag_chip.dart';
 
@@ -38,6 +41,9 @@ class SeriesDetailScreen extends ConsumerStatefulWidget {
 class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+
+  /// Characters tab → relationships: false = list of cards, true = ring graph.
+  bool _relationshipsGraphView = false;
 
   @override
   void initState() {
@@ -428,13 +434,8 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                       series.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      // FIX: was TextStyle(fontFamily: 'Outfit', ...) — the raw
-                      // font family string never resolved (no bundled asset
-                      // font named "Outfit" declared in pubspec.yaml), so it
-                      // silently fell back to the platform default and looked
-                      // mismatched against everything else using
-                      // GoogleFonts.outfit(...). Switched to the real loader.
-                      style: GoogleFonts.outfit(
+                      style: TextStyle(
+                        fontFamily: 'Outfit',
                         fontSize: 19,
                         fontWeight: FontWeight.bold,
                         color: palette.textMain,
@@ -950,18 +951,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                   const SizedBox(height: 12),
                   ElevatedButton(
                     onPressed: () => _showEditThoughtsDialog(series, palette),
-                    // NOTE: this button used to render its "Add Thoughts"
-                    // label invisibly — ElevatedButton defaults label color
-                    // to colorScheme.primary when only backgroundColor is
-                    // set, and here they're the same color. Fixed at the
-                    // theme level in AppTheme (elevatedButtonTheme now
-                    // defaults foregroundColor to palette.onSolid), so no
-                    // change is needed here as long as that theme fix is
-                    // applied. Left explicit for clarity/robustness:
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: palette.primary,
-                      foregroundColor: palette.onSolid,
-                    ),
+                    style: ElevatedButton.styleFrom(backgroundColor: palette.primary),
                     child: const Text('Add Thoughts'),
                   ),
                 ],
@@ -1199,72 +1189,362 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
               children: [
                 ...characters.map((c) => _buildCharacterCard(c, series.id, palette)),
 
-                // Relationships Section
+                // Relationships Section (list / graph, add & edit)
                 relationshipsAsync.when(
-                  data: (rels) {
-                    if (rels.isEmpty) return const SizedBox.shrink();
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 16),
-                        Text(
-                          'CHARACTER RELATIONSHIPS',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.8,
-                            color: palette.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        ...rels.map((r) => Container(
-                          margin: const EdgeInsets.only(bottom: 6),
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: palette.surfaceLight,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: palette.border),
-                          ),
-                          child: Wrap(
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 8,
-                            runSpacing: 6,
-                            children: [
-                              Text(
-                                r.fromCharacterName ?? 'Char #${r.fromCharacterId}',
-                                style: const TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: palette.primary.withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  r.label ?? r.type,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: palette.accent,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              Icon(Icons.arrow_forward_rounded, size: 14, color: palette.textSecondary),
-                              Text(
-                                r.toCharacterName ?? 'Char #${r.toCharacterId}',
-                                style: const TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                        )),
-                      ],
-                    );
-                  },
+                  data: (rels) => _buildRelationshipsSection(
+                      series.id, characters, rels, palette),
                   loading: () => const SizedBox.shrink(),
                   error: (_, __) => const SizedBox.shrink(),
                 ),
               ],
             ),
+    );
+  }
+
+  // ─── Relationships (list / graph, add & edit) ──────────────────────────────
+
+  Future<void> _openRelationshipEditor(
+    int seriesId,
+    List<Character> characters,
+    AppPalette palette, {
+    Relationship? existing,
+  }) {
+    return showRelationshipEditor(
+      context: context,
+      palette: palette,
+      characters: characters,
+      existing: existing,
+      onSave: (draft) async {
+        final dl = ref.read(dataLayerProvider);
+        if (draft.id == 0) {
+          await dl.relationshipsCreate(draft);
+        } else {
+          await dl.relationshipsUpdate(draft);
+        }
+        ref.invalidate(seriesRelationshipsProvider(seriesId));
+      },
+      onDelete: existing == null
+          ? null
+          : () async {
+              await ref.read(dataLayerProvider).relationshipsDelete(existing.id);
+              ref.invalidate(seriesRelationshipsProvider(seriesId));
+            },
+    );
+  }
+
+  Widget _buildRelationshipsSection(
+    int seriesId,
+    List<Character> characters,
+    List<Relationship> rels,
+    AppPalette palette,
+  ) {
+    // Relationships need two characters to link.
+    final canAdd = characters.length >= 2;
+    if (rels.isEmpty && !canAdd) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Flexible(
+              child: Text(
+                'CHARACTER RELATIONSHIPS',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.8,
+                  color: palette.textSecondary,
+                ),
+              ),
+            ),
+            if (rels.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: palette.surfaceHigh,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${rels.length}',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: palette.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            if (rels.isNotEmpty) _buildRelationshipViewToggle(palette),
+            const Spacer(),
+            if (canAdd)
+              TextButton.icon(
+                onPressed: () =>
+                    _openRelationshipEditor(seriesId, characters, palette),
+                icon: const Icon(Icons.add_link_rounded, size: 16),
+                label: const Text('Add'),
+                style: TextButton.styleFrom(
+                  foregroundColor: palette.accent,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (rels.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: palette.surfaceLight,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: palette.border),
+            ),
+            child: Text(
+              'No relationships yet. Tap Add to link two characters and start '
+              'mapping how they connect.',
+              style: TextStyle(
+                fontSize: 12.5,
+                height: 1.4,
+                color: palette.textSecondary,
+              ),
+            ),
+          )
+        else if (_relationshipsGraphView)
+          RelationshipGraph(
+            characters: characters,
+            relationships: rels,
+            onRelationshipTap: (r) => _openRelationshipEditor(
+                seriesId, characters, palette,
+                existing: r),
+          )
+        else
+          ...rels.map((r) => _buildRelationshipCard(r, seriesId, characters, palette)),
+      ],
+    );
+  }
+
+  Widget _buildRelationshipViewToggle(AppPalette palette) {
+    Widget option(
+        IconData icon, String label, bool selected, VoidCallback onTap) {
+      final fg = selected ? palette.onSolid : palette.textSecondary;
+      return GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: selected ? palette.primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: fg),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: fg,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: palette.surfaceLight,
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: palette.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          option(Icons.view_agenda_rounded, 'List', !_relationshipsGraphView,
+              () => setState(() => _relationshipsGraphView = false)),
+          option(Icons.hub_rounded, 'Graph', _relationshipsGraphView,
+              () => setState(() => _relationshipsGraphView = true)),
+        ],
+      ),
+    );
+  }
+
+  Widget _relationshipAvatar(String? imagePath, AppPalette palette) {
+    final hasImage = imagePath != null && imagePath.trim().isNotEmpty;
+    return Container(
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(
+        color: palette.surfaceHigh,
+        shape: BoxShape.circle,
+        border: Border.all(color: palette.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: hasImage
+          ? CoverImage(
+              imagePath: imagePath,
+              fit: BoxFit.cover,
+              borderRadius: BorderRadius.circular(17),
+            )
+          : Icon(Icons.person, size: 18, color: palette.textSecondary),
+    );
+  }
+
+  Widget _buildRelationshipCard(
+    Relationship r,
+    int seriesId,
+    List<Character> characters,
+    AppPalette palette,
+  ) {
+    final style = relationshipStyleFor(r.type, palette);
+    final label =
+        (r.label != null && r.label!.trim().isNotEmpty) ? r.label!.trim() : r.type;
+    final hasNotes = r.notes != null && r.notes!.trim().isNotEmpty;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: palette.surfaceLight,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: palette.border),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => _openRelationshipEditor(seriesId, characters, palette,
+              existing: r),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Avatars anchor each end, names truncate toward the middle,
+                // and the connector shows direction: two-way for mutual
+                // relationships, a one-way arrow otherwise.
+                Row(
+                  children: [
+                    _relationshipAvatar(r.fromCharacterImage, palette),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        r.fromCharacterName ?? 'Char #${r.fromCharacterId}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: palette.textMain,
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Icon(
+                        r.isBidirectional
+                            ? Icons.sync_alt_rounded
+                            : Icons.arrow_forward_rounded,
+                        size: 16,
+                        color: style.color,
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        r.toCharacterName ?? 'Char #${r.toCharacterId}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.end,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: palette.textMain,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _relationshipAvatar(r.toCharacterImage, palette),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: style.color.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                              color: style.color.withValues(alpha: 0.4)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(style.icon, size: 12, color: style.color),
+                            const SizedBox(width: 5),
+                            Flexible(
+                              child: Text(
+                                label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.2,
+                                  color: style.color,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Positioned(
+                        right: 0,
+                        child: Icon(
+                          Icons.edit_outlined,
+                          size: 14,
+                          color: palette.textSecondary.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (hasNotes) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    r.notes!.trim(),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1.35,
+                      color: palette.textSecondary,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -1443,11 +1723,8 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                           children: [
                             Text(
                               c.name,
-                              // FIX: was TextStyle(fontFamily: 'Outfit', ...)
-                              // — same unresolved-font-family issue as the
-                              // series title above. Switched to the real
-                              // Google Fonts loader.
-                              style: GoogleFonts.outfit(
+                              style: TextStyle(
+                                fontFamily: 'Outfit',
                                 fontSize: 19,
                                 fontWeight: FontWeight.bold,
                                 color: palette.textMain,
@@ -1659,7 +1936,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                 TextField(
                   controller: roleCtrl,
                   decoration: const InputDecoration(
-                      labelText: 'Role (e.g. Protagonist, Antagonist, Side)'),
+                    labelText: 'Role',
+                    hintText: 'e.g. Protagonist, Antagonist, Side',
+                  ),
                 ),
                 TextField(
                   controller: statusRoleCtrl,
@@ -1684,8 +1963,10 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                 ),
                 TextField(
                   controller: volumeAppearancesCtrl,
-                  decoration:
-                      const InputDecoration(labelText: 'Appears In (Volumes/Chapters)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Appears In',
+                    hintText: 'Volumes / Chapters',
+                  ),
                 ),
                 TextField(
                   controller: personalityCtrl,
@@ -2367,10 +2648,8 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                           children: [
                             Text(
                               t.term,
-                              // FIX: same unresolved-fontFamily bug as the
-                              // two spots above — switched to the real
-                              // Google Fonts loader.
-                              style: GoogleFonts.outfit(
+                              style: TextStyle(
+                                fontFamily: 'Outfit',
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
                                 color: palette.accent,

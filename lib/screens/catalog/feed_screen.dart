@@ -95,7 +95,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
 
     final selectedGenres = List<String>.from(filter.genres);
     final selectedTags = List<String>.from(filter.tags);
-    GenreTagMatchMode matchMode = filter.matchMode;
+    GenreTagMatchMode genreMatchMode = filter.genreMatchMode;
+    GenreTagMatchMode tagMatchMode = filter.tagMatchMode;
     int minRating = filter.minRating ?? 0;
     final yearFromCtrl =
         TextEditingController(text: filter.yearFrom?.toString() ?? '');
@@ -197,6 +198,13 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                                 );
                               }).toList(),
                             ),
+                            if (selectedGenres.isNotEmpty)
+                              _buildMatchModeRow(
+                                palette: palette,
+                                mode: genreMatchMode,
+                                onChanged: (m) =>
+                                    setModalState(() => genreMatchMode = m),
+                              ),
                             const SizedBox(height: 16),
                           ],
                         );
@@ -206,6 +214,11 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     ),
 
                     // ── Tags ──────────────────────────────────────────
+                    // A searchable multi-select dropdown rather than a
+                    // wall of chips — the tag vocabulary can run into the
+                    // dozens, and a Wrap of that many FilterChips ate most
+                    // of the sheet's vertical space before you even got to
+                    // Rating/Year/Format below.
                     tagsAsync.when(
                       data: (tags) {
                         if (tags.isEmpty) return const SizedBox.shrink();
@@ -214,26 +227,83 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                           children: [
                             Text('TAGS', style: _sectionLabelStyle(palette)),
                             const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              children: tags.map((t) {
-                                final isSel = selectedTags.contains(t.name);
-                                return FilterChip(
-                                  label: Text(t.name, style: const TextStyle(fontSize: 12)),
-                                  selected: isSel,
-                                  onSelected: (_) => setModalState(() {
-                                    isSel
-                                        ? selectedTags.remove(t.name)
-                                        : selectedTags.add(t.name);
-                                  }),
-                                  selectedColor: palette.primary,
-                                  backgroundColor: palette.surface,
-                                  labelStyle: TextStyle(
-                                      color: isSel ? palette.onSolid : palette.textSecondary),
+                            InkWell(
+                              borderRadius: BorderRadius.circular(10),
+                              onTap: () async {
+                                await _showTagsPicker(
+                                  context: context,
+                                  palette: palette,
+                                  allTags: tags,
+                                  selectedTags: selectedTags,
                                 );
-                              }).toList(),
+                                setModalState(() {});
+                              },
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 12),
+                                decoration: BoxDecoration(
+                                  color: palette.surface,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: palette.border),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.sell_outlined,
+                                        size: 16, color: palette.textSecondary),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        selectedTags.isEmpty
+                                            ? 'Select tags...'
+                                            : selectedTags.join(', '),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: selectedTags.isEmpty
+                                              ? palette.textSecondary
+                                              : palette.textMain,
+                                          fontWeight: selectedTags.isEmpty
+                                              ? FontWeight.normal
+                                              : FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                    if (selectedTags.isNotEmpty) ...[
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: palette.primary
+                                              .withValues(alpha: 0.2),
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                        ),
+                                        child: Text(
+                                          '${selectedTags.length}',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: palette.accent,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                    ],
+                                    Icon(Icons.arrow_drop_down_rounded,
+                                        color: palette.textSecondary),
+                                  ],
+                                ),
+                              ),
                             ),
+                            if (selectedTags.isNotEmpty)
+                              _buildMatchModeRow(
+                                palette: palette,
+                                mode: tagMatchMode,
+                                onChanged: (m) =>
+                                    setModalState(() => tagMatchMode = m),
+                              ),
                             const SizedBox(height: 10),
                           ],
                         );
@@ -241,29 +311,6 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                       loading: () => const SizedBox.shrink(),
                       error: (_, __) => const SizedBox.shrink(),
                     ),
-
-                    if (selectedGenres.isNotEmpty || selectedTags.isNotEmpty) ...[
-                      Row(
-                        children: [
-                          Text('Match: ',
-                              style: TextStyle(fontSize: 12, color: palette.textSecondary)),
-                          ChoiceChip(
-                            label: const Text('Any', style: TextStyle(fontSize: 12)),
-                            selected: matchMode == GenreTagMatchMode.any,
-                            onSelected: (_) =>
-                                setModalState(() => matchMode = GenreTagMatchMode.any),
-                          ),
-                          const SizedBox(width: 6),
-                          ChoiceChip(
-                            label: const Text('All', style: TextStyle(fontSize: 12)),
-                            selected: matchMode == GenreTagMatchMode.all,
-                            onSelected: (_) =>
-                                setModalState(() => matchMode = GenreTagMatchMode.all),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                    ],
 
                     // ── Rating ────────────────────────────────────────
                     Text('MINIMUM RATING', style: _sectionLabelStyle(palette)),
@@ -426,7 +473,8 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                                   currentFilter.copyWith(
                                 genres: selectedGenres,
                                 tags: selectedTags,
-                                matchMode: matchMode,
+                                genreMatchMode: genreMatchMode,
+                                tagMatchMode: tagMatchMode,
                                 minRating: minRating > 0 ? minRating : null,
                                 clearMinRating: minRating == 0,
                                 yearFrom: int.tryParse(yearFromCtrl.text.trim()),
@@ -462,6 +510,165 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                           ),
                         ),
                       ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// Shared "Match: Any / All" row used independently under both the
+  /// Genres chips and the Tags dropdown.
+  Widget _buildMatchModeRow({
+    required AppPalette palette,
+    required GenreTagMatchMode mode,
+    required ValueChanged<GenreTagMatchMode> onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        children: [
+          Text('Match: ',
+              style: TextStyle(fontSize: 12, color: palette.textSecondary)),
+          ChoiceChip(
+            label: const Text('Any', style: TextStyle(fontSize: 12)),
+            selected: mode == GenreTagMatchMode.any,
+            onSelected: (_) => onChanged(GenreTagMatchMode.any),
+          ),
+          const SizedBox(width: 6),
+          ChoiceChip(
+            label: const Text('All', style: TextStyle(fontSize: 12)),
+            selected: mode == GenreTagMatchMode.all,
+            onSelected: (_) => onChanged(GenreTagMatchMode.all),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Searchable multi-select tag picker, opened from the Tags dropdown in
+  /// the filter sheet. Mutates [selectedTags] in place (by reference) as
+  /// items are toggled; the caller re-renders the outer sheet once this
+  /// closes so the dropdown summary/count and the Match row pick up the
+  /// change.
+  Future<void> _showTagsPicker({
+    required BuildContext context,
+    required AppPalette palette,
+    required List<Tag> allTags,
+    required List<String> selectedTags,
+  }) {
+    return showModalBottomSheet(
+      context: context,
+      backgroundColor: palette.surfaceLight,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) {
+        final searchCtrl = TextEditingController();
+
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            final query = searchCtrl.text.trim().toLowerCase();
+            final visible = query.isEmpty
+                ? allTags
+                : allTags
+                    .where((t) => t.name.toLowerCase().contains(query))
+                    .toList();
+
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                  20, 20, 20, 20 + MediaQuery.of(sheetCtx).viewInsets.bottom),
+              child: SizedBox(
+                height: MediaQuery.of(sheetCtx).size.height * 0.7,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Select Tags',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: palette.textMain,
+                          ),
+                        ),
+                        if (selectedTags.isNotEmpty)
+                          TextButton(
+                            onPressed: () => setSheetState(
+                                () => selectedTags.clear()),
+                            child: const Text('Clear All'),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: searchCtrl,
+                      onChanged: (_) => setSheetState(() {}),
+                      style: TextStyle(color: palette.textMain, fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText: 'Search tags...',
+                        isDense: true,
+                        prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: visible.isEmpty
+                          ? Center(
+                              child: Text(
+                                'No tags match "$query"',
+                                style:
+                                    TextStyle(color: palette.textSecondary),
+                              ),
+                            )
+                          : ListView.builder(
+                              itemCount: visible.length,
+                              itemBuilder: (context, index) {
+                                final tag = visible[index];
+                                final isSel = selectedTags.contains(tag.name);
+                                return CheckboxListTile(
+                                  value: isSel,
+                                  dense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  controlAffinity:
+                                      ListTileControlAffinity.leading,
+                                  activeColor: palette.accent,
+                                  title: Text(
+                                    tag.name,
+                                    style: TextStyle(
+                                        fontSize: 13, color: palette.textMain),
+                                  ),
+                                  onChanged: (_) => setSheetState(() {
+                                    isSel
+                                        ? selectedTags.remove(tag.name)
+                                        : selectedTags.add(tag.name);
+                                  }),
+                                );
+                              },
+                            ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(sheetCtx),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: palette.primary,
+                          foregroundColor: palette.onSolid,
+                        ),
+                        child: Text(selectedTags.isEmpty
+                            ? 'Done'
+                            : 'Done (${selectedTags.length} selected)'),
+                      ),
                     ),
                   ],
                 ),

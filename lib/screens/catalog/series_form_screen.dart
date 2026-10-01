@@ -44,6 +44,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
   late TextEditingController _warningInputCtrl;
 
   int _selectedLibraryId = 1;
+  String _selectedKind = 'series'; // 'series' or 'standalone'
   String _selectedStatus = ReadingStatus.planning;
   String _selectedBookType = 'Manga';
   String _selectedLanguageRead = 'English';
@@ -150,6 +151,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
       _fandomCtrl.text = series.fandom ?? '';
 
       _selectedLibraryId = series.libraryId;
+      _selectedKind = series.kind;
       _selectedStatus = series.status;
       if (series.bookType != null) _selectedBookType = series.bookType!;
       _selectedLanguageRead = series.languageRead;
@@ -232,6 +234,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
         synopsis:
             _synopsisCtrl.text.trim().isEmpty ? null : _synopsisCtrl.text.trim(),
         libraryId: _selectedLibraryId,
+        kind: _selectedKind,
         coverImagePath: _coverPathCtrl.text.trim().isEmpty
             ? null
             : _coverPathCtrl.text.trim(),
@@ -335,6 +338,23 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
           list.isEmpty ? ReadingStatus.all : list.map((s) => s.name).toList(),
       orElse: () => ReadingStatus.all,
     );
+
+    // Existing vocabulary, so Tags/Genres/Content Warnings can show what
+    // already exists instead of leaving the person to guess and risk
+    // near-duplicate names (e.g. "Sci-Fi" vs "SciFi").
+    final existingTagNames = ref.watch(userTagsProvider).maybeWhen(
+          data: (list) => list.map((t) => t.name).toList(),
+          orElse: () => const <String>[],
+        );
+    final existingGenreNames = ref.watch(allGenresProvider).maybeWhen(
+          data: (list) => list.map((g) => g.name).toList(),
+          orElse: () => const <String>[],
+        );
+    final existingWarningNames =
+        ref.watch(userContentWarningsProvider).maybeWhen(
+              data: (list) => list.map((w) => w.name).toList(),
+              orElse: () => const <String>[],
+            );
     if (statusNames.isNotEmpty && !statusNames.contains(_selectedStatus)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) setState(() => _selectedStatus = statusNames.first);
@@ -450,6 +470,41 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
             ),
             const SizedBox(height: 14),
 
+            // Series / Standalone Type
+            Text(
+              'Type',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: palette.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildKindOption(
+                    label: 'Series',
+                    description: 'Multiple volumes/chapters',
+                    icon: Icons.menu_book_rounded,
+                    value: 'series',
+                    palette: palette,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildKindOption(
+                    label: 'Standalone',
+                    description: 'One book, its own thoughts',
+                    icon: Icons.auto_stories_rounded,
+                    value: 'standalone',
+                    palette: palette,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+
             // Library & Status Row
             Row(
               children: [
@@ -462,6 +517,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
                         initialValue: libs.any((l) => l.id == _selectedLibraryId)
                             ? _selectedLibraryId
                             : libs.first.id,
+                        isExpanded: true,
                         dropdownColor: palette.surfaceLight,
                         decoration: const InputDecoration(
                           labelText: 'Library',
@@ -470,7 +526,8 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
                         items: libs
                             .map((l) => DropdownMenuItem(
                                   value: l.id,
-                                  child: Text(l.name),
+                                  child: Text(l.name,
+                                      overflow: TextOverflow.ellipsis),
                                 ))
                             .toList(),
                         onChanged: (val) {
@@ -490,13 +547,16 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
                     initialValue: statusNames.contains(_selectedStatus)
                         ? _selectedStatus
                         : (statusNames.isNotEmpty ? statusNames.first : null),
+                    isExpanded: true,
                     dropdownColor: palette.surfaceLight,
                     decoration: const InputDecoration(
                       labelText: 'Status',
                       prefixIcon: Icon(Icons.bookmark_rounded),
                     ),
                     items: statusNames
-                        .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                        .map((s) => DropdownMenuItem(
+                            value: s,
+                            child: Text(s, overflow: TextOverflow.ellipsis)))
                         .toList(),
                     onChanged: (val) {
                       if (val != null) setState(() => _selectedStatus = val);
@@ -513,13 +573,16 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
                 Expanded(
                   child: DropdownButtonFormField<String>(
                     initialValue: _selectedBookType,
+                    isExpanded: true,
                     dropdownColor: palette.surfaceLight,
                     decoration: const InputDecoration(
                       labelText: 'Format',
                       prefixIcon: Icon(Icons.category_rounded),
                     ),
                     items: _bookTypes
-                        .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                        .map((t) => DropdownMenuItem(
+                            value: t,
+                            child: Text(t, overflow: TextOverflow.ellipsis)))
                         .toList(),
                     onChanged: (val) {
                       if (val != null) setState(() => _selectedBookType = val);
@@ -544,12 +607,16 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
                               fontSize: 12, color: palette.textSecondary),
                         ),
                         const SizedBox(height: 4),
-                        RatingStars(
-                          rating: _rating,
-                          size: 20,
-                          onRatingChanged: (newRating) {
-                            setState(() => _rating = newRating);
-                          },
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: RatingStars(
+                            rating: _rating,
+                            size: 20,
+                            onRatingChanged: (newRating) {
+                              setState(() => _rating = newRating);
+                            },
+                          ),
                         ),
                       ],
                     ),
@@ -592,6 +659,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
               controller: _tagInputCtrl,
               items: _tags,
               palette: palette,
+              existingOptions: existingTagNames,
               onAdd: (val) {
                 if (!_tags.contains(val)) setState(() => _tags.add(val));
               },
@@ -605,6 +673,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
               controller: _genreInputCtrl,
               items: _genres,
               palette: palette,
+              existingOptions: existingGenreNames,
               onAdd: (val) {
                 if (!_genres.contains(val)) setState(() => _genres.add(val));
               },
@@ -619,6 +688,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
               items: _contentWarnings,
               palette: palette,
               isWarning: true,
+              existingOptions: existingWarningNames,
               onAdd: (val) {
                 if (!_contentWarnings.contains(val)) {
                   setState(() => _contentWarnings.add(val));
@@ -684,7 +754,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
                         controller: _standaloneChapterCtrl,
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
-                            labelText: 'Standalone Chs'),
+                            labelText: 'Chapter Number'),
                       ),
                     ),
                   ],
@@ -761,6 +831,57 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
     );
   }
 
+  Widget _buildKindOption({
+    required String label,
+    required String description,
+    required IconData icon,
+    required String value,
+    required AppPalette palette,
+  }) {
+    final selected = _selectedKind == value;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedKind = value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? palette.primary.withValues(alpha: 0.18) : palette.surfaceLight,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? palette.accent : palette.border,
+            width: selected ? 1.6 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: selected ? palette.accent : palette.textSecondary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: selected ? palette.accent : palette.textMain,
+                    ),
+                  ),
+                  Text(
+                    description,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 10.5, color: palette.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildChipInputSection({
     required String title,
     required TextEditingController controller,
@@ -769,17 +890,67 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
     required ValueChanged<String> onRemove,
     required AppPalette palette,
     bool isWarning = false,
+    List<String> existingOptions = const [],
   }) {
+    final query = controller.text.trim().toLowerCase();
+    // Live type-ahead: once the person starts typing, show matching
+    // existing names (not already added) they can tap instead of typing
+    // the whole thing out — and, more importantly, so they can see
+    // whether a close match already exists before creating a near-dupe.
+    final suggestions = query.isEmpty
+        ? const <String>[]
+        : existingOptions
+            .where((o) =>
+                !items.contains(o) && o.toLowerCase().contains(query))
+            .take(6)
+            .toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            color: palette.textSecondary,
-          ),
+        Row(
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: palette.textSecondary,
+              ),
+            ),
+            if (existingOptions.isNotEmpty) ...[
+              const Spacer(),
+              InkWell(
+                borderRadius: BorderRadius.circular(6),
+                onTap: () => _showExistingOptionsPicker(
+                  title: title,
+                  allOptions: existingOptions,
+                  selected: items,
+                  palette: palette,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 4, vertical: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.list_alt_rounded,
+                          size: 14, color: palette.accent),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Browse existing',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: palette.accent,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
         const SizedBox(height: 6),
         Row(
@@ -794,11 +965,13 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   isDense: true,
                 ),
+                onChanged: (_) => setState(() {}),
                 onSubmitted: (val) {
                   final trimmed = val.trim();
                   if (trimmed.isNotEmpty) {
                     onAdd(trimmed);
                     controller.clear();
+                    setState(() {});
                   }
                 },
               ),
@@ -812,11 +985,32 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
                 if (trimmed.isNotEmpty) {
                   onAdd(trimmed);
                   controller.clear();
+                  setState(() {});
                 }
               },
             ),
           ],
         ),
+        if (suggestions.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: suggestions.map((s) {
+              return ActionChip(
+                avatar: Icon(Icons.add_rounded, size: 14, color: palette.accent),
+                label: Text(s, style: const TextStyle(fontSize: 11)),
+                backgroundColor: palette.surfaceLight,
+                side: BorderSide(color: palette.border),
+                onPressed: () {
+                  onAdd(s);
+                  controller.clear();
+                  setState(() {});
+                },
+              );
+            }).toList(),
+          ),
+        ],
         if (items.isNotEmpty) ...[
           const SizedBox(height: 8),
           Wrap(
@@ -832,6 +1026,150 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
           ),
         ],
       ],
+    );
+  }
+
+  /// Full searchable list of every existing tag/genre/content-warning name,
+  /// with checkboxes — opened from "Browse existing" so the person can see
+  /// the whole vocabulary up front, not just type-ahead matches. [selected]
+  /// is the same list instance as the form's `_tags`/`_genres`/
+  /// `_contentWarnings`, mutated in place as items are checked/unchecked.
+  Future<void> _showExistingOptionsPicker({
+    required String title,
+    required List<String> allOptions,
+    required List<String> selected,
+    required AppPalette palette,
+  }) {
+    final searchCtrl = TextEditingController();
+
+    return showModalBottomSheet(
+      context: context,
+      backgroundColor: palette.surfaceLight,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            final query = searchCtrl.text.trim().toLowerCase();
+            final visible = query.isEmpty
+                ? allOptions
+                : allOptions
+                    .where((o) => o.toLowerCase().contains(query))
+                    .toList();
+
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                  20, 20, 20, 20 + MediaQuery.of(sheetCtx).viewInsets.bottom),
+              child: SizedBox(
+                height: MediaQuery.of(sheetCtx).size.height * 0.7,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Existing $title',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: palette.textMain,
+                          ),
+                        ),
+                        if (selected.isNotEmpty)
+                          TextButton(
+                            onPressed: () => setSheetState(() {
+                              setState(() => selected.clear());
+                            }),
+                            child: const Text('Clear All'),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: searchCtrl,
+                      onChanged: (_) => setSheetState(() {}),
+                      style: TextStyle(color: palette.textMain, fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText: 'Search $title...',
+                        isDense: true,
+                        prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: allOptions.isEmpty
+                          ? Center(
+                              child: Text(
+                                'None created yet — add one below and '
+                                "it'll show up here next time.",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: palette.textSecondary),
+                              ),
+                            )
+                          : visible.isEmpty
+                              ? Center(
+                                  child: Text(
+                                    'No matches for "$query"',
+                                    style:
+                                        TextStyle(color: palette.textSecondary),
+                                  ),
+                                )
+                              : ListView.builder(
+                                  itemCount: visible.length,
+                                  itemBuilder: (context, index) {
+                                    final name = visible[index];
+                                    final isSel = selected.contains(name);
+                                    return CheckboxListTile(
+                                      value: isSel,
+                                      dense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                      controlAffinity:
+                                          ListTileControlAffinity.leading,
+                                      activeColor: palette.accent,
+                                      title: Text(
+                                        name,
+                                        style: TextStyle(
+                                            fontSize: 13,
+                                            color: palette.textMain),
+                                      ),
+                                      onChanged: (_) {
+                                        setSheetState(() {});
+                                        setState(() {
+                                          isSel
+                                              ? selected.remove(name)
+                                              : selected.add(name);
+                                        });
+                                      },
+                                    );
+                                  },
+                                ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(sheetCtx),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: palette.primary,
+                          foregroundColor: palette.onSolid,
+                        ),
+                        child: Text(selected.isEmpty
+                            ? 'Done'
+                            : 'Done (${selected.length} selected)'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

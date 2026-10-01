@@ -262,7 +262,8 @@ class SeriesFilter {
   // Genre / Tag filters
   final List<String> genres;
   final List<String> tags;
-  final GenreTagMatchMode matchMode;
+  final GenreTagMatchMode genreMatchMode;
+  final GenreTagMatchMode tagMatchMode;
 
   // Rating (minimum stars, 1-5)
   final int? minRating;
@@ -288,7 +289,8 @@ class SeriesFilter {
     this.sortAsc = true,
     this.genres = const [],
     this.tags = const [],
-    this.matchMode = GenreTagMatchMode.any,
+    this.genreMatchMode = GenreTagMatchMode.any,
+    this.tagMatchMode = GenreTagMatchMode.any,
     this.minRating,
     this.yearFrom,
     this.yearTo,
@@ -343,7 +345,8 @@ class SeriesFilter {
     bool? sortAsc,
     List<String>? genres,
     List<String>? tags,
-    GenreTagMatchMode? matchMode,
+    GenreTagMatchMode? genreMatchMode,
+    GenreTagMatchMode? tagMatchMode,
     int? minRating,
     bool clearMinRating = false,
     int? yearFrom,
@@ -371,7 +374,8 @@ class SeriesFilter {
       sortAsc: sortAsc ?? this.sortAsc,
       genres: genres ?? this.genres,
       tags: tags ?? this.tags,
-      matchMode: matchMode ?? this.matchMode,
+      genreMatchMode: genreMatchMode ?? this.genreMatchMode,
+      tagMatchMode: tagMatchMode ?? this.tagMatchMode,
       minRating: clearMinRating ? null : (minRating ?? this.minRating),
       yearFrom: clearYearFrom ? null : (yearFrom ?? this.yearFrom),
       yearTo: clearYearTo ? null : (yearTo ?? this.yearTo),
@@ -418,7 +422,8 @@ final seriesListProvider = FutureProvider<List<Series>>((ref) async {
     includeNsfw: showNsfw,
     genres: filter.genres,
     tags: filter.tags,
-    matchAllGenresTags: filter.matchMode == GenreTagMatchMode.all,
+    matchAllGenres: filter.genreMatchMode == GenreTagMatchMode.all,
+    matchAllTags: filter.tagMatchMode == GenreTagMatchMode.all,
     minRating: filter.minRating,
     yearFrom: filter.yearFrom,
     yearTo: filter.yearTo,

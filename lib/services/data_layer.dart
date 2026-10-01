@@ -453,9 +453,12 @@ class DataLayer {
 
   /// Fetches titles for [ownerId]'s libraries, applying every filter the
   /// Library screen's Sort & Filters sheet can set. Genre and tag filters
-  /// combine per [matchAllGenresTags]: false ("Any") matches a title that
-  /// has at least one of the selected genres OR tags; true ("All") requires
-  /// every selected genre AND every selected tag to be present.
+  /// now have independent Any/All controls: [matchAllGenres] false ("Any")
+  /// matches a title with at least one selected genre, true ("All")
+  /// requires every selected genre; [matchAllTags] works the same way for
+  /// tags. When both a genre and a tag selection are active, a title must
+  /// satisfy both criteria (they combine with AND, same as any other pair
+  /// of filters here).
   Future<List<Series>> seriesGetAll(
     String ownerId, {
     int? libraryId,
@@ -463,7 +466,8 @@ class DataLayer {
     String? search,
     List<String> genres = const [],
     List<String> tags = const [],
-    bool matchAllGenresTags = false,
+    bool matchAllGenres = false,
+    bool matchAllTags = false,
     int? minRating,
     int? yearFrom,
     int? yearTo,
@@ -555,55 +559,51 @@ class DataLayer {
       args.addAll([term, term]);
     }
 
-    // ── Genre / Tag combined filter (Any / All matching) ────────────
+    // ── Genre filter (independent Any/All) ────────────────────────────
     final cleanGenres = genres.where((g) => g.trim().isNotEmpty).toList();
-    final cleanTags = tags.where((t) => t.trim().isNotEmpty).toList();
-
-    if (cleanGenres.isNotEmpty || cleanTags.isNotEmpty) {
-      if (matchAllGenresTags) {
-        // ALL: every selected genre AND every selected tag must be present.
-        if (cleanGenres.isNotEmpty) {
-          final placeholders = List.filled(cleanGenres.length, '?').join(',');
-          whereClauses.add('''
-            (SELECT COUNT(DISTINCT g.name) FROM series_genres sg
-               JOIN genres g ON sg.genre_id = g.id
-               WHERE sg.series_id = s.id AND g.name IN ($placeholders)) = ?
-          ''');
-          args.addAll(cleanGenres);
-          args.add(cleanGenres.length);
-        }
-        if (cleanTags.isNotEmpty) {
-          final placeholders = List.filled(cleanTags.length, '?').join(',');
-          whereClauses.add('''
-            (SELECT COUNT(DISTINCT t.name) FROM series_tags st
-               JOIN tags t ON st.tag_id = t.id
-               WHERE st.series_id = s.id AND t.name IN ($placeholders)) = ?
-          ''');
-          args.addAll(cleanTags);
-          args.add(cleanTags.length);
-        }
+    if (cleanGenres.isNotEmpty) {
+      final placeholders = List.filled(cleanGenres.length, '?').join(',');
+      if (matchAllGenres) {
+        // ALL: every selected genre must be present.
+        whereClauses.add('''
+          (SELECT COUNT(DISTINCT g.name) FROM series_genres sg
+             JOIN genres g ON sg.genre_id = g.id
+             WHERE sg.series_id = s.id AND g.name IN ($placeholders)) = ?
+        ''');
+        args.addAll(cleanGenres);
+        args.add(cleanGenres.length);
       } else {
-        // ANY: at least one selected genre OR one selected tag.
-        final orParts = <String>[];
-        if (cleanGenres.isNotEmpty) {
-          final placeholders = List.filled(cleanGenres.length, '?').join(',');
-          orParts.add('''
-            s.id IN (SELECT sg.series_id FROM series_genres sg
-               JOIN genres g ON sg.genre_id = g.id
-               WHERE g.name IN ($placeholders))
-          ''');
-          args.addAll(cleanGenres);
-        }
-        if (cleanTags.isNotEmpty) {
-          final placeholders = List.filled(cleanTags.length, '?').join(',');
-          orParts.add('''
-            s.id IN (SELECT st.series_id FROM series_tags st
-               JOIN tags t ON st.tag_id = t.id
-               WHERE t.name IN ($placeholders))
-          ''');
-          args.addAll(cleanTags);
-        }
-        whereClauses.add('(${orParts.join(' OR ')})');
+        // ANY: at least one selected genre.
+        whereClauses.add('''
+          s.id IN (SELECT sg.series_id FROM series_genres sg
+             JOIN genres g ON sg.genre_id = g.id
+             WHERE g.name IN ($placeholders))
+        ''');
+        args.addAll(cleanGenres);
+      }
+    }
+
+    // ── Tag filter (independent Any/All) ───────────────────────────────
+    final cleanTags = tags.where((t) => t.trim().isNotEmpty).toList();
+    if (cleanTags.isNotEmpty) {
+      final placeholders = List.filled(cleanTags.length, '?').join(',');
+      if (matchAllTags) {
+        // ALL: every selected tag must be present.
+        whereClauses.add('''
+          (SELECT COUNT(DISTINCT t.name) FROM series_tags st
+             JOIN tags t ON st.tag_id = t.id
+             WHERE st.series_id = s.id AND t.name IN ($placeholders)) = ?
+        ''');
+        args.addAll(cleanTags);
+        args.add(cleanTags.length);
+      } else {
+        // ANY: at least one selected tag.
+        whereClauses.add('''
+          s.id IN (SELECT st.series_id FROM series_tags st
+             JOIN tags t ON st.tag_id = t.id
+             WHERE t.name IN ($placeholders))
+        ''');
+        args.addAll(cleanTags);
       }
     }
 
@@ -1329,6 +1329,23 @@ class DataLayer {
     ];
     final res = await _turso.execute(sql, args);
     return res.lastInsertRowid ?? 0;
+  }
+
+  Future<void> relationshipsUpdate(Relationship rel) async {
+    await _turso.execute('''
+      UPDATE relationships SET
+        from_character_id = ?, to_character_id = ?, type = ?, label = ?,
+        is_bidirectional = ?, notes = ?
+      WHERE id = ?
+    ''', [
+      rel.fromCharacterId,
+      rel.toCharacterId,
+      rel.type,
+      rel.label,
+      rel.isBidirectional ? 1 : 0,
+      rel.notes,
+      rel.id,
+    ]);
   }
 
   Future<void> relationshipsDelete(int id) async {

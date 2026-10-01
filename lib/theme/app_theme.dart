@@ -106,16 +106,28 @@ class AppTheme {
           borderSide: BorderSide(color: palette.accent, width: 1.5),
         ),
       ),
-      // FIX: Without this, ElevatedButton defaults its label/icon color to
-      // colorScheme.primary (= palette.primary). Any call site that only
-      // sets `backgroundColor: palette.primary` via styleFrom() ends up
-      // rendering pink-on-pink (or accent-on-accent) text — invisible
-      // buttons like the "Add Thoughts" pill. This makes onSolid (white in
-      // light mode, near-black in dark mode) the default label color for
-      // every ElevatedButton unless a call site explicitly overrides it.
+      // Material 3's default ElevatedButton is a subtle surface-tinted
+      // pill with primary-colored text, not a solid-primary fill — several
+      // dialogs across the app (Add Character, Add Volume, Add Library...)
+      // use a bare `ElevatedButton` expecting the latter, which left their
+      // primary action button looking washed out / low-contrast in dark
+      // mode. Setting it here fixes every one of those call sites at once,
+      // without touching each dialog individually; a dialog that wants a
+      // different look (e.g. the red "Delete Forever" button) still
+      // overrides `style` locally, same as before.
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
+          backgroundColor: palette.primary,
           foregroundColor: palette.onSolid,
+          disabledBackgroundColor: palette.primary.withValues(alpha: 0.35),
+          disabledForegroundColor: palette.onSolid.withValues(alpha: 0.6),
+          textStyle: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
