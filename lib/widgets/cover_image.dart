@@ -1,12 +1,16 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
 import '../providers/app_providers.dart';
 import '../theme/colors.dart';
 
-/// Cover image widget supporting local files, remote URLs, and Cloudflare R2 keys.
+/// Cover image widget supporting local files, remote URLs, Cloudflare R2
+/// keys, and (web only) `blob:`/`data:` URIs from a just-picked image that
+/// hasn't finished uploading yet.
 class CoverImage extends ConsumerWidget {
   final String? imagePath;
   final double? width;
@@ -35,8 +39,50 @@ class CoverImage extends ConsumerWidget {
 
     final path = imagePath!.trim();
 
-    // Check if it's a local file path
-    if (path.startsWith('/') || path.contains(r':\')) {
+    // Web-only: a picked-but-not-yet-uploaded image. image_picker_for_web
+    // hands back a `blob:` object URL for XFile.path, which the browser
+    // can render directly via <img src> with no network/CORS involved at
+    // all — it's a local reference into this tab's memory, not a fetch.
+    // It won't survive a page reload or another device, but it means the
+    // chosen cover shows up immediately even if the R2 upload failed.
+    if (kIsWeb && path.startsWith('blob:')) {
+      return ClipRRect(
+        borderRadius: radius,
+        child: Image.network(
+          path,
+          width: width,
+          height: height,
+          fit: fit,
+          errorBuilder: (_, __, ___) => _buildPlaceholder(context, radius),
+        ),
+      );
+    }
+
+    // A data: URI (base64-inlined image) — decode and render from memory
+    // rather than treating it as a network fetch.
+    if (path.startsWith('data:')) {
+      try {
+        final commaIndex = path.indexOf(',');
+        final bytes = base64Decode(path.substring(commaIndex + 1));
+        return ClipRRect(
+          borderRadius: radius,
+          child: Image.memory(
+            bytes,
+            width: width,
+            height: height,
+            fit: fit,
+            errorBuilder: (_, __, ___) => _buildPlaceholder(context, radius),
+          ),
+        );
+      } catch (_) {
+        return _buildPlaceholder(context, radius);
+      }
+    }
+
+    // Check if it's a local file path (never true on web — there is no
+    // filesystem — so this branch is skipped there even if a path happens
+    // to start with '/').
+    if (!kIsWeb && (path.startsWith('/') || path.contains(r':\'))) {
       final file = File(path);
       if (file.existsSync()) {
         return ClipRRect(

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -67,7 +68,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
     'Manga',
     'Light Novel',
     'Webtoon',
-    'Novel',
+    'Webnovel',
     'Manhwa',
     'Manhua',
     'Comic',
@@ -200,12 +201,55 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
       }
     } catch (e) {
       if (mounted) {
-        // Fallback: save local path if offline
-        _coverPathCtrl.text = image.path;
-        ScaffoldMessenger.of(context).showSnackBar(
+        setState(() {
+          // Fallback so the chosen cover still shows up this session even
+          // though the upload failed. On mobile this is a real file path
+          // CoverImage can read directly. On web it's a `blob:` object URL
+          // — CoverImage renders that too, but it only lives in this
+          // browser tab: it won't survive a reload and won't sync to
+          // other devices until the upload issue below is fixed and the
+          // cover is re-picked.
+          _coverPathCtrl.text = image.path;
+        });
+
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.showSnackBar(
           SnackBar(
-            content: Text('Cloud upload skipped (using local image): $e'),
+            content: Text(
+              kIsWeb
+                  ? "Couldn't upload to cloud storage — showing a local "
+                      'preview for now. This is usually a CORS setting on '
+                      'the storage bucket, not something wrong with your '
+                      'image.'
+                  : "Couldn't upload to cloud storage — showing a local "
+                      'preview for now. Check your connection and try '
+                      'again.',
+            ),
             backgroundColor: palette.accent,
+            duration: const Duration(seconds: 6),
+            action: SnackBarAction(
+              label: 'Details',
+              onPressed: () => showDialog(
+                context: context,
+                builder: (dctx) => AlertDialog(
+                  backgroundColor: palette.surfaceLight,
+                  title: const Text('Upload Error Details'),
+                  content: SingleChildScrollView(
+                    child: Text(
+                      e.toString(),
+                      style: TextStyle(
+                          fontSize: 12, color: palette.textSecondary),
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dctx),
+                      child: const Text('Close'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         );
       }
@@ -754,7 +798,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
                         controller: _standaloneChapterCtrl,
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
-                            labelText: 'Chapter Number'),
+                            labelText: 'Standalone Chs'),
                       ),
                     ),
                   ],
