@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/app_color_palette.dart';
 import '../../providers/app_providers.dart';
 import '../../theme/app_palette.dart';
+import '../../services/auth_service.dart';
 
 /// User settings, cloud sync status, library management, theme/content
 /// preferences, startup behavior, and account options.
@@ -251,14 +252,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         final navigator = Navigator.of(ctx);
                         final router = GoRouter.of(context);
                         try {
-                          // Wipe owned data first, then remove the account
+                          // Verify password before touching any data
+                          final auth = ref.read(authServiceProvider);
+                          final ok = await auth.verifyPassword(
+                              userId, passwordCtrl.text);
+                          if (!ok) {
+                            throw const AuthException('Password is incorrect');
+                          }
+
+                          // Wipe owned data, then remove the account
                           // row and clear the local session.
                           await ref
                               .read(dataLayerProvider)
                               .deleteAllDataForOwner(userId);
-                          await ref
-                              .read(authServiceProvider)
-                              .deleteAccount(userId, passwordCtrl.text);
+                          await auth.deleteAccount(userId, passwordCtrl.text);
 
                           ref.invalidate(librariesProvider);
                           ref.invalidate(seriesListProvider);

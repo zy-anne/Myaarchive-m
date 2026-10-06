@@ -30,7 +30,10 @@ class SeriesCard extends StatelessWidget {
 
   Widget _buildGridCard(BuildContext context, AppPalette palette) {
   final statusColor = ReadingStatus.colorFor(series.status);
-  final String formatLabel = (series.bookType ?? 'Manga').toUpperCase();
+  final String? formatLabel =
+      (series.bookType != null && series.bookType!.trim().isNotEmpty)
+          ? series.bookType!.trim().toUpperCase()
+          : null;
   final isDark = Theme.of(context).brightness == Brightness.dark;
 
   // Chapter or volume count label
@@ -86,15 +89,16 @@ class SeriesCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                Positioned(
-                  left: 8,
-                  top: 8,
-                  child: _buildOverlayTag(
-                    formatLabel,
-                    Colors.black.withValues(alpha: 0.62),
-                    Colors.white,
+                if (formatLabel != null)
+                  Positioned(
+                    left: 8,
+                    top: 8,
+                    child: _buildOverlayTag(
+                      formatLabel,
+                      Colors.black.withValues(alpha: 0.62),
+                      Colors.white,
+                    ),
                   ),
-                ),
                 if (series.isNsfw)
                   Positioned(
                     right: 8,

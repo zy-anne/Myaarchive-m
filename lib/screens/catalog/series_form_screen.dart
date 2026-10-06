@@ -64,6 +64,10 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
 
   final ImagePicker _picker = ImagePicker();
 
+  String? _statusCountryOfOrigin;
+  String? _licensedEnglish;
+  String? _completelyTranslated;
+
   static const List<String> _bookTypes = [
     'Manga',
     'Light Novel',
@@ -75,6 +79,31 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
     'Fanfic',
     'Other',
   ];
+
+  static const List<String> _originStatuses = [
+    'Releasing',
+    'Completed',
+    'Hiatus',
+    'Cancelled',
+    'Discontinued',
+  ];
+
+  static const List<String> _yesNoOptions = ['Yes', 'No'];
+
+  List<String> get _availableBookTypes {
+    if (_selectedBookType.isNotEmpty && !_bookTypes.contains(_selectedBookType)) {
+      return [..._bookTypes, _selectedBookType];
+    }
+    return _bookTypes;
+  }
+
+  List<String?> _dropdownOptions(List<String> base, String? current) {
+    final list = <String?>[null, ...base];
+    if (current != null && current.isNotEmpty && !base.contains(current)) {
+      list.add(current);
+    }
+    return list;
+  }
 
   @override
   void initState() {
@@ -154,10 +183,15 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
       _selectedLibraryId = series.libraryId;
       _selectedKind = series.kind;
       _selectedStatus = series.status;
-      if (series.bookType != null) _selectedBookType = series.bookType!;
+      if (series.bookType != null && series.bookType!.trim().isNotEmpty) {
+        _selectedBookType = series.bookType!.trim();
+      }
       _selectedLanguageRead = series.languageRead;
       _originalLanguage = series.originalLanguage;
       _countryOfOrigin = series.countryOfOrigin;
+      _statusCountryOfOrigin = series.statusCountryOfOrigin;
+      _licensedEnglish = series.licensedEnglish;
+      _completelyTranslated = series.completelyTranslated;
       _rating = series.rating ?? 0;
       _isNsfw = series.isNsfw;
 
@@ -181,12 +215,17 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
     try {
       final bytes = await image.readAsBytes();
       final r2 = ref.read(r2ServiceProvider);
-      final filename =
-          'covers/${DateTime.now().millisecondsSinceEpoch}_${image.name}';
+      final key = r2.makeKey('covers', image.name);
+      final ext = image.name.toLowerCase();
+      final contentType = ext.endsWith('.png')
+          ? 'image/png'
+          : ext.endsWith('.webp')
+              ? 'image/webp'
+              : 'image/jpeg';
       final uploadedKey = await r2.uploadBytes(
-        key: filename,
+        key: key,
         bytes: bytes,
-        contentType: 'image/jpeg',
+        contentType: contentType,
       );
       setState(() {
         _coverPathCtrl.text = uploadedKey;
@@ -297,6 +336,9 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
         dateFinished: _dateFinishedCtrl.text.trim().isEmpty
             ? null
             : _dateFinishedCtrl.text.trim(),
+        statusCountryOfOrigin: _statusCountryOfOrigin,
+        licensedEnglish: _licensedEnglish,
+        completelyTranslated: _completelyTranslated,
         originalPublisher: _originalPublisherCtrl.text.trim().isEmpty
             ? null
             : _originalPublisherCtrl.text.trim(),
@@ -557,10 +599,12 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
                   child: librariesAsync.when(
                     data: (libs) {
                       if (libs.isEmpty) return const SizedBox.shrink();
+                      final currentLibId = libs.any((l) => l.id == _selectedLibraryId)
+                          ? _selectedLibraryId
+                          : libs.first.id;
                       return DropdownButtonFormField<int>(
-                        initialValue: libs.any((l) => l.id == _selectedLibraryId)
-                            ? _selectedLibraryId
-                            : libs.first.id,
+                        key: ValueKey('lib_$currentLibId'),
+                        initialValue: currentLibId,
                         isExpanded: true,
                         dropdownColor: palette.surfaceLight,
                         decoration: const InputDecoration(
@@ -588,6 +632,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
                 // Status dropdown (dynamic — see Settings → Manage Statuses)
                 Expanded(
                   child: DropdownButtonFormField<String>(
+                    key: ValueKey('status_$_selectedStatus'),
                     initialValue: statusNames.contains(_selectedStatus)
                         ? _selectedStatus
                         : (statusNames.isNotEmpty ? statusNames.first : null),
@@ -616,14 +661,17 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    initialValue: _selectedBookType,
+                    key: ValueKey('fmt_$_selectedBookType'),
+                    initialValue: _availableBookTypes.contains(_selectedBookType)
+                        ? _selectedBookType
+                        : (_availableBookTypes.isNotEmpty ? _availableBookTypes.first : null),
                     isExpanded: true,
                     dropdownColor: palette.surfaceLight,
                     decoration: const InputDecoration(
                       labelText: 'Format',
                       prefixIcon: Icon(Icons.category_rounded),
                     ),
-                    items: _bookTypes
+                    items: _availableBookTypes
                         .map((t) => DropdownMenuItem(
                             value: t,
                             child: Text(t, overflow: TextOverflow.ellipsis)))
@@ -842,6 +890,59 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String?>(
+                        key: ValueKey('origin_$_statusCountryOfOrigin'),
+                        initialValue: _statusCountryOfOrigin,
+                        dropdownColor: palette.surfaceLight,
+                        decoration: const InputDecoration(labelText: 'Origin Status'),
+                        items: _dropdownOptions(_originStatuses, _statusCountryOfOrigin)
+                            .map((opt) => DropdownMenuItem<String?>(
+                                  value: opt,
+                                  child: Text(opt ?? 'None / Unknown',
+                                      overflow: TextOverflow.ellipsis),
+                                ))
+                            .toList(),
+                        onChanged: (val) => setState(() => _statusCountryOfOrigin = val),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: DropdownButtonFormField<String?>(
+                        key: ValueKey('licensed_$_licensedEnglish'),
+                        initialValue: _licensedEnglish,
+                        dropdownColor: palette.surfaceLight,
+                        decoration: const InputDecoration(labelText: 'Licensed in EN'),
+                        items: _dropdownOptions(_yesNoOptions, _licensedEnglish)
+                            .map((opt) => DropdownMenuItem<String?>(
+                                  value: opt,
+                                  child: Text(opt ?? 'Unknown',
+                                      overflow: TextOverflow.ellipsis),
+                                ))
+                            .toList(),
+                        onChanged: (val) => setState(() => _licensedEnglish = val),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String?>(
+                  key: ValueKey('translated_$_completelyTranslated'),
+                  initialValue: _completelyTranslated,
+                  dropdownColor: palette.surfaceLight,
+                  decoration: const InputDecoration(labelText: 'Completely Translated'),
+                  items: _dropdownOptions(_yesNoOptions, _completelyTranslated)
+                      .map((opt) => DropdownMenuItem<String?>(
+                            value: opt,
+                            child: Text(opt ?? 'Unknown',
+                                overflow: TextOverflow.ellipsis),
+                          ))
+                      .toList(),
+                  onChanged: (val) => setState(() => _completelyTranslated = val),
                 ),
               ],
             ),

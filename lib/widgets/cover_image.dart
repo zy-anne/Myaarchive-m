@@ -6,12 +6,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
 import '../providers/app_providers.dart';
-import '../theme/colors.dart';
+import '../theme/app_palette.dart';
 
 /// Cover image widget supporting local files, remote URLs, Cloudflare R2
 /// keys, and (web only) `blob:`/`data:` URIs from a just-picked image that
 /// hasn't finished uploading yet.
-class CoverImage extends ConsumerWidget {
+class CoverImage extends ConsumerStatefulWidget {
   final String? imagePath;
   final double? width;
   final double? height;
@@ -30,36 +30,77 @@ class CoverImage extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final radius = borderRadius ?? BorderRadius.circular(8);
+  ConsumerState<CoverImage> createState() => _CoverImageState();
+}
 
-    if (imagePath == null || imagePath!.trim().isEmpty) {
-      return _buildPlaceholder(context, radius);
+class _CoverImageState extends ConsumerState<CoverImage> {
+  Future<String>? _downloadUrlFuture;
+  String? _resolvedPath;
+
+  @override
+  void initState() {
+    super.initState();
+    _initFutureIfNeeded();
+  }
+
+  @override
+  void didUpdateWidget(CoverImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imagePath != widget.imagePath) {
+      _initFutureIfNeeded();
+    }
+  }
+
+  void _initFutureIfNeeded() {
+    final rawPath = widget.imagePath?.trim();
+    if (rawPath == null || rawPath.isEmpty) {
+      _downloadUrlFuture = null;
+      _resolvedPath = null;
+      return;
     }
 
-    final path = imagePath!.trim();
+    final isSpecial = rawPath.startsWith('blob:') ||
+        rawPath.startsWith('data:') ||
+        rawPath.startsWith('http://') ||
+        rawPath.startsWith('https://') ||
+        (!kIsWeb && (rawPath.startsWith('/') || rawPath.contains(r':\')));
 
-    // Web-only: a picked-but-not-yet-uploaded image. image_picker_for_web
-    // hands back a `blob:` object URL for XFile.path, which the browser
-    // can render directly via <img src> with no network/CORS involved at
-    // all — it's a local reference into this tab's memory, not a fetch.
-    // It won't survive a page reload or another device, but it means the
-    // chosen cover shows up immediately even if the R2 upload failed.
+    if (!isSpecial) {
+      _resolvedPath = rawPath;
+      _downloadUrlFuture = ref.read(r2ServiceProvider).getDownloadUrl(rawPath);
+    } else {
+      _downloadUrlFuture = null;
+      _resolvedPath = null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = widget.borderRadius ?? BorderRadius.circular(8);
+    final palette = context.palette;
+
+    if (widget.imagePath == null || widget.imagePath!.trim().isEmpty) {
+      return _buildPlaceholder(context, radius, palette);
+    }
+
+    final path = widget.imagePath!.trim();
+
+    // Web-only: a picked-but-not-yet-uploaded image.
     if (kIsWeb && path.startsWith('blob:')) {
       return ClipRRect(
         borderRadius: radius,
         child: Image.network(
           path,
-          width: width,
-          height: height,
-          fit: fit,
-          errorBuilder: (_, __, ___) => _buildPlaceholder(context, radius),
+          width: widget.width,
+          height: widget.height,
+          fit: widget.fit,
+          errorBuilder: (_, __, ___) =>
+              _buildPlaceholder(context, radius, palette),
         ),
       );
     }
 
-    // A data: URI (base64-inlined image) — decode and render from memory
-    // rather than treating it as a network fetch.
+    // A data: URI (base64-inlined image)
     if (path.startsWith('data:')) {
       try {
         final commaIndex = path.indexOf(',');
@@ -68,20 +109,19 @@ class CoverImage extends ConsumerWidget {
           borderRadius: radius,
           child: Image.memory(
             bytes,
-            width: width,
-            height: height,
-            fit: fit,
-            errorBuilder: (_, __, ___) => _buildPlaceholder(context, radius),
+            width: widget.width,
+            height: widget.height,
+            fit: widget.fit,
+            errorBuilder: (_, __, ___) =>
+                _buildPlaceholder(context, radius, palette),
           ),
         );
       } catch (_) {
-        return _buildPlaceholder(context, radius);
+        return _buildPlaceholder(context, radius, palette);
       }
     }
 
-    // Check if it's a local file path (never true on web — there is no
-    // filesystem — so this branch is skipped there even if a path happens
-    // to start with '/').
+    // Local file path
     if (!kIsWeb && (path.startsWith('/') || path.contains(r':\'))) {
       final file = File(path);
       if (file.existsSync()) {
@@ -89,55 +129,65 @@ class CoverImage extends ConsumerWidget {
           borderRadius: radius,
           child: Image.file(
             file,
-            width: width,
-            height: height,
-            fit: fit,
-            errorBuilder: (_, __, ___) => _buildPlaceholder(context, radius),
+            width: widget.width,
+            height: widget.height,
+            fit: widget.fit,
+            errorBuilder: (_, __, ___) =>
+                _buildPlaceholder(context, radius, palette),
           ),
         );
       }
     }
 
-    // Check if it's already an HTTP(S) URL
+    // Direct HTTP(S) URL
     if (path.startsWith('http://') || path.startsWith('https://')) {
       return ClipRRect(
         borderRadius: radius,
         child: CachedNetworkImage(
           imageUrl: path,
-          width: width,
-          height: height,
-          fit: fit,
-          placeholder: (context, url) => _buildShimmer(context, radius),
+          cacheKey: path,
+          width: widget.width,
+          height: widget.height,
+          fit: widget.fit,
+          placeholder: (context, url) =>
+              _buildShimmer(context, radius, palette),
           errorWidget: (context, url, error) =>
-              _buildPlaceholder(context, radius),
+              _buildPlaceholder(context, radius, palette),
         ),
       );
     }
 
-    // Otherwise, it's an R2 key: resolve presigned download URL
-    final r2 = ref.watch(r2ServiceProvider);
+    // Cloudflare R2 key
+    if (_downloadUrlFuture == null || _resolvedPath != path) {
+      _resolvedPath = path;
+      _downloadUrlFuture = ref.read(r2ServiceProvider).getDownloadUrl(path);
+    }
+
     return FutureBuilder<String>(
-      future: r2.getDownloadUrl(path),
+      future: _downloadUrlFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return _buildShimmer(context, radius);
+          return _buildShimmer(context, radius, palette);
         }
         if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
-          debugPrint('CoverImage: failed to resolve R2 url for key "$path": ${snapshot.error}');
-          return _buildPlaceholder(context, radius);
+          debugPrint(
+              'CoverImage: failed to resolve R2 url for key "$path": ${snapshot.error}');
+          return _buildPlaceholder(context, radius, palette);
         }
-        debugPrint('CoverImage: resolved "$path" -> ${snapshot.data}');
         return ClipRRect(
           borderRadius: radius,
           child: CachedNetworkImage(
             imageUrl: snapshot.data!,
-            width: width,
-            height: height,
-            fit: fit,
-            placeholder: (context, url) => _buildShimmer(context, radius),
+            cacheKey: path,
+            width: widget.width,
+            height: widget.height,
+            fit: widget.fit,
+            placeholder: (context, url) =>
+                _buildShimmer(context, radius, palette),
             errorWidget: (context, url, error) {
-              debugPrint('CoverImage: CachedNetworkImage failed for $url: $error');
-              return _buildPlaceholder(context, radius);
+              debugPrint(
+                  'CoverImage: CachedNetworkImage failed for $url: $error');
+              return _buildPlaceholder(context, radius, palette);
             },
           ),
         );
@@ -145,38 +195,40 @@ class CoverImage extends ConsumerWidget {
     );
   }
 
-  Widget _buildShimmer(BuildContext context, BorderRadius radius) {
+  Widget _buildShimmer(
+      BuildContext context, BorderRadius radius, AppPalette palette) {
     return Shimmer.fromColors(
-      baseColor: AppColors.darkSurfaceLight,
-      highlightColor: AppColors.darkSurfaceLighter,
+      baseColor: palette.surfaceLight,
+      highlightColor: palette.surfaceHigh,
       child: Container(
-        width: width,
-        height: height,
+        width: widget.width,
+        height: widget.height,
         decoration: BoxDecoration(
-          color: AppColors.darkSurfaceLight,
+          color: palette.surfaceLight,
           borderRadius: radius,
         ),
       ),
     );
   }
 
-  Widget _buildPlaceholder(BuildContext context, BorderRadius radius) {
+  Widget _buildPlaceholder(
+      BuildContext context, BorderRadius radius, AppPalette palette) {
     return Container(
-      width: width,
-      height: height,
+      width: widget.width,
+      height: widget.height,
       decoration: BoxDecoration(
-        color: AppColors.darkSurfaceLight,
+        color: palette.surfaceLight,
         borderRadius: radius,
         border: Border.all(
-          color: AppColors.darkBorder.withValues(alpha: 0.5),
+          color: palette.border.withValues(alpha: 0.5),
           width: 1,
         ),
       ),
       child: Center(
         child: Icon(
-          fallbackIcon,
-          size: (width != null && width! < 60) ? 20 : 36,
-          color: AppColors.darkTextMuted.withValues(alpha: 0.6),
+          widget.fallbackIcon,
+          size: (widget.width != null && widget.width! < 60) ? 20 : 36,
+          color: palette.textSecondary.withValues(alpha: 0.6),
         ),
       ),
     );

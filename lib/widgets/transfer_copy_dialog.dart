@@ -118,6 +118,7 @@ Future<void> showTransferCopyDialog(
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<int>(
+                    key: ValueKey(targetLibraryId),
                     initialValue: targetLibraryId,
                     dropdownColor: palette.surfaceLight,
                     decoration: const InputDecoration(isDense: true),
