@@ -15,12 +15,14 @@ Secure backend proxy and asset gateway for Myaarchive (Mobile & Desktop).
    - `POST /api/auth/delete-account`: Verifies password first, wipes all user data in a single atomic transaction, sweeps R2 assets, and deletes account.
 3. **Asset Handling (Cloudflare R2)**:
    - Direct integration via Cloudflare Workers `env.BUCKET` binding (`myaarchive-assets`).
-   - `POST /api/assets/upload`: Authenticated direct file upload.
-   - `GET /api/assets/:key`: High-performance asset streaming from edge with `ETag` and `Cache-Control: public, max-age=31536000, immutable`.
-   - `DELETE /api/assets/:key`: Authenticated asset cleanup.
+   - `POST /api/assets/upload?prefix=covers`: Authenticated upload of raw image bytes (JPEG/PNG/WebP/GIF, max 10 MB). The server picks the key, always under `u/<userId>/<prefix>/`.
+   - `GET /api/assets/presign-download?key=...`: Authenticated; returns a time-limited signed link (`exp` + `sig`) for one object. Only the owner can sign a `u/<userId>/` key.
+   - `GET /api/assets/<key>?exp=...&sig=...`: Streams the object. Requires a valid, unexpired signature.
+   - `DELETE /api/assets/<key>`: Authenticated; only the owner's own `u/<userId>/` objects can be deleted.
+   - Keys created before per-user scoping (e.g. `covers/<uuid>.jpg`) can still be signed for reading but not deleted through the API. Migrate them, then drop the legacy allowance in `routes/assets.ts`.
 4. **Data Query Proxying**:
-   - `POST /api/db/pipeline`: Authenticated Turso Hrana v2 pipeline proxy that checks caller JWT and strictly blocks direct access to the `users` table.
-   - `/api/data/*`: Server-side owner-enforced REST routes for libraries, series, tags, statuses, and app settings.
+   - `POST /api/db/pipeline` (transitional): Authenticated Turso Hrana v2 proxy. Blocks the `users` table, DDL escape hatches and multi-statement requests. It does **not** enforce per-user row ownership; replace it with owner-checked routes.
+   - `/api/data/*`: Server-side owner-enforced REST routes for libraries, tags, statuses, and app settings.
 
 ---
 

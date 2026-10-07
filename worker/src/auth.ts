@@ -100,10 +100,13 @@ export class AuthUtil {
   }
 
   private static async getHmacKey(secret: string): Promise<CryptoKey> {
+    // Never fall back to a built-in secret: with JWT_SECRET unset, anyone
+    // who read this file could forge a valid token for any user.
+    if (!secret) throw new Error('JWT_SECRET is not configured');
     const encoder = new TextEncoder();
     return await crypto.subtle.importKey(
       'raw',
-      encoder.encode(secret || 'default-fallback-dev-secret-change-in-prod'),
+      encoder.encode(secret),
       { name: 'HMAC', hash: 'SHA-256' },
       false,
       ['sign', 'verify']
