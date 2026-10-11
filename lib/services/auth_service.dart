@@ -1,55 +1,48 @@
 import 'dart:convert';
-import 'package:bcrypt/bcrypt.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:uuid/uuid.dart';
 import '../models/user.dart';
 import 'turso_client.dart';
 
-/// Authentication service mirroring `auth/localAuth.js` from the Electron app.
+/// Authentication service communicating with the Myaarchive Cloudflare Worker API.
 ///
-/// Uses bcrypt hashing and Turso database storage. The signed-in session is
-/// persisted in [FlutterSecureStorage] (Keychain on iOS, EncryptedSharedPreferences
-/// on Android) rather than plain SharedPreferences, since it holds the
-/// user's id and username.
+/// Password hashing, schema validation, and user credentials live strictly
+/// server-side. The client receives a signed JWT upon sign-in/sign-up which is
+/// persisted securely and used to authenticate subsequent database and asset requests.
 class AuthService {
-  final TursoClient _turso;
+  final String _workerBaseUrl;
+  final TursoClient turso;
   final FlutterSecureStorage _secureStorage;
-  static const String _userPrefKey = 'myaarchive_current_user';
+  late final Dio _dio;
 
-  AuthService(this._turso, {FlutterSecureStorage? secureStorage})
-      : _secureStorage = secureStorage ??
+  static const String _userPrefKey = 'myaarchive_current_user';
+  static const String _tokenPrefKey = 'myaarchive_session_token';
+
+  AuthService({
+    required String workerBaseUrl,
+    required this.turso,
+    FlutterSecureStorage? secureStorage,
+  })  : _workerBaseUrl = workerBaseUrl.endsWith('/')
+            ? workerBaseUrl.substring(0, workerBaseUrl.length - 1)
+            : workerBaseUrl,
+        _secureStorage = secureStorage ??
             const FlutterSecureStorage(
               aOptions: AndroidOptions(encryptedSharedPreferences: true),
               iOptions: IOSOptions(
                 accessibility: KeychainAccessibility.first_unlock,
               ),
-            );
-
-  /// Ensure the users table exists with all required columns.
-  Future<void> ensureSchema() async {
-    await _turso.execute('''
-      CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY,
-        username TEXT UNIQUE NOT NULL COLLATE NOCASE,
-        password_hash TEXT NOT NULL,
-        created_at TEXT DEFAULT (datetime('now'))
-      )
-    ''');
-
-    try {
-      final info = await _turso.execute('PRAGMA table_info(users)');
-      final existingCols = info.rows.map((r) => r['name']?.toString()).toSet();
-      if (!existingCols.contains('security_question')) {
-        await _turso.execute('ALTER TABLE users ADD COLUMN security_question TEXT');
-      }
-      if (!existingCols.contains('security_answer_hash')) {
-        await _turso.execute('ALTER TABLE users ADD COLUMN security_answer_hash TEXT');
-      }
-    } catch (_) {}
+            ) {
+    _dio = Dio(BaseOptions(
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 30),
+    ));
   }
 
-  /// Sign up a new user account.
+  /// No-op: the users schema is maintained server-side.
+  Future<void> ensureSchema() async {}
+
+  /// Sign up a new user account via Worker.
   Future<User> signUp({
     required String username,
     required String password,
@@ -64,103 +57,76 @@ class AuthService {
       throw const AuthException('Password must be at least 4 characters');
     }
 
-    await ensureSchema();
+    try {
+      final response = await _dio.post(
+        '$_workerBaseUrl/api/auth/signup',
+        data: {
+          'username': cleanUsername,
+          'password': password,
+          if (securityQuestion != null && securityQuestion.trim().isNotEmpty)
+            'securityQuestion': securityQuestion.trim(),
+          if (securityAnswer != null && securityAnswer.trim().isNotEmpty)
+            'securityAnswer': securityAnswer.trim(),
+        },
+      );
 
-    final existing = await _turso.execute(
-      'SELECT id FROM users WHERE username = ?',
-      [cleanUsername],
-    );
-    if (existing.rows.isNotEmpty) {
-      throw const AuthException('That username is already taken');
+      final data = response.data as Map<String, dynamic>;
+      final user = User.fromJson(data['user'] as Map<String, dynamic>);
+      final token = data['token'] as String? ?? '';
+
+      turso.setSessionToken(token);
+      await saveSessionUser(user, token: token);
+      return user;
+    } on DioException catch (e) {
+      final msg = e.response?.data?['error']?.toString() ??
+          e.message ??
+          'Sign up failed';
+      throw AuthException(msg);
     }
-
-    final id = const Uuid().v4();
-    final passwordHash = BCrypt.hashpw(password, BCrypt.gensalt());
-
-    String? questionText;
-    String? answerHash;
-    final trimmedQuestion = securityQuestion?.trim();
-    final trimmedAnswer = securityAnswer?.trim();
-    if (trimmedQuestion != null &&
-        trimmedQuestion.isNotEmpty &&
-        trimmedAnswer != null &&
-        trimmedAnswer.isNotEmpty) {
-      questionText = trimmedQuestion;
-      answerHash = BCrypt.hashpw(trimmedAnswer.toLowerCase(), BCrypt.gensalt());
-    }
-
-    await _turso.execute(
-      'INSERT INTO users (id, username, password_hash, security_question, security_answer_hash) VALUES (?, ?, ?, ?, ?)',
-      [id, cleanUsername, passwordHash, questionText, answerHash],
-    );
-
-    final user = User(
-      id: id,
-      username: cleanUsername,
-      securityQuestion: questionText,
-      createdAt: DateTime.now().toIso8601String(),
-    );
-
-    await saveSessionUser(user);
-    return user;
   }
 
-  /// Sign in with username and password.
-  ///
-  /// [rememberMe] (default true — "Keep me signed in") controls whether the
-  /// session is written to secure storage for automatic sign-in on the
-  /// next app launch. When false, the signed-in state still lives in
-  /// memory for the rest of this run (via [AuthStateNotifier]'s state) but
-  /// nothing is persisted, and any previously remembered session for this
-  /// device is cleared — so closing and reopening the app requires signing
-  /// in again.
+  /// Sign in with username and password via Worker.
   Future<User> signIn({
     required String username,
     required String password,
     bool rememberMe = true,
   }) async {
     final cleanUsername = username.trim();
-    await ensureSchema();
 
-    final result = await _turso.execute(
-      'SELECT * FROM users WHERE username = ?',
-      [cleanUsername],
-    );
+    try {
+      final response = await _dio.post(
+        '$_workerBaseUrl/api/auth/signin',
+        data: {
+          'username': cleanUsername,
+          'password': password,
+        },
+      );
 
-    if (result.rows.isEmpty) {
-      throw const AuthException('Invalid username or password');
+      final data = response.data as Map<String, dynamic>;
+      final user = User.fromJson(data['user'] as Map<String, dynamic>);
+      final token = data['token'] as String? ?? '';
+
+      turso.setSessionToken(token);
+
+      if (rememberMe) {
+        await saveSessionUser(user, token: token);
+      } else {
+        await _clearPersistedSession();
+      }
+      return user;
+    } on DioException catch (e) {
+      final msg = e.response?.data?['error']?.toString() ??
+          e.message ??
+          'Invalid username or password';
+      throw AuthException(msg);
     }
-
-    final row = result.rows.first;
-    final storedHash = row['password_hash']?.toString() ?? '';
-
-    final isMatch = BCrypt.checkpw(password, storedHash);
-    if (!isMatch) {
-      throw const AuthException('Invalid username or password');
-    }
-
-    final user = User.fromJson(row);
-    if (rememberMe) {
-      await saveSessionUser(user);
-    } else {
-      // Don't leave a stale persisted session behind for a device the
-      // person explicitly chose not to be remembered on.
-      await _secureStorage.delete(key: _userPrefKey);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_userPrefKey);
-    }
-    return user;
   }
 
-  /// Get the currently signed-in user from secure storage.
-  ///
-  /// If secure storage is empty but a legacy SharedPreferences session is
-  /// found (from before the switch to secure storage), it's migrated over
-  /// and the plaintext copy is removed — so upgrading the app doesn't sign
-  /// anyone out.
+  /// Get the currently signed-in user and session token from secure storage.
   Future<User?> getSessionUser() async {
     String? raw = await _secureStorage.read(key: _userPrefKey);
 
+    // Migration from legacy SharedPreferences if needed
     if (raw == null) {
       final prefs = await SharedPreferences.getInstance();
       final legacy = prefs.getString(_userPrefKey);
@@ -173,46 +139,80 @@ class AuthService {
 
     if (raw == null || raw.isEmpty) return null;
     try {
-      return User.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      final user = User.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      final token = await _secureStorage.read(key: _tokenPrefKey);
+      if (token != null && token.isNotEmpty) {
+        turso.setSessionToken(token);
+      }
+      return user;
     } catch (_) {
       return null;
     }
   }
 
   /// Save signed-in user session to secure storage.
-  Future<void> saveSessionUser(User user) async {
+  Future<void> saveSessionUser(User user, {String? token}) async {
     await _secureStorage.write(
       key: _userPrefKey,
       value: jsonEncode(user.toJson()),
     );
+    if (token != null && token.isNotEmpty) {
+      await _secureStorage.write(
+        key: _tokenPrefKey,
+        value: token,
+      );
+    }
   }
 
-  /// Sign out and clear the local session (secure storage, plus any
-  /// leftover legacy SharedPreferences copy).
+  /// Sign out and clear the local session.
   Future<void> signOut() async {
+    turso.setSessionToken('');
+    await _clearPersistedSession();
+  }
+
+  Future<void> _clearPersistedSession() async {
     await _secureStorage.delete(key: _userPrefKey);
+    await _secureStorage.delete(key: _tokenPrefKey);
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_userPrefKey);
+    await prefs.remove(_tokenPrefKey);
   }
 
-  /// Verify whether a user id still exists on the database.
+  /// Verify whether a user session is still valid.
   Future<bool> userExists(String userId) async {
-    final result = await _turso.execute(
-      'SELECT id FROM users WHERE id = ?',
-      [userId],
-    );
-    return result.rows.isNotEmpty;
+    try {
+      final response = await _dio.get(
+        '$_workerBaseUrl/api/auth/me',
+        options: Options(
+          headers: {
+            if (turso.sessionToken.isNotEmpty)
+              'Authorization': 'Bearer ${turso.sessionToken}',
+          },
+        ),
+      );
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Verify current password for re-auth checkpoints.
   Future<bool> verifyPassword(String userId, String password) async {
-    final result = await _turso.execute(
-      'SELECT password_hash FROM users WHERE id = ?',
-      [userId],
-    );
-    if (result.rows.isEmpty) return false;
-    final storedHash = result.rows.first['password_hash']?.toString() ?? '';
-    return BCrypt.checkpw(password, storedHash);
+    try {
+      final response = await _dio.post(
+        '$_workerBaseUrl/api/auth/verify-password',
+        data: {'password': password},
+        options: Options(
+          headers: {
+            if (turso.sessionToken.isNotEmpty)
+              'Authorization': 'Bearer ${turso.sessionToken}',
+          },
+        ),
+      );
+      return response.data?['valid'] == true;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Change password for current user.
@@ -221,49 +221,48 @@ class AuthService {
     if (newPassword.length < 4) {
       throw const AuthException('New password must be at least 4 characters');
     }
-    final ok = await verifyPassword(userId, currentPassword);
-    if (!ok) {
-      throw const AuthException('Current password is incorrect');
+    try {
+      await _dio.post(
+        '$_workerBaseUrl/api/auth/change-password',
+        data: {
+          'currentPassword': currentPassword,
+          'newPassword': newPassword,
+        },
+        options: Options(
+          headers: {
+            if (turso.sessionToken.isNotEmpty)
+              'Authorization': 'Bearer ${turso.sessionToken}',
+          },
+        ),
+      );
+    } on DioException catch (e) {
+      final msg = e.response?.data?['error']?.toString() ??
+          e.message ??
+          'Failed to change password';
+      throw AuthException(msg);
     }
-    final newHash = BCrypt.hashpw(newPassword, BCrypt.gensalt());
-    await _turso.execute(
-      'UPDATE users SET password_hash = ? WHERE id = ?',
-      [newHash, userId],
-    );
   }
 
   // ─── Password Recovery (Forgot Password) ───────────────────────────
-  //
-  // Uses the optional security question/answer captured at sign-up. If an
-  // account has no recovery question set up, there's no self-serve way to
-  // reset the password — the caller should surface that clearly rather
-  // than silently failing.
 
   /// Returns the security question for [username], or null if the account
   /// doesn't exist or never set one up.
   Future<String?> getSecurityQuestion(String username) async {
     final cleanUsername = username.trim();
     if (cleanUsername.isEmpty) return null;
-    await ensureSchema();
 
-    final result = await _turso.execute(
-      'SELECT security_question, security_answer_hash FROM users WHERE username = ?',
-      [cleanUsername],
-    );
-    if (result.rows.isEmpty) return null;
-
-    final row = result.rows.first;
-    final question = row['security_question']?.toString();
-    final answerHash = row['security_answer_hash']?.toString();
-    if (question == null || question.isEmpty) return null;
-    if (answerHash == null || answerHash.isEmpty) return null;
-    return question;
+    try {
+      final response = await _dio.get(
+        '$_workerBaseUrl/api/auth/security-question',
+        queryParameters: {'username': cleanUsername},
+      );
+      return response.data?['securityQuestion']?.toString();
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Resets the password for [username] using their security answer.
-  ///
-  /// Throws [AuthException] if the username doesn't exist, never set up a
-  /// recovery question, or the answer doesn't match.
   Future<void> resetPasswordWithSecurityAnswer({
     required String username,
     required String securityAnswer,
@@ -273,47 +272,52 @@ class AuthService {
       throw const AuthException('New password must be at least 4 characters');
     }
 
-    final cleanUsername = username.trim();
-    final result = await _turso.execute(
-      'SELECT id, security_answer_hash FROM users WHERE username = ?',
-      [cleanUsername],
-    );
-    if (result.rows.isEmpty) {
-      throw const AuthException('No account found with that username');
+    try {
+      await _dio.post(
+        '$_workerBaseUrl/api/auth/reset-password',
+        data: {
+          'username': username.trim(),
+          'securityAnswer': securityAnswer.trim(),
+          'newPassword': newPassword,
+        },
+      );
+    } on DioException catch (e) {
+      final msg = e.response?.data?['error']?.toString() ??
+          e.message ??
+          'Failed to reset password';
+      throw AuthException(msg);
     }
-
-    final row = result.rows.first;
-    final answerHash = row['security_answer_hash']?.toString();
-    if (answerHash == null || answerHash.isEmpty) {
-      throw const AuthException('No recovery question set up for this account');
-    }
-
-    final isMatch =
-        BCrypt.checkpw(securityAnswer.trim().toLowerCase(), answerHash);
-    if (!isMatch) {
-      throw const AuthException('That answer doesn\'t match our records');
-    }
-
-    final newHash = BCrypt.hashpw(newPassword, BCrypt.gensalt());
-    await _turso.execute(
-      'UPDATE users SET password_hash = ? WHERE id = ?',
-      [newHash, row['id']],
-    );
   }
 
   // ─── Account Deletion ───────────────────────────────────────────────
 
-  /// Permanently deletes the signed-in user's account after verifying
-  /// their password. Callers should first delete the user's owned data
-  /// via `DataLayer.deleteAllDataForOwner` — this method only removes the
-  /// `users` row and clears the local session.
+  /// Permanently deletes the signed-in user's account and all associated data.
+  ///
+  /// The Worker verifies the password first, and if correct, cascades deletion
+  /// through all user data, removes R2 files, and drops the user record atomically.
   Future<void> deleteAccount(String userId, String password) async {
-    final ok = await verifyPassword(userId, password);
-    if (!ok) {
-      throw const AuthException('Password is incorrect');
+    try {
+      await _dio.post(
+        '$_workerBaseUrl/api/auth/delete-account',
+        data: {'password': password},
+        options: Options(
+          headers: {
+            if (turso.sessionToken.isNotEmpty)
+              'Authorization': 'Bearer ${turso.sessionToken}',
+          },
+        ),
+      );
+      await signOut();
+    } on DioException catch (e) {
+      final msg = e.response?.data?['error']?.toString() ??
+          e.message ??
+          'Failed to delete account';
+      throw AuthException(msg);
     }
-    await _turso.execute('DELETE FROM users WHERE id = ?', [userId]);
-    await signOut();
+  }
+
+  void dispose() {
+    _dio.close();
   }
 }
 

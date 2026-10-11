@@ -1,9 +1,10 @@
-/// Turso HTTP client — speaks the Hrana over HTTP protocol.
+/// Turso HTTP client — proxied through the Myaarchive Cloudflare Worker.
 ///
-/// Mirrors what `@libsql/client/http` does in the Electron app's
-/// `data-layer/client.js:createRemoteClient()`. Every query goes
-/// over the network (no embedded replica on mobile yet), so this
-/// should be used with good error handling and loading states.
+/// Instead of talking directly to the Turso Hrana API (which would require
+/// shipping the database auth token in the binary), all queries are sent to
+/// the Worker's `/api/db/pipeline` endpoint. The Worker authenticates the
+/// caller via their session JWT, then forwards the pipeline to Turso using
+/// the server-side-only auth token.
 library;
 import 'package:dio/dio.dart';
 
@@ -20,27 +21,28 @@ class TursoResult {
   });
 }
 
-/// Lightweight HTTP client for Turso's Hrana pipeline API.
+/// Lightweight HTTP client that routes Hrana v2 pipeline requests through the
+/// Cloudflare Worker proxy.
 class TursoClient {
-  final String _baseUrl;
-  final String _authToken;
+  final String _workerBaseUrl;
+  String sessionToken;
   late final Dio _dio;
 
-  TursoClient({required String databaseUrl, required this._authToken})
-      : _baseUrl = _httpUrl(databaseUrl) {
+  TursoClient({
+    required String workerBaseUrl,
+    this.sessionToken = '',
+  })  : _workerBaseUrl = workerBaseUrl.endsWith('/')
+            ? workerBaseUrl.substring(0, workerBaseUrl.length - 1)
+            : workerBaseUrl {
     _dio = Dio(BaseOptions(
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 30),
     ));
   }
 
-  /// Convert libsql:// URL → https:// for the HTTP API.
-  static String _httpUrl(String url) {
-    String base = url
-        .replaceFirst('libsql://', 'https://')
-        .replaceFirst('wss://', 'https://');
-    if (base.endsWith('/')) base = base.substring(0, base.length - 1);
-    return base;
+  /// Update the session token (called after sign-in / sign-up).
+  void setSessionToken(String token) {
+    sessionToken = token;
   }
 
   /// Execute a single SQL statement.
@@ -73,11 +75,12 @@ class TursoClient {
 
   Future<Response> _pipeline(List<Map<String, dynamic>> requests) async {
     return _dio.post(
-      '$_baseUrl/v2/pipeline',
+      '$_workerBaseUrl/api/db/pipeline',
       data: {'requests': requests},
       options: Options(
         headers: {
-          'Authorization': 'Bearer $_authToken',
+          if (sessionToken.isNotEmpty)
+            'Authorization': 'Bearer $sessionToken',
           'Content-Type': 'application/json',
         },
       ),

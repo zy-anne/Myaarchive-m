@@ -199,6 +199,31 @@ authRouter.post('/change-password', async (c) => {
   return c.json({ success: true });
 });
 
+// ─── Verify Password ────────────────────────────────────────────────
+authRouter.post('/verify-password', async (c) => {
+  const authPayload = await AuthUtil.authenticateRequest(
+    c.req.header('Authorization'),
+    c.env.JWT_SECRET
+  );
+  if (!authPayload) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  const body = await c.req.json<{ password?: string }>();
+  if (!body.password) {
+    return c.json({ valid: false }, 400);
+  }
+
+  const db = new TursoClient(c.env);
+  const res = await db.execute('SELECT password_hash FROM users WHERE id = ?', [authPayload.sub]);
+  if (res.rows.length === 0) {
+    return c.json({ valid: false }, 404);
+  }
+
+  const valid = AuthUtil.comparePassword(body.password, res.rows[0].password_hash || '');
+  return c.json({ valid });
+});
+
 // ─── Forgot Password / Security Question ─────────────────────────────
 authRouter.get('/security-question', async (c) => {
   const username = c.req.query('username')?.trim();

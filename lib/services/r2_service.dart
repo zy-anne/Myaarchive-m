@@ -1,39 +1,47 @@
-/// Cloudflare R2 asset storage service.
+/// Cloudflare R2 asset storage service — proxied through the Myaarchive Worker.
 ///
-/// Mirrors `storage/r2.js` from the Electron app. Uses S3-compatible
-/// presigned-URL downloads (the R2 bucket is private, same as the
-/// desktop app). For uploads from mobile, the image bytes are PUT
-/// directly to the R2 endpoint using AWS Signature V4.
+/// All asset uploads, signed download URLs, and deletions are routed through
+/// the Cloudflare Worker API (`/api/assets/*`). No R2 access keys or S3
+/// credentials ever touch the mobile client.
 library;
-import 'dart:convert';
 import 'dart:typed_data';
-import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:uuid/uuid.dart';
 
+class _CachedUrl {
+  final String url;
+  final DateTime expiresAt;
+
+  const _CachedUrl({required this.url, required this.expiresAt});
+
+  bool get isValid =>
+      DateTime.now().isBefore(expiresAt.subtract(const Duration(minutes: 5)));
+}
+
 class R2Service {
-  final String accountId;
-  final String accessKeyId;
-  final String secretAccessKey;
-  final String bucketName;
-  late final String _endpoint;
+  final String _workerBaseUrl;
+  final String Function()? tokenProvider;
   late final Dio _dio;
   static const _uuid = Uuid();
 
+  final Map<String, _CachedUrl> _urlCache = {};
+
   R2Service({
-    required this.accountId,
-    required this.accessKeyId,
-    required this.secretAccessKey,
-    required this.bucketName,
-  }) {
-    _endpoint = 'https://$accountId.r2.cloudflarestorage.com';
+    required String workerBaseUrl,
+    this.tokenProvider,
+  })  : _workerBaseUrl = workerBaseUrl.endsWith('/')
+            ? workerBaseUrl.substring(0, workerBaseUrl.length - 1)
+            : workerBaseUrl {
     _dio = Dio(BaseOptions(
       connectTimeout: const Duration(seconds: 15),
       receiveTimeout: const Duration(seconds: 60),
     ));
   }
 
-  /// Generate a storage key. Matches `makeKey()` in r2.js.
+  String get _token => tokenProvider?.call() ?? '';
+
+  /// Client-side key suggestion for backward compatibility.
+  /// Note: The Worker automatically scopes uploaded files under `u/<userId>/<prefix>/`.
   String makeKey(String prefix, [String originalFileName = '']) {
     String ext = '';
     final dotIdx = originalFileName.lastIndexOf('.');
@@ -41,185 +49,138 @@ class R2Service {
     return '$prefix/${_uuid.v4()}$ext';
   }
 
-  /// Download an asset from R2 into memory.
+  /// Get a signed download URL for an asset key.
+  ///
+  /// Caches the generated signed link in-memory until shortly before expiration
+  /// to minimize unnecessary network round-trips.
+  Future<String> getDownloadUrl(String key, {int expiresIn = 3600}) async {
+    if (key.isEmpty) return '';
+
+    final cached = _urlCache[key];
+    if (cached != null && cached.isValid) {
+      return cached.url;
+    }
+
+    try {
+      final response = await _dio.get(
+        '$_workerBaseUrl/api/assets/presign-download',
+        queryParameters: {
+          'key': key,
+          'expiresIn': expiresIn,
+        },
+        options: Options(
+          headers: {
+            if (_token.isNotEmpty) 'Authorization': 'Bearer $_token',
+          },
+        ),
+      );
+
+      final data = response.data;
+      if (data is Map) {
+        final relativeUrl = data['downloadUrl'] as String?;
+        final expTimestamp = data['expiresAt'] as int?;
+
+        if (relativeUrl != null) {
+          final fullUrl = relativeUrl.startsWith('http')
+              ? relativeUrl
+              : '$_workerBaseUrl$relativeUrl';
+
+          final expiresAt = expTimestamp != null
+              ? DateTime.fromMillisecondsSinceEpoch(expTimestamp * 1000)
+              : DateTime.now().add(Duration(seconds: expiresIn));
+
+          _urlCache[key] = _CachedUrl(url: fullUrl, expiresAt: expiresAt);
+          return fullUrl;
+        }
+      }
+      return '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  /// Synchronous fallback helper for callers expecting getPresignedUrl.
+  String getPresignedUrl(String key, {int expiresIn = 3600}) {
+    final cached = _urlCache[key];
+    if (cached != null && cached.isValid) {
+      return cached.url;
+    }
+    return '';
+  }
+
+  /// Download asset bytes from R2 via Worker.
   Future<Uint8List?> downloadBytes(String key) async {
     if (key.isEmpty) return null;
     try {
-      final url = '$_endpoint/$bucketName/$key';
-      final now = DateTime.now().toUtc();
-      final headers = _signRequest('GET', key, now, null);
+      final url = await getDownloadUrl(key);
+      if (url.isEmpty) return null;
 
       final response = await _dio.get<List<int>>(
         url,
-        options: Options(
-          headers: headers,
-          responseType: ResponseType.bytes,
-        ),
+        options: Options(responseType: ResponseType.bytes),
       );
       return Uint8List.fromList(response.data ?? []);
-    } catch (e) {
+    } catch (_) {
       return null;
     }
   }
 
-  /// Get a presigned download URL for an R2 object (valid for [expiresIn] seconds).
-  String getPresignedUrl(String key, {int expiresIn = 3600}) {
-    if (key.isEmpty) return '';
-    final now = DateTime.now().toUtc();
-    final dateStamp = _dateStamp(now);
-    final amzDate = _amzDate(now);
-    final region = 'auto';
-    final service = 's3';
-    final credentialScope = '$dateStamp/$region/$service/aws4_request';
-    final credential = '$accessKeyId/$credentialScope';
-
-    final queryParams = {
-      'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
-      'X-Amz-Credential': credential,
-      'X-Amz-Date': amzDate,
-      'X-Amz-Expires': expiresIn.toString(),
-      'X-Amz-SignedHeaders': 'host',
-    };
-
-    final sortedKeys = queryParams.keys.toList()..sort();
-    final canonicalQueryString = sortedKeys
-        .map((k) => '${Uri.encodeComponent(k)}=${Uri.encodeComponent(queryParams[k]!)}')
-        .join('&');
-
-    final host = '$accountId.r2.cloudflarestorage.com';
-    final canonicalRequest = [
-      'GET',
-      '/$bucketName/${Uri.encodeFull(key)}',
-      canonicalQueryString,
-      'host:$host',
-      '',
-      'host',
-      'UNSIGNED-PAYLOAD',
-    ].join('\n');
-
-    final stringToSign = [
-      'AWS4-HMAC-SHA256',
-      amzDate,
-      credentialScope,
-      sha256.convert(utf8.encode(canonicalRequest)).toString(),
-    ].join('\n');
-
-    final signingKey = _getSignatureKey(secretAccessKey, dateStamp, region, service);
-    final signature = Hmac(sha256, signingKey)
-        .convert(utf8.encode(stringToSign))
-        .toString();
-
-    return '$_endpoint/$bucketName/${Uri.encodeFull(key)}?$canonicalQueryString&X-Amz-Signature=$signature';
-  }
-
-  /// Async helper for getting download URL.
-  Future<String> getDownloadUrl(String key, {int expiresIn = 3600}) async {
-    return getPresignedUrl(key, expiresIn: expiresIn);
-  }
-
-  /// Upload bytes to R2.
+  /// Upload image bytes to R2 via the Worker.
+  ///
+  /// The Worker validates the content type, enforces file size limits,
+  /// scopes the object under `u/<userId>/`, and returns the final storage key.
   Future<String> uploadBytes({
-    required String key,
+    String? key,
     required Uint8List bytes,
     String contentType = 'image/jpeg',
+    String prefix = 'covers',
   }) async {
-    final url = '$_endpoint/$bucketName/$key';
-    final now = DateTime.now().toUtc();
-    final payloadHash = sha256.convert(bytes).toString();
-    final headers = _signRequest('PUT', key, now, payloadHash, contentType: contentType);
+    // Infer prefix from key if provided (e.g., 'covers/abc.jpg' -> 'covers')
+    var targetPrefix = prefix;
+    if (key != null && key.contains('/')) {
+      final parts = key.split('/');
+      if (parts.isNotEmpty && parts.first.isNotEmpty) {
+        targetPrefix = parts.first;
+      }
+    }
 
-    await _dio.put(
-      url,
-      data: bytes,
-      options: Options(headers: headers),
+    final response = await _dio.post(
+      '$_workerBaseUrl/api/assets/upload',
+      queryParameters: {'prefix': targetPrefix},
+      data: Stream.fromIterable([bytes]),
+      options: Options(
+        headers: {
+          if (_token.isNotEmpty) 'Authorization': 'Bearer $_token',
+          'Content-Type': contentType,
+          'Content-Length': bytes.length.toString(),
+        },
+      ),
     );
-    return key;
+
+    final data = response.data;
+    if (data is Map && data['key'] != null) {
+      return data['key'].toString();
+    }
+    throw Exception('Upload failed: invalid server response');
   }
 
-  /// Delete an object from R2.
+  /// Delete an object from R2 through the Worker.
   Future<void> deleteObject(String key) async {
     if (key.isEmpty) return;
     try {
-      final url = '$_endpoint/$bucketName/$key';
-      final now = DateTime.now().toUtc();
-      final headers = _signRequest('DELETE', key, now, null);
-      await _dio.delete(url, options: Options(headers: headers));
+      _urlCache.remove(key);
+      await _dio.delete(
+        '$_workerBaseUrl/api/assets/${Uri.encodeComponent(key)}',
+        options: Options(
+          headers: {
+            if (_token.isNotEmpty) 'Authorization': 'Bearer $_token',
+          },
+        ),
+      );
     } catch (_) {
-      // Non-fatal — same behavior as r2.js
+      // Non-fatal
     }
   }
-
-  // ─── AWS Signature V4 signing ────────────────────────────────────────
-
-  Map<String, String> _signRequest(
-    String method,
-    String key,
-    DateTime now,
-    String? payloadHash, {
-    String? contentType,
-  }) {
-    final dateStamp = _dateStamp(now);
-    final amzDate = _amzDate(now);
-    final host = '$accountId.r2.cloudflarestorage.com';
-    final region = 'auto';
-    final service = 's3';
-    final credentialScope = '$dateStamp/$region/$service/aws4_request';
-
-    payloadHash ??= sha256.convert(utf8.encode('')).toString();
-
-    final signedHeaders = contentType != null
-        ? 'content-type;host;x-amz-content-sha256;x-amz-date'
-        : 'host;x-amz-content-sha256;x-amz-date';
-
-    final canonicalHeaderLines = contentType != null
-        ? 'content-type:$contentType\nhost:$host\nx-amz-content-sha256:$payloadHash\nx-amz-date:$amzDate'
-        : 'host:$host\nx-amz-content-sha256:$payloadHash\nx-amz-date:$amzDate';
-
-    final canonicalRequest = [
-      method,
-      '/$bucketName/${Uri.encodeFull(key)}',
-      '', // query string
-      canonicalHeaderLines,
-      '',
-      signedHeaders,
-      payloadHash,
-    ].join('\n');
-
-    final stringToSign = [
-      'AWS4-HMAC-SHA256',
-      amzDate,
-      credentialScope,
-      sha256.convert(utf8.encode(canonicalRequest)).toString(),
-    ].join('\n');
-
-    final signingKey = _getSignatureKey(secretAccessKey, dateStamp, region, service);
-    final signature = Hmac(sha256, signingKey)
-        .convert(utf8.encode(stringToSign))
-        .toString();
-
-    final headers = <String, String>{
-      'Host': host,
-      'X-Amz-Date': amzDate,
-      'X-Amz-Content-SHA256': payloadHash,
-      'Authorization':
-          'AWS4-HMAC-SHA256 Credential=$accessKeyId/$credentialScope, SignedHeaders=$signedHeaders, Signature=$signature',
-    };
-    if (contentType != null) headers['Content-Type'] = contentType;
-    return headers;
-  }
-
-  List<int> _getSignatureKey(String key, String dateStamp, String region, String service) {
-    final kDate = Hmac(sha256, utf8.encode('AWS4$key')).convert(utf8.encode(dateStamp)).bytes;
-    final kRegion = Hmac(sha256, kDate).convert(utf8.encode(region)).bytes;
-    final kService = Hmac(sha256, kRegion).convert(utf8.encode(service)).bytes;
-    return Hmac(sha256, kService).convert(utf8.encode('aws4_request')).bytes;
-  }
-
-  String _dateStamp(DateTime dt) =>
-      '${dt.year}${dt.month.toString().padLeft(2, '0')}${dt.day.toString().padLeft(2, '0')}';
-
-  String _amzDate(DateTime dt) =>
-      '${_dateStamp(dt)}T${dt.hour.toString().padLeft(2, '0')}${dt.minute.toString().padLeft(2, '0')}${dt.second.toString().padLeft(2, '0')}Z';
 
   void dispose() {
     _dio.close();

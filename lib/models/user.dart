@@ -16,8 +16,9 @@ class User {
     return User(
       id: json['id']?.toString() ?? '',
       username: json['username']?.toString() ?? '',
-      createdAt: json['created_at']?.toString(),
-      securityQuestion: json['security_question']?.toString(),
+      createdAt: (json['created_at'] ?? json['createdAt'])?.toString(),
+      securityQuestion:
+          (json['security_question'] ?? json['securityQuestion'])?.toString(),
     );
   }
 

@@ -47,4 +47,15 @@ app.*.map.json
 # Widget Preview related
 .widget_preview/
 
+# Worker / Node dependencies and environment
+node_modules/
+**/node_modules/
+.wrangler/
+**/.wrangler/
+.dev.vars
+**/.dev.vars
+.env
+**/.env
+*.env
+
 /lib/config/app_config.dart

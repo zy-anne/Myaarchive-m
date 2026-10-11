@@ -25,19 +25,17 @@ import '../services/turso_client.dart';
 
 final tursoClientProvider = Provider<TursoClient>((ref) {
   final client = TursoClient(
-    databaseUrl: AppConfig.defaultTursoDatabaseUrl,
-    authToken: AppConfig.defaultTursoAuthToken,
+    workerBaseUrl: AppConfig.workerBaseUrl,
   );
   ref.onDispose(() => client.dispose());
   return client;
 });
 
 final r2ServiceProvider = Provider<R2Service>((ref) {
+  final turso = ref.watch(tursoClientProvider);
   final service = R2Service(
-    accountId: AppConfig.defaultR2AccountId,
-    accessKeyId: AppConfig.defaultR2AccessKeyId,
-    secretAccessKey: AppConfig.defaultR2SecretAccessKey,
-    bucketName: AppConfig.defaultR2BucketName,
+    workerBaseUrl: AppConfig.workerBaseUrl,
+    tokenProvider: () => turso.sessionToken,
   );
   ref.onDispose(() => service.dispose());
   return service;
@@ -45,7 +43,12 @@ final r2ServiceProvider = Provider<R2Service>((ref) {
 
 final authServiceProvider = Provider<AuthService>((ref) {
   final turso = ref.watch(tursoClientProvider);
-  return AuthService(turso);
+  final service = AuthService(
+    workerBaseUrl: AppConfig.workerBaseUrl,
+    turso: turso,
+  );
+  ref.onDispose(() => service.dispose());
+  return service;
 });
 
 final dataLayerProvider = Provider<DataLayer>((ref) {
