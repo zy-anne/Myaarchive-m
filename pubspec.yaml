@@ -53,3 +53,9 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # Fonts bundled for google_fonts (looked up here before any network fetch,
+  # so first paint no longer waits on fonts.gstatic.com). Files are named
+  # <Family>-<Weight>.ttf as the package expects. SIL Open Font License 1.1.
+  assets:
+    - google_fonts/
