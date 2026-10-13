@@ -366,8 +366,8 @@ async function requireChildRow(ctx: Ctx, table: string, id: number): Promise<num
 // ─── Reading statuses ────────────────────────────────────────────────
 
 const DEFAULT_STATUSES: Array<[string, string]> = [
-  ['Reading', '#7C9CF5'],
-  ['Finished', '#6BC59A'],
+  ['Reading', '#9B7EDE'],
+  ['Finished', '#7FC9A0'],
   ['On Hold', '#E8C15C'],
   ['Planning', '#6FA8DC'],
   ['Dropped', '#DD7A6E'],
@@ -590,7 +590,7 @@ const ops: Record<string, Handler> = {
     if (!values[0]) throw bad('Title required');
 
     const r = await ctx.db.execute(
-      `INSERT INTO series (${SERIES_COLS.join(', ')}) VALUES (${SERIES_COLS.map(() => '?').join(', ')})`,
+      `INSERT INTO series (${SERIES_COLS.join(', ')}, created_at) VALUES (${SERIES_COLS.map(() => '?').join(', ')}, datetime('now'))`,
       values
     );
     const id = r.lastInsertRowid ?? 0;
@@ -647,7 +647,7 @@ const ops: Record<string, Handler> = {
     const orig = (await ctx.db.execute('SELECT * FROM series WHERE id = ?', [id])).rows[0];
     const values = SERIES_COLS.map((c) => (c === 'library_id' ? target : orig[c] ?? null));
     const created = await ctx.db.execute(
-      `INSERT INTO series (${SERIES_COLS.join(', ')}) VALUES (${SERIES_COLS.map(() => '?').join(', ')})`,
+      `INSERT INTO series (${SERIES_COLS.join(', ')}, created_at) VALUES (${SERIES_COLS.map(() => '?').join(', ')}, datetime('now'))`,
       values
     );
     const newId = created.lastInsertRowid ?? 0;
