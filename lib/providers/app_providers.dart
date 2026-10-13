@@ -127,7 +127,8 @@ final themeInitProvider = FutureProvider<void>((ref) async {
 
   final storedNsfw = settings['showNsfwContent'];
   if (storedNsfw != null) {
-    ref.read(showNsfwProvider.notifier).state = storedNsfw == '1';
+    ref.read(showNsfwProvider.notifier).state =
+        storedNsfw.toLowerCase() == 'true' || storedNsfw == '1';
   }
 
   final storedStartTab = settings['defaultStartTab'];
@@ -145,7 +146,8 @@ final themeInitProvider = FutureProvider<void>((ref) async {
   final storedAutoOpenDetail = settings['autoOpenDetailAfterAdd'];
   if (storedAutoOpenDetail != null) {
     ref.read(autoOpenDetailAfterAddProvider.notifier).state =
-        storedAutoOpenDetail == '1';
+        storedAutoOpenDetail.toLowerCase() == 'true' ||
+            storedAutoOpenDetail == '1';
     await prefs.setString(
         'myaarchive_auto_open_detail_after_add', storedAutoOpenDetail);
   } else {

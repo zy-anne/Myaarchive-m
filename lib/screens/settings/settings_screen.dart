@@ -325,7 +325,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (user != null) {
       await ref
           .read(dataLayerProvider)
-          .settingsSet(user.id, 'showNsfwContent', val ? '1' : '0');
+          .settingsSet(user.id, 'showNsfwContent', val ? 'true' : 'false');
     }
     ref.invalidate(seriesListProvider);
     ref.invalidate(allSeriesForStatsProvider);
@@ -355,11 +355,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
-          'myaarchive_auto_open_detail_after_add', val ? '1' : '0');
+          'myaarchive_auto_open_detail_after_add', val ? 'true' : 'false');
       final user = ref.read(authStateProvider).value;
       if (user != null) {
         await ref.read(dataLayerProvider).settingsSet(
-            user.id, 'autoOpenDetailAfterAdd', val ? '1' : '0');
+            user.id, 'autoOpenDetailAfterAdd', val ? 'true' : 'false');
       }
     } catch (e) {
       debugPrint('Error saving auto-open detail setting: $e');

@@ -63,10 +63,10 @@ class AppColorPalettes {
   static const saffronSerenity = AppColorPalette(
     id: 'saffron_serenity',
     label: 'Saffron Serenity',
-    swatches: [Color(0xFF3E8E8E), Color(0xFF6FA8DC), Color(0xFFE8B04B)],
-    primaryLight: Color(0xFF3E8E8E),
+    swatches: [Color(0xFFE8B04B), Color(0xFF6FA8DC), Color(0xFF3E8E8E)],
+    primaryLight: Color(0xFFE8B04B),
     primaryDark: Color(0xFF6FA8DC),
-    accent: Color(0xFFE8B04B),
+    accent: Color(0xFF3E8E8E),
   );
 
   static const sakuraBlossom = AppColorPalette(

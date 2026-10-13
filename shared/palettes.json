@@ -1,0 +1,52 @@
+{
+  "palettes": [
+    {
+      "id": "twilight_reading_room",
+      "label": "Twilight Reading Room",
+      "swatches": ["#46508A", "#8598E9", "#E9CC92"],
+      "primaryLight": "#46508A",
+      "primaryDark": "#E9CC92",
+      "accent": "#8598E9"
+    },
+    {
+      "id": "pink_lemonade_bliss",
+      "label": "Pink Lemonade Bliss",
+      "swatches": ["#E8965B", "#F2B705", "#F5D76E"],
+      "primaryLight": "#E8965B",
+      "primaryDark": "#F5D76E",
+      "accent": "#F2B705"
+    },
+    {
+      "id": "mysterious_purple",
+      "label": "Mysterious Purple",
+      "swatches": ["#2D1B69", "#4B2E83", "#6C48B5"],
+      "primaryLight": "#4B2E83",
+      "primaryDark": "#9B7EDE",
+      "accent": "#6C48B5"
+    },
+    {
+      "id": "green_strawberry_latte",
+      "label": "Green Strawberry Latte",
+      "swatches": ["#7C8B5B", "#A8D5BA", "#F4A9B8"],
+      "primaryLight": "#7C8B5B",
+      "primaryDark": "#A8D5BA",
+      "accent": "#F4A9B8"
+    },
+    {
+      "id": "saffron_serenity",
+      "label": "Saffron Serenity",
+      "swatches": ["#E8B04B", "#6FA8DC", "#3E8E8E"],
+      "primaryLight": "#E8B04B",
+      "primaryDark": "#6FA8DC",
+      "accent": "#3E8E8E"
+    },
+    {
+      "id": "sakura_blossom",
+      "label": "Sakura Blossom",
+      "swatches": ["#C2185B", "#E85D75", "#F4A6B7"],
+      "primaryLight": "#C2185B",
+      "primaryDark": "#F4A6B7",
+      "accent": "#E85D75"
+    }
+  ]
+}
