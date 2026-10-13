@@ -71,7 +71,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
               final val = int.tryParse(controller.text.trim());
               final navigator = Navigator.of(ctx);
               if (val != null && val > 0) {
-                final user = ref.read(authStateProvider).value;
+                final user = ref.read(authStateProvider).valueOrNull;
                 if (user != null) {
                   await ref
                       .read(dataLayerProvider)

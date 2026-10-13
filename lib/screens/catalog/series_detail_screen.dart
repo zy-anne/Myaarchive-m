@@ -110,7 +110,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
   }
 
   Future<void> _quickUpdateDate(Series series, AppPalette palette, {bool isStarted = false, bool isFinished = false}) async {
-    final user = ref.read(authStateProvider).value;
+    final user = ref.read(authStateProvider).valueOrNull;
     if (user == null) return;
 
     final now = DateTime.now();
@@ -1063,7 +1063,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
           ),
           ElevatedButton(
             onPressed: () async {
-              final user = ref.read(authStateProvider).value;
+              final user = ref.read(authStateProvider).valueOrNull;
               if (user == null) return;
               final navigator = Navigator.of(ctx);
               final updated = series.copyWith(

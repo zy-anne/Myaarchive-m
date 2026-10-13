@@ -142,7 +142,7 @@ class ManageStatusesScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final palette = context.palette;
-    final user = ref.watch(authStateProvider).value;
+    final user = ref.watch(authStateProvider).valueOrNull;
     final statusesAsync = ref.watch(readingStatusesProvider);
 
     return Scaffold(

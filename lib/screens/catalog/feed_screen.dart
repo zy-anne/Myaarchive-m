@@ -1441,7 +1441,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     // Independent, unfiltered fetch of this library's titles so the "add
     // book" picker isn't affected by the grid's active search/status filter.
     final dataLayer = ref.read(dataLayerProvider);
-    final user = ref.read(authStateProvider).value;
+    final user = ref.read(authStateProvider).valueOrNull;
     List<Series> libraryTitles = [];
     if (user != null) {
       libraryTitles =
