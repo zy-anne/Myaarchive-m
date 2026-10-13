@@ -1770,7 +1770,26 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
         );
       },
       loading: () => const SizedBox(height: 28),
-      error: (_, __) => const SizedBox(height: 28),
+      error: (err, _) => Padding(
+        padding: const EdgeInsets.fromLTRB(18.0, 14.0, 18.0, 0),
+        child: GestureDetector(
+          onTap: () => ref.invalidate(librariesProvider),
+          child: Row(
+            children: [
+              Icon(Icons.error_outline_rounded, size: 16, color: palette.accent),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  "Couldn't load libraries: $err. Tap to retry.",
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, color: palette.textSecondary),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
