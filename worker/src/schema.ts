@@ -202,6 +202,11 @@ const BASELINE_COLUMNS: Record<string, Array<[string, string]>> = {
   ],
 };
 
+async function columnNames(db: TursoClient, table: string): Promise<Set<string>> {
+  const info = await db.execute(`PRAGMA table_info(${table})`);
+  return new Set(info.rows.map((r) => String(r.name)));
+}
+
 async function addMissingColumns(db: TursoClient): Promise<void> {
   for (const [table, cols] of Object.entries(BASELINE_COLUMNS)) {
     const info = await db.execute(`PRAGMA table_info(${table})`);
@@ -239,6 +244,56 @@ const MIGRATIONS: Migration[] = [
         { sql: 'CREATE INDEX IF NOT EXISTS idx_sgi_group ON series_group_items(group_id)' },
         { sql: 'CREATE INDEX IF NOT EXISTS idx_sgi_series ON series_group_items(series_id)' },
       ]);
+    },
+  },
+  {
+    version: 3,
+    name: 'series.created_at, series_group_items.id, merge legacy statuses',
+    async up(db) {
+      // 1. series.created_at. SQLite cannot ADD COLUMN with a non-constant
+      //    default, so add it bare and backfill; inserts set it explicitly.
+      const seriesCols = await columnNames(db, 'series');
+      if (!seriesCols.has('created_at')) {
+        await db.execute('ALTER TABLE series ADD COLUMN created_at TEXT');
+      }
+      await db.execute("UPDATE series SET created_at = datetime('now') WHERE created_at IS NULL");
+
+      // 2. series_group_items gets a surrogate primary key. Adding a PRIMARY
+      //    KEY column in place is impossible, so rebuild the table.
+      const itemCols = await columnNames(db, 'series_group_items');
+      if (!itemCols.has('id')) {
+        await db.transaction([
+          {
+            sql: `CREATE TABLE series_group_items_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    group_id INTEGER NOT NULL,
+                    series_id INTEGER NOT NULL,
+                    group_role TEXT DEFAULT 'Main Story',
+                    position INTEGER NOT NULL DEFAULT 0,
+                    UNIQUE(group_id, series_id)
+                  )`,
+          },
+          {
+            sql: `INSERT OR IGNORE INTO series_group_items_new (group_id, series_id, group_role, position)
+                  SELECT group_id, series_id, group_role, position FROM series_group_items
+                  ORDER BY position`,
+          },
+          { sql: 'DROP TABLE series_group_items' },
+          { sql: 'ALTER TABLE series_group_items_new RENAME TO series_group_items' },
+          { sql: 'CREATE INDEX IF NOT EXISTS idx_sgi_group ON series_group_items(group_id)' },
+          { sql: 'CREATE INDEX IF NOT EXISTS idx_sgi_series ON series_group_items(series_id)' },
+        ]);
+      }
+
+      // 3. Fold the legacy `statuses` table (older desktop schema) into
+      //    reading_statuses. The legacy table is left in place.
+      const legacy = await columnNames(db, 'statuses');
+      if (['owner_id', 'name', 'color', 'position'].every((c) => legacy.has(c))) {
+        await db.execute(
+          `INSERT OR IGNORE INTO reading_statuses (owner_id, name, color, position)
+           SELECT owner_id, name, color, position FROM statuses`
+        );
+      }
     },
   },
 ];
