@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/metadata.dart';
@@ -14,9 +16,25 @@ class SearchFilterBar extends ConsumerStatefulWidget {
 
 class _SearchFilterBarState extends ConsumerState<SearchFilterBar> {
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
+
+  /// Every filter change refetches titles from the Worker, so typing is
+  /// debounced: one request after the user pauses, not one per keystroke.
+  void _onSearchChanged(String val) {
+    setState(() {}); // keep the clear (x) button in sync immediately
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      final current = ref.read(seriesFilterProvider);
+      if (current.search == val) return;
+      ref.read(seriesFilterProvider.notifier).state =
+          current.copyWith(search: val);
+    });
+  }
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -50,10 +68,7 @@ class _SearchFilterBarState extends ConsumerState<SearchFilterBar> {
                   ),
                   child: TextField(
                     controller: _searchController,
-                    onChanged: (val) {
-                      ref.read(seriesFilterProvider.notifier).state =
-                          filter.copyWith(search: val);
-                    },
+                    onChanged: _onSearchChanged,
                     style: TextStyle(
                       color: palette.textMain,
                       fontSize: 14,
@@ -77,9 +92,12 @@ class _SearchFilterBarState extends ConsumerState<SearchFilterBar> {
                                 color: palette.textSecondary,
                               ),
                               onPressed: () {
+                                _searchDebounce?.cancel();
                                 _searchController.clear();
                                 ref.read(seriesFilterProvider.notifier).state =
-                                    filter.copyWith(search: '');
+                                    ref
+                                        .read(seriesFilterProvider)
+                                        .copyWith(search: '');
                               },
                             )
                           : null,
