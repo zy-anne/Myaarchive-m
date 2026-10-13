@@ -32,12 +32,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     try {
       final turso = ref.read(tursoClientProvider);
-      final tRes = await turso.execute('SELECT 1 as ping');
-      if (tRes.rows.isNotEmpty) {
-        _tursoPingResult = 'Connected (Turso Hrana v2)';
-      } else {
-        _tursoPingResult = 'Failed to ping Turso';
-      }
+      // Authenticated round trip through the Worker to the database.
+      await turso.rpc('settings.getAll');
+      _tursoPingResult = 'Connected (Worker + database)';
     } catch (e) {
       _tursoPingResult = 'Turso error: $e';
     }

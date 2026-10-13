@@ -12,31 +12,24 @@ import '../models/series_group.dart';
 import '../models/volume.dart';
 import 'turso_client.dart';
 
-/// Data layer ported directly from `reading-library/data-layer/index.js`.
+/// Client-side data access.
 ///
-/// Communicates with Turso over HTTP (Hrana v2 pipeline) for all queries,
-/// mutations, transactions, and schema management.
+/// Every call goes to the Worker's owner-checked `/api/rpc/<op>` endpoints.
+/// The Worker takes the user id from the signed session token and proves
+/// ownership of each row it touches, so no SQL is built or sent from here and
+/// schema migrations are applied server-side (see `worker/src/schema.ts`).
 class DataLayer {
-  final TursoClient _turso;
+  final TursoClient _api;
 
-  DataLayer(this._turso);
+  DataLayer(this._api);
 
-  // ─── Tag color palette (deterministic matching index.js) ───────────
+  /// Kept so existing callers keep working. Schema is now managed by the
+  /// Worker (versioned migrations), so there is nothing to do on the client.
+  Future<void> ensureSchema() async {}
+
   static const List<String> _tagColorPalette = [
-    '#5DC8CD', // cyan
-    '#9B7EDE', // purple
-    '#E58FB1', // pink
-    '#7FC9A0', // green
-    '#B9BEC7', // gray
-    '#E8C15C', // gold
-    '#6FA8DC', // blue
-    '#4FBDB0', // teal
-    '#B0A15A', // olive
-    '#DD7A6E', // rust
-    '#E3A15C', // orange
-    '#8D9DE8', // periwinkle
-    '#C98BC9', // orchid
-    '#7FBF7F', // leaf green
+    '#5DC8CD', '#9B7EDE', '#E58FB1', '#7FC9A0', '#B9BEC7', '#E8C15C', '#6FA8DC',
+    '#4FBDB0', '#B0A15A', '#DD7A6E', '#E3A15C', '#8D9DE8', '#C98BC9', '#7FBF7F',
   ];
 
   static String colorForTagName(String name) {
@@ -48,332 +41,24 @@ class DataLayer {
     return _tagColorPalette[hash.abs() % _tagColorPalette.length];
   }
 
-  // ─── Default Reading Statuses (seeded for new users) ────────────────
-  static const List<List<String>> _defaultStatuses = [
-    ['Reading', '#9B7EDE'],
-    ['Finished', '#7FC9A0'],
-    ['On Hold', '#E8C15C'],
-    ['Planning', '#6FA8DC'],
-    ['Dropped', '#DD7A6E'],
-  ];
+  // ─── helpers ────────────────────────────────────────────────────────
 
-  // ─── Schema Initialization ─────────────────────────────────────────
+  List<Map<String, dynamic>> _rows(Map<String, dynamic> res, [String key = 'rows']) =>
+      ((res[key] as List?) ?? const [])
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
 
-  Future<void> ensureSchema() async {
-    await _turso.batch([
-      const MapEntry('''
-        CREATE TABLE IF NOT EXISTS libraries (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          owner_id TEXT NOT NULL,
-          name TEXT NOT NULL,
-          icon TEXT DEFAULT 'grid',
-          icon_image TEXT,
-          position INTEGER NOT NULL DEFAULT 0
-        )
-      ''', []),
-      const MapEntry('''
-        CREATE TABLE IF NOT EXISTS app_settings (
-          owner_id TEXT NOT NULL,
-          key TEXT NOT NULL,
-          value TEXT,
-          UNIQUE(owner_id, key)
-        )
-      ''', []),
-      const MapEntry('''
-        CREATE TABLE IF NOT EXISTS genres (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT UNIQUE NOT NULL COLLATE NOCASE,
-          color TEXT DEFAULT '#b2bec3'
-        )
-      ''', []),
-      const MapEntry('''
-        CREATE TABLE IF NOT EXISTS tags (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          owner_id TEXT NOT NULL,
-          name TEXT NOT NULL COLLATE NOCASE,
-          color TEXT DEFAULT '#4a90e2',
-          UNIQUE(owner_id, name)
-        )
-      ''', []),
-      const MapEntry('''
-        CREATE TABLE IF NOT EXISTS reading_statuses (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          owner_id TEXT NOT NULL,
-          name TEXT NOT NULL,
-          color TEXT DEFAULT '#B9BEC7',
-          position INTEGER NOT NULL DEFAULT 0,
-          UNIQUE(owner_id, name)
-        )
-      ''', []),
-      const MapEntry('''
-        CREATE TABLE IF NOT EXISTS series (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          title TEXT NOT NULL,
-          author TEXT,
-          status TEXT DEFAULT 'Planning',
-          synopsis TEXT,
-          library_id INTEGER NOT NULL,
-          kind TEXT DEFAULT 'series',
-          overall_thoughts TEXT,
-          chapter_thoughts TEXT,
-          cover_image_path TEXT
-        )
-      ''', []),
-      const MapEntry('''
-        CREATE TABLE IF NOT EXISTS volumes (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          series_id INTEGER NOT NULL,
-          volume_number INTEGER NOT NULL,
-          title TEXT,
-          chapter_range TEXT,
-          chapter_count INTEGER,
-          thoughts TEXT,
-          chapter_notes TEXT,
-          cover_image_path TEXT,
-          date_read TEXT
-        )
-      ''', []),
-      const MapEntry('''
-        CREATE TABLE IF NOT EXISTS characters (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          series_id INTEGER NOT NULL,
-          name TEXT NOT NULL,
-          role TEXT DEFAULT 'Side',
-          volume_appearances TEXT,
-          notes TEXT,
-          profile_image_path TEXT
-        )
-      ''', []),
-      const MapEntry('''
-        CREATE TABLE IF NOT EXISTS relationships (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          from_character_id INTEGER NOT NULL,
-          to_character_id INTEGER NOT NULL,
-          type TEXT DEFAULT 'Friend',
-          label TEXT,
-          is_bidirectional INTEGER DEFAULT 1,
-          notes TEXT
-        )
-      ''', []),
-      const MapEntry('''
-        CREATE TABLE IF NOT EXISTS series_tags (
-          series_id INTEGER NOT NULL,
-          tag_id INTEGER NOT NULL,
-          UNIQUE(series_id, tag_id)
-        )
-      ''', []),
-      const MapEntry('''
-        CREATE TABLE IF NOT EXISTS series_genres (
-          series_id INTEGER NOT NULL,
-          genre_id INTEGER NOT NULL,
-          UNIQUE(series_id, genre_id)
-        )
-      ''', []),
-      const MapEntry('''
-        CREATE TABLE IF NOT EXISTS content_warnings (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          owner_id TEXT NOT NULL,
-          name TEXT NOT NULL COLLATE NOCASE,
-          UNIQUE(owner_id, name)
-        )
-      ''', []),
-      const MapEntry('''
-        CREATE TABLE IF NOT EXISTS series_content_warnings (
-          series_id INTEGER NOT NULL,
-          warning_id INTEGER NOT NULL,
-          UNIQUE(series_id, warning_id)
-        )
-      ''', []),
-      const MapEntry('''
-        CREATE TABLE IF NOT EXISTS gallery_images (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          series_id INTEGER NOT NULL,
-          image_path TEXT NOT NULL,
-          caption TEXT,
-          position INTEGER NOT NULL DEFAULT 0
-        )
-      ''', []),
-      const MapEntry('''
-        CREATE TABLE IF NOT EXISTS link_attachments (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          series_id INTEGER NOT NULL,
-          url TEXT NOT NULL,
-          label TEXT,
-          created_at TEXT DEFAULT (datetime('now'))
-        )
-      ''', []),
-      const MapEntry('''
-        CREATE TABLE IF NOT EXISTS attachments (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          series_id INTEGER NOT NULL,
-          file_path TEXT NOT NULL,
-          file_name TEXT NOT NULL,
-          file_size INTEGER,
-          created_at TEXT DEFAULT (datetime('now'))
-        )
-      ''', []),
-      const MapEntry('''
-        CREATE TABLE IF NOT EXISTS glossary_terms (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          series_id INTEGER NOT NULL,
-          term TEXT NOT NULL,
-          definition TEXT
-        )
-      ''', []),
-      // Umbrella "Series Groups" (shared universes) — see app.js's
-      // "Series Groups (Umbrella Groups / Shared Universes)" section on
-      // desktop. Library-scoped; members are linked via series_group_items
-      // with a group_role tag (Main Story, Spin-off, Prequel, etc).
-      const MapEntry('''
-        CREATE TABLE IF NOT EXISTS series_groups (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          library_id INTEGER NOT NULL,
-          name TEXT NOT NULL,
-          group_type TEXT DEFAULT 'Series Group',
-          description TEXT,
-          position INTEGER NOT NULL DEFAULT 0
-        )
-      ''', []),
-      const MapEntry('''
-        CREATE TABLE IF NOT EXISTS series_group_items (
-          group_id INTEGER NOT NULL,
-          series_id INTEGER NOT NULL,
-          group_role TEXT DEFAULT 'Main Story',
-          position INTEGER NOT NULL DEFAULT 0,
-          UNIQUE(group_id, series_id)
-        )
-      ''', []),
-    ]);
-
-    // Ensure extra migration columns exist
-    await _ensureExtraColumns();
-  }
-
-  Future<void> _ensureExtraColumns() async {
-    try {
-      final infoSeries = await _turso.execute('PRAGMA table_info(series)');
-      final existingSeriesCols =
-          infoSeries.rows.map((r) => r['name']?.toString()).toSet();
-
-      final seriesExtraFields = [
-        ['book_type', 'TEXT'],
-        ['rating', 'INTEGER'],
-        ['original_language', 'TEXT'],
-        ['country_of_origin', 'TEXT'],
-        ['language_read', "TEXT DEFAULT 'English'"],
-        ['artist', 'TEXT'],
-        ['year_published', 'TEXT'],
-        ['date_started', 'TEXT'],
-        ['date_finished', 'TEXT'],
-        ['status_country_of_origin', 'TEXT'],
-        ['licensed_english', 'TEXT'],
-        ['completely_translated', 'TEXT'],
-        ['original_publisher', 'TEXT'],
-        ['english_publisher', 'TEXT'],
-        ['is_nsfw', 'INTEGER NOT NULL DEFAULT 0'],
-        ['standalone_chapter_count', 'INTEGER'],
-        ['fandom', 'TEXT'],
-      ];
-
-      for (final f in seriesExtraFields) {
-        if (!existingSeriesCols.contains(f[0])) {
-          await _turso.execute('ALTER TABLE series ADD COLUMN ${f[0]} ${f[1]}');
-        }
-      }
-
-      final infoVolumes = await _turso.execute('PRAGMA table_info(volumes)');
-      final existingVolCols =
-          infoVolumes.rows.map((r) => r['name']?.toString()).toSet();
-      if (!existingVolCols.contains('published_date')) {
-        await _turso.execute('ALTER TABLE volumes ADD COLUMN published_date TEXT');
-      }
-
-      final infoChars = await _turso.execute('PRAGMA table_info(characters)');
-      final existingCharCols =
-          infoChars.rows.map((r) => r['name']?.toString()).toSet();
-      final charFields = [
-        ['status_role', 'TEXT'],
-        ['overall_vibes', 'TEXT'],
-        ['appears_vs_reality', 'TEXT'],
-        ['appears_text', 'TEXT'],
-        ['reality_text', 'TEXT'],
-        ['personality', 'TEXT'],
-        ['age', 'TEXT'],
-        ['life_status', 'TEXT'],
-      ];
-      for (final f in charFields) {
-        if (!existingCharCols.contains(f[0])) {
-          await _turso.execute('ALTER TABLE characters ADD COLUMN ${f[0]} ${f[1]}');
-        }
-      }
-
-      // ── series_groups / series_group_items migration ──────────
-      final infoGroups = await _turso.execute('PRAGMA table_info(series_groups)');
-      final existingGroupCols =
-          infoGroups.rows.map((r) => r['name']?.toString()).toSet();
-      if (existingGroupCols.isNotEmpty) {
-        final groupFields = [
-          ['group_type', "TEXT DEFAULT 'Series Group'"],
-          ['description', 'TEXT'],
-          ['position', 'INTEGER NOT NULL DEFAULT 0'],
-        ];
-        for (final f in groupFields) {
-          if (!existingGroupCols.contains(f[0])) {
-            await _turso.execute('ALTER TABLE series_groups ADD COLUMN ${f[0]} ${f[1]}');
-          }
-        }
-      }
-
-      final infoGroupItems =
-          await _turso.execute('PRAGMA table_info(series_group_items)');
-      final existingGroupItemCols =
-          infoGroupItems.rows.map((r) => r['name']?.toString()).toSet();
-      if (existingGroupItemCols.isNotEmpty) {
-        final groupItemFields = [
-          ['group_role', "TEXT DEFAULT 'Main Story'"],
-          ['position', 'INTEGER NOT NULL DEFAULT 0'],
-        ];
-        for (final f in groupItemFields) {
-          if (!existingGroupItemCols.contains(f[0])) {
-            await _turso.execute(
-                'ALTER TABLE series_group_items ADD COLUMN ${f[0]} ${f[1]}');
-          }
-        }
-      }
-    } catch (_) {}
+  int _id(Map<String, dynamic> res) {
+    final v = res['id'];
+    if (v is int) return v;
+    return int.tryParse(v?.toString() ?? '') ?? 0;
   }
 
   // ─── Libraries ──────────────────────────────────────────────────────
 
   Future<List<Library>> librariesGetAll(String ownerId) async {
-    final result = await _turso.execute('''
-      SELECT l.*, COUNT(s.id) as series_count
-      FROM libraries l
-      LEFT JOIN series s ON s.library_id = l.id
-      WHERE l.owner_id = ?
-      GROUP BY l.id
-      ORDER BY l.position, l.id
-    ''', [ownerId]);
-
-    final list = result.rows.map((r) => Library.fromJson(r)).toList();
-
-    // Default library if empty
-    if (list.isEmpty) {
-      final defaultId = await librariesCreate(
-        ownerId: ownerId,
-        name: 'Default Library',
-        icon: 'book',
-      );
-      return [
-        Library(
-          id: defaultId,
-          ownerId: ownerId,
-          name: 'Default Library',
-          icon: 'book',
-        )
-      ];
-    }
-    return list;
+    final res = await _api.rpc('libraries.getAll');
+    return _rows(res).map((r) => Library.fromJson(r)).toList();
   }
 
   Future<int> librariesCreate({
@@ -382,83 +67,68 @@ class DataLayer {
     String icon = 'grid',
     String? iconImage,
   }) async {
-    final maxRes = await _turso.execute(
-      'SELECT MAX(position) as maxPos FROM libraries WHERE owner_id = ?',
-      [ownerId],
-    );
-    int pos = 0;
-    if (maxRes.rows.isNotEmpty && maxRes.rows.first['maxPos'] != null) {
-      pos = (maxRes.rows.first['maxPos'] as int) + 1;
-    }
-
-    final res = await _turso.execute('''
-      INSERT INTO libraries (owner_id, name, icon, icon_image, position)
-      VALUES (?, ?, ?, ?, ?)
-    ''', [ownerId, name, icon, iconImage, pos]);
-
-    return res.lastInsertRowid ?? 0;
+    final res = await _api.rpc('libraries.create', {
+      'name': name,
+      'icon': icon,
+      'iconImage': iconImage,
+    });
+    return _id(res);
   }
 
   Future<void> librariesUpdate(Library lib) async {
-    await _turso.execute('''
-      UPDATE libraries SET name = ?, icon = ?, icon_image = ? WHERE id = ?
-    ''', [lib.name, lib.icon, lib.iconImage, lib.id]);
+    await _api.rpc('libraries.update', {
+      'id': lib.id,
+      'name': lib.name,
+      'icon': lib.icon,
+      'iconImage': lib.iconImage,
+    });
   }
 
   Future<void> librariesDelete(int id) async {
-    await _turso.execute('DELETE FROM libraries WHERE id = ?', [id]);
+    await _api.rpc('libraries.delete', {'id': id});
   }
 
-  /// Persists a new drag-to-reorder order for a user's libraries.
-  /// [orderedIds] is the full list of library ids in their new display
-  /// order — position is written as each id's index in the list.
+  /// Persists a new drag-to-reorder order. [orderedIds] is the full list of
+  /// library ids in display order.
   Future<void> librariesReorder(List<int> orderedIds) async {
     if (orderedIds.isEmpty) return;
-    final statements = <MapEntry<String, List<dynamic>>>[];
-    for (int i = 0; i < orderedIds.length; i++) {
-      statements.add(MapEntry(
-        'UPDATE libraries SET position = ? WHERE id = ?',
-        [i, orderedIds[i]],
-      ));
-    }
-    await _turso.batch(statements);
+    await _api.rpc('libraries.reorder', {'ids': orderedIds});
   }
 
-  Future<String?> _libraryOwnerId(int libraryId) async {
-    final res = await _turso.execute(
-      'SELECT owner_id FROM libraries WHERE id = ?',
-      [libraryId],
-    );
-    if (res.rows.isEmpty) return null;
-    return res.rows.first['owner_id']?.toString();
-  }
+  // ─── Series ─────────────────────────────────────────────────────────
 
-  // ─── Series Query & Detail ──────────────────────────────────────────
+  Map<String, dynamic> _seriesPayload(Series s) => {
+        'title': s.title,
+        'author': s.author,
+        'status': s.status,
+        'synopsis': s.synopsis,
+        'library_id': s.libraryId,
+        'kind': s.kind,
+        'overall_thoughts': s.overallThoughts,
+        'chapter_thoughts': s.chapterThoughts,
+        'cover_image_path': s.coverImagePath,
+        'book_type': s.bookType,
+        'rating': s.rating,
+        'original_language': s.originalLanguage,
+        'country_of_origin': s.countryOfOrigin,
+        'language_read': s.languageRead,
+        'artist': s.artist,
+        'year_published': s.yearPublished,
+        'date_started': s.dateStarted,
+        'date_finished': s.dateFinished,
+        'status_country_of_origin': s.statusCountryOfOrigin,
+        'licensed_english': s.licensedEnglish,
+        'completely_translated': s.completelyTranslated,
+        'original_publisher': s.originalPublisher,
+        'english_publisher': s.englishPublisher,
+        'is_nsfw': s.isNsfw ? 1 : 0,
+        'standalone_chapter_count': s.standaloneChapterCount,
+        'fandom': s.fandom,
+      };
 
-  static const String _seriesSelect = '''
-    SELECT s.*,
-      (SELECT GROUP_CONCAT(t.id || '::' || t.name || '::' || t.color, '||')
-         FROM series_tags st JOIN tags t ON st.tag_id = t.id
-         WHERE st.series_id = s.id) as tag_data,
-      (SELECT GROUP_CONCAT(g.id || '::' || g.name || '::' || g.color, '||')
-         FROM series_genres sg JOIN genres g ON sg.genre_id = g.id
-         WHERE sg.series_id = s.id) as genre_data,
-      (SELECT GROUP_CONCAT(cw.id || '::' || cw.name, '||')
-         FROM series_content_warnings scw JOIN content_warnings cw ON scw.warning_id = cw.id
-         WHERE scw.series_id = s.id) as warning_data,
-      (SELECT COUNT(*) FROM volumes v WHERE v.series_id = s.id) as volume_count,
-      (SELECT COUNT(*) FROM characters c WHERE c.series_id = s.id) as character_count
-    FROM series s
-  ''';
-
-  /// Fetches titles for [ownerId]'s libraries, applying every filter the
-  /// Library screen's Sort & Filters sheet can set. Genre and tag filters
-  /// now have independent Any/All controls: [matchAllGenres] false ("Any")
-  /// matches a title with at least one selected genre, true ("All")
-  /// requires every selected genre; [matchAllTags] works the same way for
-  /// tags. When both a genre and a tag selection are active, a title must
-  /// satisfy both criteria (they combine with AND, same as any other pair
-  /// of filters here).
+  /// Fetches titles for the signed-in user's libraries, applying every filter
+  /// the Library screen's Sort & Filters sheet can set. Genre and tag filters
+  /// have independent Any/All controls ([matchAllGenres], [matchAllTags]).
   Future<List<Series>> seriesGetAll(
     String ownerId, {
     int? libraryId,
@@ -483,175 +153,38 @@ class DataLayer {
     bool sortAsc = true,
     bool includeNsfw = true,
   }) async {
-    final whereClauses = <String>[
-      's.library_id IN (SELECT id FROM libraries WHERE owner_id = ?)'
-    ];
-    final args = <dynamic>[ownerId];
-
-    if (!includeNsfw) {
-      whereClauses.add('s.is_nsfw = 0');
-    }
-
-    if (libraryId != null && libraryId > 0) {
-      whereClauses.add('s.library_id = ?');
-      args.add(libraryId);
-    }
-
-    if (status != null && status != 'All' && status.isNotEmpty) {
-      whereClauses.add('s.status = ?');
-      args.add(status);
-    }
-
-    if (search != null && search.trim().isNotEmpty) {
-      whereClauses.add('(s.title LIKE ? OR s.author LIKE ? OR s.fandom LIKE ?)');
-      final term = '%${search.trim()}%';
-      args.addAll([term, term, term]);
-    }
-
-    if (minRating != null && minRating > 0) {
-      whereClauses.add('s.rating >= ?');
-      args.add(minRating);
-    }
-
-    if (yearFrom != null) {
-      whereClauses.add(
-          "s.year_published IS NOT NULL AND s.year_published != '' AND CAST(s.year_published AS INTEGER) >= ?");
-      args.add(yearFrom);
-    }
-    if (yearTo != null) {
-      whereClauses.add(
-          "s.year_published IS NOT NULL AND s.year_published != '' AND CAST(s.year_published AS INTEGER) <= ?");
-      args.add(yearTo);
-    }
-
-    if (bookType != null && bookType.isNotEmpty) {
-      whereClauses.add('s.book_type = ?');
-      args.add(bookType);
-    }
-    if (languageRead != null && languageRead.isNotEmpty) {
-      whereClauses.add('s.language_read = ?');
-      args.add(languageRead);
-    }
-    if (originalLanguage != null && originalLanguage.isNotEmpty) {
-      whereClauses.add('s.original_language LIKE ?');
-      args.add('%$originalLanguage%');
-    }
-    if (countryOfOrigin != null && countryOfOrigin.isNotEmpty) {
-      whereClauses.add('s.country_of_origin LIKE ?');
-      args.add('%$countryOfOrigin%');
-    }
-    if (translationStatus != null && translationStatus.isNotEmpty) {
-      whereClauses.add('s.completely_translated = ?');
-      args.add(translationStatus);
-    }
-    if (author != null && author.isNotEmpty) {
-      whereClauses.add('s.author LIKE ?');
-      args.add('%$author%');
-    }
-    if (artist != null && artist.isNotEmpty) {
-      whereClauses.add('s.artist LIKE ?');
-      args.add('%$artist%');
-    }
-    if (publisher != null && publisher.isNotEmpty) {
-      whereClauses
-          .add('(s.original_publisher LIKE ? OR s.english_publisher LIKE ?)');
-      final term = '%$publisher%';
-      args.addAll([term, term]);
-    }
-
-    // ── Genre filter (independent Any/All) ────────────────────────────
-    final cleanGenres = genres.where((g) => g.trim().isNotEmpty).toList();
-    if (cleanGenres.isNotEmpty) {
-      final placeholders = List.filled(cleanGenres.length, '?').join(',');
-      if (matchAllGenres) {
-        // ALL: every selected genre must be present.
-        whereClauses.add('''
-          (SELECT COUNT(DISTINCT g.name) FROM series_genres sg
-             JOIN genres g ON sg.genre_id = g.id
-             WHERE sg.series_id = s.id AND g.name IN ($placeholders)) = ?
-        ''');
-        args.addAll(cleanGenres);
-        args.add(cleanGenres.length);
-      } else {
-        // ANY: at least one selected genre.
-        whereClauses.add('''
-          s.id IN (SELECT sg.series_id FROM series_genres sg
-             JOIN genres g ON sg.genre_id = g.id
-             WHERE g.name IN ($placeholders))
-        ''');
-        args.addAll(cleanGenres);
-      }
-    }
-
-    // ── Tag filter (independent Any/All) ───────────────────────────────
-    final cleanTags = tags.where((t) => t.trim().isNotEmpty).toList();
-    if (cleanTags.isNotEmpty) {
-      final placeholders = List.filled(cleanTags.length, '?').join(',');
-      if (matchAllTags) {
-        // ALL: every selected tag must be present.
-        whereClauses.add('''
-          (SELECT COUNT(DISTINCT t.name) FROM series_tags st
-             JOIN tags t ON st.tag_id = t.id
-             WHERE st.series_id = s.id AND t.name IN ($placeholders)) = ?
-        ''');
-        args.addAll(cleanTags);
-        args.add(cleanTags.length);
-      } else {
-        // ANY: at least one selected tag.
-        whereClauses.add('''
-          s.id IN (SELECT st.series_id FROM series_tags st
-             JOIN tags t ON st.tag_id = t.id
-             WHERE t.name IN ($placeholders))
-        ''');
-        args.addAll(cleanTags);
-      }
-    }
-
-    final where = 'WHERE ${whereClauses.join(' AND ')}';
-
-    String order;
-    switch (sortBy) {
-      case 'rating':
-        order = 'ORDER BY s.rating ${sortAsc ? 'ASC' : 'DESC'}, s.title ASC';
-        break;
-      case 'id':
-        order = 'ORDER BY s.id ${sortAsc ? 'ASC' : 'DESC'}';
-        break;
-      case 'author':
-        order =
-            'ORDER BY s.author COLLATE NOCASE ${sortAsc ? 'ASC' : 'DESC'}, s.title ASC';
-        break;
-      case 'year':
-        order =
-            'ORDER BY CAST(s.year_published AS INTEGER) ${sortAsc ? 'ASC' : 'DESC'}, s.title ASC';
-        break;
-      case 'date_started':
-        order =
-            'ORDER BY s.date_started ${sortAsc ? 'ASC' : 'DESC'}, s.title ASC';
-        break;
-      case 'date_finished':
-        order =
-            'ORDER BY s.date_finished ${sortAsc ? 'ASC' : 'DESC'}, s.title ASC';
-        break;
-      default:
-        order = 'ORDER BY s.title COLLATE NOCASE ${sortAsc ? 'ASC' : 'DESC'}';
-    }
-
-    final sql = '$_seriesSelect $where $order';
-    final result = await _turso.execute(sql, args);
-    return result.rows.map((r) => Series.fromJson(r)).toList();
+    final res = await _api.rpc('series.getAll', {
+      'libraryId': libraryId,
+      'status': status,
+      'search': search,
+      'genres': genres,
+      'tags': tags,
+      'matchAllGenres': matchAllGenres,
+      'matchAllTags': matchAllTags,
+      'minRating': minRating,
+      'yearFrom': yearFrom,
+      'yearTo': yearTo,
+      'bookType': bookType,
+      'languageRead': languageRead,
+      'originalLanguage': originalLanguage,
+      'countryOfOrigin': countryOfOrigin,
+      'translationStatus': translationStatus,
+      'author': author,
+      'artist': artist,
+      'publisher': publisher,
+      'sortBy': sortBy,
+      'sortAsc': sortAsc,
+      'includeNsfw': includeNsfw,
+    });
+    return _rows(res).map((r) => Series.fromJson(r)).toList();
   }
 
   Future<Series?> seriesGetById(int id) async {
-    final result = await _turso.execute(
-      '$_seriesSelect WHERE s.id = ?',
-      [id],
-    );
-    if (result.rows.isEmpty) return null;
-    return Series.fromJson(result.rows.first);
+    final res = await _api.rpc('series.getById', {'id': id});
+    final row = res['row'];
+    if (row == null) return null;
+    return Series.fromJson(Map<String, dynamic>.from(row as Map));
   }
-
-  // ─── Series Create & Update ─────────────────────────────────────────
 
   Future<int> seriesCreate(
     String ownerId,
@@ -660,64 +193,13 @@ class DataLayer {
     List<String> genreNames = const [],
     List<String> warningNames = const [],
   }) async {
-    final sql = '''
-      INSERT INTO series (
-        title, author, status, synopsis, library_id, kind, overall_thoughts,
-        chapter_thoughts, cover_image_path, book_type, rating, original_language,
-        country_of_origin, language_read, artist, year_published, date_started,
-        date_finished, status_country_of_origin, licensed_english,
-        completely_translated, original_publisher, english_publisher,
-        is_nsfw, standalone_chapter_count, fandom
-      ) VALUES (
-        ?, ?, ?, ?, ?, ?, ?,
-        ?, ?, ?, ?, ?,
-        ?, ?, ?, ?, ?,
-        ?, ?, ?,
-        ?, ?, ?,
-        ?, ?, ?
-      )
-    ''';
-
-    final args = [
-      series.title,
-      series.author,
-      series.status,
-      series.synopsis,
-      series.libraryId,
-      series.kind,
-      series.overallThoughts,
-      series.chapterThoughts,
-      series.coverImagePath,
-      series.bookType,
-      series.rating,
-      series.originalLanguage,
-      series.countryOfOrigin,
-      series.languageRead,
-      series.artist,
-      series.yearPublished,
-      series.dateStarted,
-      series.dateFinished,
-      series.statusCountryOfOrigin,
-      series.licensedEnglish,
-      series.completelyTranslated,
-      series.originalPublisher,
-      series.englishPublisher,
-      series.isNsfw ? 1 : 0,
-      series.standaloneChapterCount,
-      series.fandom,
-    ];
-
-    final res = await _turso.execute(sql, args);
-    final seriesId = res.lastInsertRowid ?? 0;
-
-    // Link tags, genres, content warnings
-    if (seriesId > 0) {
-      await _syncTags(ownerId, seriesId, tagNames);
-      await _syncGenres(seriesId, genreNames);
-      await _syncWarnings(ownerId, seriesId, warningNames);
-    }
-
-    return seriesId;
+    final res = await _api.rpc('series.create', {
+      'series': _seriesPayload(series),
+      'tagNames': tagNames,
+      'genreNames': genreNames,
+      'warningNames': warningNames,
+    });
+    return _id(res);
   }
 
   Future<void> seriesUpdate(
@@ -727,87 +209,32 @@ class DataLayer {
     List<String> genreNames = const [],
     List<String> warningNames = const [],
   }) async {
-    final sql = '''
-      UPDATE series SET
-        title = ?, author = ?, status = ?, synopsis = ?, library_id = ?,
-        kind = ?, overall_thoughts = ?, chapter_thoughts = ?,
-        cover_image_path = ?, book_type = ?, rating = ?, original_language = ?,
-        country_of_origin = ?, language_read = ?, artist = ?, year_published = ?,
-        date_started = ?, date_finished = ?, status_country_of_origin = ?,
-        licensed_english = ?, completely_translated = ?, original_publisher = ?,
-        english_publisher = ?, is_nsfw = ?, standalone_chapter_count = ?,
-        fandom = ?
-      WHERE id = ?
-    ''';
-
-    final args = [
-      series.title,
-      series.author,
-      series.status,
-      series.synopsis,
-      series.libraryId,
-      series.kind,
-      series.overallThoughts,
-      series.chapterThoughts,
-      series.coverImagePath,
-      series.bookType,
-      series.rating,
-      series.originalLanguage,
-      series.countryOfOrigin,
-      series.languageRead,
-      series.artist,
-      series.yearPublished,
-      series.dateStarted,
-      series.dateFinished,
-      series.statusCountryOfOrigin,
-      series.licensedEnglish,
-      series.completelyTranslated,
-      series.originalPublisher,
-      series.englishPublisher,
-      series.isNsfw ? 1 : 0,
-      series.standaloneChapterCount,
-      series.fandom,
-      series.id,
-    ];
-
-    await _turso.execute(sql, args);
-
-    await _syncTags(ownerId, series.id, tagNames);
-    await _syncGenres(series.id, genreNames);
-    await _syncWarnings(ownerId, series.id, warningNames);
+    await _api.rpc('series.update', {
+      'id': series.id,
+      'series': _seriesPayload(series),
+      'tagNames': tagNames,
+      'genreNames': genreNames,
+      'warningNames': warningNames,
+    });
   }
 
+  /// Deletes a title and everything attached to it in one transaction, then
+  /// removes any R2 objects nothing else references.
   Future<void> seriesDelete(int id) async {
-    await _turso.batch([
-      MapEntry('DELETE FROM series_tags WHERE series_id = ?', [id]),
-      MapEntry('DELETE FROM series_genres WHERE series_id = ?', [id]),
-      MapEntry('DELETE FROM series_content_warnings WHERE series_id = ?', [id]),
-      MapEntry('DELETE FROM volumes WHERE series_id = ?', [id]),
-      MapEntry('DELETE FROM characters WHERE series_id = ?', [id]),
-      MapEntry('DELETE FROM gallery_images WHERE series_id = ?', [id]),
-      MapEntry('DELETE FROM link_attachments WHERE series_id = ?', [id]),
-      MapEntry('DELETE FROM series_group_items WHERE series_id = ?', [id]),
-      MapEntry('DELETE FROM series WHERE id = ?', [id]),
-    ]);
+    await _api.rpc('series.delete', {'id': id});
   }
 
-  // ─── Transfer / Copy a title to another Library ────────────────────
-
-  /// Moves a title to a different library in place (same row, new
-  /// `library_id`). Everything attached to it — volumes, characters,
-  /// gallery, attachments, series-group membership — moves with it
-  /// automatically since it's keyed by `series_id`, not `library_id`.
+  /// Moves a title to another library in place; children move with it.
   Future<void> seriesTransferTo(int seriesId, int targetLibraryId) async {
-    await _turso.execute(
-      'UPDATE series SET library_id = ? WHERE id = ?',
-      [targetLibraryId, seriesId],
-    );
+    await _api.rpc('series.transfer', {
+      'id': seriesId,
+      'targetLibraryId': targetLibraryId,
+    });
   }
 
-  /// Duplicates a title into another library, optionally bringing its
-  /// volumes, characters (with their relationships to each other),
-  /// gallery images, and file/link attachments along. Returns the new
-  /// series id.
+  /// Duplicates a title into another library. Copied images share their R2
+  /// objects with the original; the Worker only deletes an object once no row
+  /// references it. Returns the new series id.
   Future<int> seriesCopyTo(
     int seriesId,
     int targetLibraryId, {
@@ -816,291 +243,37 @@ class DataLayer {
     bool includeGallery = true,
     bool includeAttachments = true,
   }) async {
-    final original = await seriesGetById(seriesId);
-    if (original == null) {
-      throw StateError('Series $seriesId not found');
-    }
-
-    final ownerId = await _libraryOwnerId(targetLibraryId) ?? '';
-    final copy = original.copyWith(id: 0, libraryId: targetLibraryId);
-    final newSeriesId = await seriesCreate(
-      ownerId,
-      copy,
-      tagNames: original.tags.map((t) => t.name).toList(),
-      genreNames: original.genres.map((g) => g.name).toList(),
-      warningNames: original.contentWarnings.map((w) => w.name).toList(),
-    );
-
-    if (includeVolumes) {
-      final volumes = await volumesGetBySeries(seriesId);
-      for (final v in volumes) {
-        await volumesCreate(v.copyWith(id: 0, seriesId: newSeriesId));
-      }
-    }
-
-    if (includeCharacters) {
-      final characters = await charactersGetBySeries(seriesId);
-      final idMap = <int, int>{};
-      for (final c in characters) {
-        final newId =
-            await charactersCreate(c.copyWith(id: 0, seriesId: newSeriesId));
-        idMap[c.id] = newId;
-      }
-      // Bring along relationships between characters that both got copied.
-      final relationships = await relationshipsGetBySeries(seriesId);
-      for (final r in relationships) {
-        final fromId = idMap[r.fromCharacterId];
-        final toId = idMap[r.toCharacterId];
-        if (fromId != null && toId != null) {
-          await relationshipsCreate(Relationship(
-            id: 0,
-            fromCharacterId: fromId,
-            toCharacterId: toId,
-            type: r.type,
-            label: r.label,
-            isBidirectional: r.isBidirectional,
-            notes: r.notes,
-          ));
-        }
-      }
-    }
-
-    if (includeGallery) {
-      final gallery = await galleryGetBySeries(seriesId);
-      for (final img in gallery) {
-        await galleryAdd(GalleryImage(
-          id: 0,
-          seriesId: newSeriesId,
-          imagePath: img.imagePath,
-          caption: img.caption,
-          position: img.position,
-        ));
-      }
-    }
-
-    if (includeAttachments) {
-      final attachments = await attachmentsGetBySeries(seriesId);
-      for (final a in attachments) {
-        await attachmentsAdd(Attachment(
-          id: 0,
-          seriesId: newSeriesId,
-          filePath: a.filePath,
-          fileName: a.fileName,
-          fileSize: a.fileSize,
-        ));
-      }
-      final links = await linksGetBySeries(seriesId);
-      for (final l in links) {
-        await linksAdd(LinkAttachment(
-          id: 0,
-          seriesId: newSeriesId,
-          url: l.url,
-          label: l.label,
-        ));
-      }
-    }
-
-    return newSeriesId;
+    final res = await _api.rpc('series.copy', {
+      'id': seriesId,
+      'targetLibraryId': targetLibraryId,
+      'includeVolumes': includeVolumes,
+      'includeCharacters': includeCharacters,
+      'includeGallery': includeGallery,
+      'includeAttachments': includeAttachments,
+    });
+    return _id(res);
   }
 
-  Future<void> _syncTags(String ownerId, int seriesId, List<String> tagNames) async {
-    await _turso.execute('DELETE FROM series_tags WHERE series_id = ?', [seriesId]);
-    for (final name in tagNames) {
-      final t = name.trim();
-      if (t.isEmpty) continue;
-      final color = colorForTagName(t);
-      await _turso.execute(
-        'INSERT OR IGNORE INTO tags (owner_id, name, color) VALUES (?, ?, ?)',
-        [ownerId, t, color],
-      );
-      final tagRes = await _turso.execute(
-        'SELECT id FROM tags WHERE owner_id = ? AND name = ?',
-        [ownerId, t],
-      );
-      if (tagRes.rows.isNotEmpty) {
-        final tagId = tagRes.rows.first['id'];
-        await _turso.execute(
-          'INSERT OR IGNORE INTO series_tags (series_id, tag_id) VALUES (?, ?)',
-          [seriesId, tagId],
-        );
-      }
-    }
-  }
-
-  Future<void> _syncGenres(int seriesId, List<String> genreNames) async {
-    await _turso.execute('DELETE FROM series_genres WHERE series_id = ?', [seriesId]);
-    for (final name in genreNames) {
-      final g = name.trim();
-      if (g.isEmpty) continue;
-      await _turso.execute(
-        'INSERT OR IGNORE INTO genres (name) VALUES (?)',
-        [g],
-      );
-      final genreRes = await _turso.execute(
-        'SELECT id FROM genres WHERE name = ?',
-        [g],
-      );
-      if (genreRes.rows.isNotEmpty) {
-        final genreId = genreRes.rows.first['id'];
-        await _turso.execute(
-          'INSERT OR IGNORE INTO series_genres (series_id, genre_id) VALUES (?, ?)',
-          [seriesId, genreId],
-        );
-      }
-    }
-  }
-
-  Future<void> _syncWarnings(String ownerId, int seriesId, List<String> warningNames) async {
-    await _turso.execute(
-      'DELETE FROM series_content_warnings WHERE series_id = ?',
-      [seriesId],
-    );
-    for (final name in warningNames) {
-      final w = name.trim();
-      if (w.isEmpty) continue;
-      await _turso.execute(
-        'INSERT OR IGNORE INTO content_warnings (owner_id, name) VALUES (?, ?)',
-        [ownerId, w],
-      );
-      final warnRes = await _turso.execute(
-        'SELECT id FROM content_warnings WHERE owner_id = ? AND name = ?',
-        [ownerId, w],
-      );
-      if (warnRes.rows.isNotEmpty) {
-        final warnId = warnRes.rows.first['id'];
-        await _turso.execute(
-          'INSERT OR IGNORE INTO series_content_warnings (series_id, warning_id) VALUES (?, ?)',
-          [seriesId, warnId],
-        );
-      }
-    }
-  }
-
-  // ─── Account Deletion (cascading purge of everything an owner has) ──
-  //
-  // Deletes every library the user owns, every series in those libraries
-  // and everything attached to them (tags/genres/warnings links, volumes,
-  // characters, character relationships, gallery images, file & link
-  // attachments, glossary terms, series-group membership), any series
-  // groups in those libraries, and the user's own vocabulary (tags,
-  // content warnings, reading statuses) and settings. Does NOT delete the
-  // `users` row itself — `AuthService.deleteAccount` does that after
-  // verifying the password, since that's an auth concern, not a data one.
-  Future<void> deleteAllDataForOwner(String ownerId) async {
-    final libRes = await _turso.execute(
-      'SELECT id FROM libraries WHERE owner_id = ?',
-      [ownerId],
-    );
-    final libraryIds = libRes.rows.map((r) => r['id']).toList();
-
-    if (libraryIds.isNotEmpty) {
-      final libPlaceholders = List.filled(libraryIds.length, '?').join(',');
-
-      final seriesRes = await _turso.execute(
-        'SELECT id FROM series WHERE library_id IN ($libPlaceholders)',
-        libraryIds,
-      );
-      final seriesIds = seriesRes.rows.map((r) => r['id']).toList();
-
-      if (seriesIds.isNotEmpty) {
-        final sPlaceholders = List.filled(seriesIds.length, '?').join(',');
-
-        // Relationships are keyed off character ids, not series ids
-        // directly, so resolve the character ids first.
-        final charRes = await _turso.execute(
-          'SELECT id FROM characters WHERE series_id IN ($sPlaceholders)',
-          seriesIds,
-        );
-        final characterIds = charRes.rows.map((r) => r['id']).toList();
-
-        if (characterIds.isNotEmpty) {
-          final cPlaceholders =
-              List.filled(characterIds.length, '?').join(',');
-          await _turso.execute(
-            'DELETE FROM relationships WHERE from_character_id IN ($cPlaceholders) OR to_character_id IN ($cPlaceholders)',
-            [...characterIds, ...characterIds],
-          );
-        }
-
-        await _turso.batch([
-          MapEntry('DELETE FROM series_tags WHERE series_id IN ($sPlaceholders)',
-              seriesIds),
-          MapEntry(
-              'DELETE FROM series_genres WHERE series_id IN ($sPlaceholders)',
-              seriesIds),
-          MapEntry(
-              'DELETE FROM series_content_warnings WHERE series_id IN ($sPlaceholders)',
-              seriesIds),
-          MapEntry('DELETE FROM volumes WHERE series_id IN ($sPlaceholders)',
-              seriesIds),
-          MapEntry('DELETE FROM characters WHERE series_id IN ($sPlaceholders)',
-              seriesIds),
-          MapEntry(
-              'DELETE FROM gallery_images WHERE series_id IN ($sPlaceholders)',
-              seriesIds),
-          MapEntry(
-              'DELETE FROM link_attachments WHERE series_id IN ($sPlaceholders)',
-              seriesIds),
-          MapEntry('DELETE FROM attachments WHERE series_id IN ($sPlaceholders)',
-              seriesIds),
-          MapEntry(
-              'DELETE FROM glossary_terms WHERE series_id IN ($sPlaceholders)',
-              seriesIds),
-          MapEntry(
-              'DELETE FROM series_group_items WHERE series_id IN ($sPlaceholders)',
-              seriesIds),
-          MapEntry('DELETE FROM series WHERE id IN ($sPlaceholders)', seriesIds),
-        ]);
-      }
-
-      await _turso.batch([
-        MapEntry(
-            'DELETE FROM series_groups WHERE library_id IN ($libPlaceholders)',
-            libraryIds),
-        MapEntry('DELETE FROM libraries WHERE id IN ($libPlaceholders)',
-            libraryIds),
-      ]);
-    }
-
-    await _turso.batch([
-      MapEntry('DELETE FROM tags WHERE owner_id = ?', [ownerId]),
-      MapEntry('DELETE FROM content_warnings WHERE owner_id = ?', [ownerId]),
-      MapEntry('DELETE FROM reading_statuses WHERE owner_id = ?', [ownerId]),
-      MapEntry('DELETE FROM app_settings WHERE owner_id = ?', [ownerId]),
-    ]);
-  }
-
-  // ─── Series Groups (Umbrella Groups / Shared Universes) ────────────
-  //
-  // Mirrors the Electron app's series_groups / series_group_items tables
-  // (see app.js's "Series Groups" section). A group links related series
-  // together (shared universe, main story + spin-offs, prequel/sequel,
-  // etc), library-scoped, with each member tagged by a group_role.
+  // ─── Series Groups ──────────────────────────────────────────────────
 
   Future<List<SeriesGroup>> seriesGroupsGetAll(int libraryId) async {
-    final groupsRes = await _turso.execute(
-      'SELECT * FROM series_groups WHERE library_id = ? ORDER BY position, id',
-      [libraryId],
-    );
-
-    final groups = <SeriesGroup>[];
-    for (final g in groupsRes.rows) {
-      final groupId = g['id'];
-      final itemsRes = await _turso.execute('''
-        SELECT s.id, s.title, s.cover_image_path, s.status, s.kind, s.rating,
-          (SELECT COUNT(*) FROM volumes v WHERE v.series_id = s.id) as volume_count,
-          sgi.group_role, sgi.position
-        FROM series_group_items sgi
-        JOIN series s ON sgi.series_id = s.id
-        WHERE sgi.group_id = ?
-        ORDER BY sgi.position
-      ''', [groupId]);
-
-      final items = itemsRes.rows.map((r) => SeriesGroupItem.fromJson(r)).toList();
-      groups.add(SeriesGroup.fromJson(g, items: items));
+    final res = await _api.rpc('groups.getAll', {'libraryId': libraryId});
+    final byGroup = <int, List<SeriesGroupItem>>{};
+    for (final r in _rows(res, 'items')) {
+      final gid = r['group_id'] is int
+          ? r['group_id'] as int
+          : int.tryParse(r['group_id'].toString()) ?? 0;
+      byGroup.putIfAbsent(gid, () => []).add(SeriesGroupItem.fromJson(r));
     }
-    return groups;
+    return _rows(res, 'groups').map((g) {
+      final gid =
+          g['id'] is int ? g['id'] as int : int.tryParse(g['id'].toString()) ?? 0;
+      return SeriesGroup.fromJson(g, items: byGroup[gid] ?? const []);
+    }).toList();
   }
+
+  List<Map<String, dynamic>> _groupItems(List<MapEntry<int, String>> items) =>
+      items.map((e) => {'seriesId': e.key, 'role': e.value}).toList();
 
   /// [items] is (seriesId, groupRole) pairs in display order.
   Future<int> seriesGroupsCreate({
@@ -1110,25 +283,14 @@ class DataLayer {
     String? description,
     List<MapEntry<int, String>> items = const [],
   }) async {
-    final maxRes = await _turso.execute(
-      'SELECT MAX(position) as maxPos FROM series_groups WHERE library_id = ?',
-      [libraryId],
-    );
-    int pos = 0;
-    if (maxRes.rows.isNotEmpty && maxRes.rows.first['maxPos'] != null) {
-      pos = (maxRes.rows.first['maxPos'] as int) + 1;
-    }
-
-    final res = await _turso.execute('''
-      INSERT INTO series_groups (library_id, name, group_type, description, position)
-      VALUES (?, ?, ?, ?, ?)
-    ''', [libraryId, name, groupType, description, pos]);
-
-    final groupId = res.lastInsertRowid ?? 0;
-    if (groupId > 0) {
-      await _replaceGroupItems(groupId, items);
-    }
-    return groupId;
+    final res = await _api.rpc('groups.create', {
+      'libraryId': libraryId,
+      'name': name,
+      'groupType': groupType,
+      'description': description,
+      'items': _groupItems(items),
+    });
+    return _id(res);
   }
 
   Future<void> seriesGroupsUpdate(
@@ -1138,454 +300,231 @@ class DataLayer {
     String? description,
     List<MapEntry<int, String>> items = const [],
   }) async {
-    await _turso.execute('''
-      UPDATE series_groups SET name = ?, group_type = ?, description = ? WHERE id = ?
-    ''', [name, groupType, description, id]);
-    await _replaceGroupItems(id, items);
-  }
-
-  Future<void> _replaceGroupItems(int groupId, List<MapEntry<int, String>> items) async {
-    await _turso.execute('DELETE FROM series_group_items WHERE group_id = ?', [groupId]);
-    for (int i = 0; i < items.length; i++) {
-      final entry = items[i];
-      await _turso.execute('''
-        INSERT INTO series_group_items (group_id, series_id, group_role, position)
-        VALUES (?, ?, ?, ?)
-      ''', [groupId, entry.key, entry.value, i]);
-    }
+    await _api.rpc('groups.update', {
+      'id': id,
+      'name': name,
+      'groupType': groupType,
+      'description': description,
+      'items': _groupItems(items),
+    });
   }
 
   Future<void> seriesGroupsDelete(int id) async {
-    await _turso.batch([
-      MapEntry('DELETE FROM series_group_items WHERE group_id = ?', [id]),
-      MapEntry('DELETE FROM series_groups WHERE id = ?', [id]),
-    ]);
+    await _api.rpc('groups.delete', {'id': id});
   }
 
-  // ─── Volumes ─────────────────────────────────────────────────────────
+  // ─── Child records (volumes, characters, gallery, links, files, glossary)
 
-  Future<List<Volume>> volumesGetBySeries(int seriesId) async {
-    final res = await _turso.execute(
-      'SELECT * FROM volumes WHERE series_id = ? ORDER BY volume_number ASC',
-      [seriesId],
-    );
-    return res.rows.map((r) => Volume.fromJson(r)).toList();
+  Future<List<Map<String, dynamic>>> _childList(String table, int seriesId) async =>
+      _rows(await _api.rpc('child.list', {'table': table, 'seriesId': seriesId}));
+
+  Future<int> _childCreate(String table, int seriesId, Map<String, dynamic> row) async =>
+      _id(await _api.rpc('child.create', {
+        'table': table,
+        'seriesId': seriesId,
+        'row': row,
+      }));
+
+  Future<void> _childUpdate(String table, int id, Map<String, dynamic> row) async {
+    await _api.rpc('child.update', {'table': table, 'id': id, 'row': row});
   }
 
-  Future<int> volumesCreate(Volume volume) async {
-    final sql = '''
-      INSERT INTO volumes (
-        series_id, volume_number, title, chapter_range, chapter_count,
-        thoughts, chapter_notes, cover_image_path, date_read, published_date
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''';
-    final args = [
-      volume.seriesId,
-      volume.volumeNumber,
-      volume.title,
-      volume.chapterRange,
-      volume.chapterCount,
-      volume.thoughts,
-      volume.chapterNotes,
-      volume.coverImagePath,
-      volume.dateRead,
-      volume.publishedDate,
-    ];
-    final res = await _turso.execute(sql, args);
-    return res.lastInsertRowid ?? 0;
+  Future<void> _childDelete(String table, int id) async {
+    await _api.rpc('child.delete', {'table': table, 'id': id});
   }
 
-  Future<void> volumesUpdate(Volume volume) async {
-    final sql = '''
-      UPDATE volumes SET
-        volume_number = ?, title = ?, chapter_range = ?, chapter_count = ?,
-        thoughts = ?, chapter_notes = ?, cover_image_path = ?,
-        date_read = ?, published_date = ?
-      WHERE id = ?
-    ''';
-    final args = [
-      volume.volumeNumber,
-      volume.title,
-      volume.chapterRange,
-      volume.chapterCount,
-      volume.thoughts,
-      volume.chapterNotes,
-      volume.coverImagePath,
-      volume.dateRead,
-      volume.publishedDate,
-      volume.id,
-    ];
-    await _turso.execute(sql, args);
-  }
+  // Volumes
 
-  Future<void> volumesDelete(int id) async {
-    await _turso.execute('DELETE FROM volumes WHERE id = ?', [id]);
-  }
+  Map<String, dynamic> _volumeRow(Volume v) => {
+        'volume_number': v.volumeNumber,
+        'title': v.title,
+        'chapter_range': v.chapterRange,
+        'chapter_count': v.chapterCount,
+        'thoughts': v.thoughts,
+        'chapter_notes': v.chapterNotes,
+        'cover_image_path': v.coverImagePath,
+        'date_read': v.dateRead,
+        'published_date': v.publishedDate,
+      };
 
-  // ─── Characters ─────────────────────────────────────────────────────
+  Future<List<Volume>> volumesGetBySeries(int seriesId) async =>
+      (await _childList('volumes', seriesId)).map((r) => Volume.fromJson(r)).toList();
 
-  Future<List<Character>> charactersGetBySeries(int seriesId) async {
-    final res = await _turso.execute(
-      'SELECT * FROM characters WHERE series_id = ? ORDER BY name COLLATE NOCASE',
-      [seriesId],
-    );
-    return res.rows.map((r) => Character.fromJson(r)).toList();
-  }
+  Future<int> volumesCreate(Volume volume) =>
+      _childCreate('volumes', volume.seriesId, _volumeRow(volume));
 
-  Future<int> charactersCreate(Character c) async {
-    final sql = '''
-      INSERT INTO characters (
-        series_id, name, role, volume_appearances, notes, profile_image_path,
-        status_role, overall_vibes, appears_vs_reality, appears_text,
-        reality_text, personality, age, life_status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''';
-    final args = [
-      c.seriesId,
-      c.name,
-      c.role,
-      c.volumeAppearances,
-      c.notes,
-      c.profileImagePath,
-      c.statusRole,
-      c.overallVibes,
-      c.appearsVsReality,
-      c.appearsText,
-      c.realityText,
-      c.personality,
-      c.age,
-      c.lifeStatus,
-    ];
-    final res = await _turso.execute(sql, args);
-    return res.lastInsertRowid ?? 0;
-  }
+  Future<void> volumesUpdate(Volume volume) =>
+      _childUpdate('volumes', volume.id, _volumeRow(volume));
 
-  Future<void> charactersUpdate(Character c) async {
-    final sql = '''
-      UPDATE characters SET
-        name = ?, role = ?, volume_appearances = ?, notes = ?, profile_image_path = ?,
-        status_role = ?, overall_vibes = ?, appears_vs_reality = ?, appears_text = ?,
-        reality_text = ?, personality = ?, age = ?, life_status = ?
-      WHERE id = ?
-    ''';
-    final args = [
-      c.name,
-      c.role,
-      c.volumeAppearances,
-      c.notes,
-      c.profileImagePath,
-      c.statusRole,
-      c.overallVibes,
-      c.appearsVsReality,
-      c.appearsText,
-      c.realityText,
-      c.personality,
-      c.age,
-      c.lifeStatus,
-      c.id,
-    ];
-    await _turso.execute(sql, args);
-  }
+  Future<void> volumesDelete(int id) => _childDelete('volumes', id);
 
-  Future<void> charactersDelete(int id) async {
-    await _turso.batch([
-      MapEntry(
-        'DELETE FROM relationships WHERE from_character_id = ? OR to_character_id = ?',
-        [id, id],
-      ),
-      MapEntry('DELETE FROM characters WHERE id = ?', [id]),
-    ]);
-  }
+  // Characters
 
-  // ─── Relationships ──────────────────────────────────────────────────
+  Map<String, dynamic> _characterRow(Character c) => {
+        'name': c.name,
+        'role': c.role,
+        'volume_appearances': c.volumeAppearances,
+        'notes': c.notes,
+        'profile_image_path': c.profileImagePath,
+        'status_role': c.statusRole,
+        'overall_vibes': c.overallVibes,
+        'appears_vs_reality': c.appearsVsReality,
+        'appears_text': c.appearsText,
+        'reality_text': c.realityText,
+        'personality': c.personality,
+        'age': c.age,
+        'life_status': c.lifeStatus,
+      };
+
+  Future<List<Character>> charactersGetBySeries(int seriesId) async =>
+      (await _childList('characters', seriesId)).map((r) => Character.fromJson(r)).toList();
+
+  Future<int> charactersCreate(Character c) =>
+      _childCreate('characters', c.seriesId, _characterRow(c));
+
+  Future<void> charactersUpdate(Character c) =>
+      _childUpdate('characters', c.id, _characterRow(c));
+
+  /// Also removes the character's relationships (server-side, one transaction).
+  Future<void> charactersDelete(int id) => _childDelete('characters', id);
+
+  // Relationships
 
   Future<List<Relationship>> relationshipsGetBySeries(int seriesId) async {
-    final sql = '''
-      SELECT r.*,
-        c1.name as from_character_name, c1.profile_image_path as from_character_image,
-        c2.name as to_character_name, c2.profile_image_path as to_character_image
-      FROM relationships r
-      JOIN characters c1 ON r.from_character_id = c1.id
-      JOIN characters c2 ON r.to_character_id = c2.id
-      WHERE c1.series_id = ?
-    ''';
-    final res = await _turso.execute(sql, [seriesId]);
-    return res.rows.map((r) => Relationship.fromJson(r)).toList();
+    final res = await _api.rpc('relationships.list', {'seriesId': seriesId});
+    return _rows(res).map((r) => Relationship.fromJson(r)).toList();
   }
 
-  Future<int> relationshipsCreate(Relationship rel) async {
-    final sql = '''
-      INSERT INTO relationships (
-        from_character_id, to_character_id, type, label, is_bidirectional, notes
-      ) VALUES (?, ?, ?, ?, ?, ?)
-    ''';
-    final args = [
-      rel.fromCharacterId,
-      rel.toCharacterId,
-      rel.type,
-      rel.label,
-      rel.isBidirectional ? 1 : 0,
-      rel.notes,
-    ];
-    final res = await _turso.execute(sql, args);
-    return res.lastInsertRowid ?? 0;
-  }
+  Map<String, dynamic> _relPayload(Relationship rel) => {
+        'fromCharacterId': rel.fromCharacterId,
+        'toCharacterId': rel.toCharacterId,
+        'type': rel.type,
+        'label': rel.label,
+        'isBidirectional': rel.isBidirectional,
+        'notes': rel.notes,
+      };
+
+  Future<int> relationshipsCreate(Relationship rel) async =>
+      _id(await _api.rpc('relationships.create', _relPayload(rel)));
 
   Future<void> relationshipsUpdate(Relationship rel) async {
-    await _turso.execute('''
-      UPDATE relationships SET
-        from_character_id = ?, to_character_id = ?, type = ?, label = ?,
-        is_bidirectional = ?, notes = ?
-      WHERE id = ?
-    ''', [
-      rel.fromCharacterId,
-      rel.toCharacterId,
-      rel.type,
-      rel.label,
-      rel.isBidirectional ? 1 : 0,
-      rel.notes,
-      rel.id,
-    ]);
+    await _api.rpc('relationships.update', {'id': rel.id, ..._relPayload(rel)});
   }
 
   Future<void> relationshipsDelete(int id) async {
-    await _turso.execute('DELETE FROM relationships WHERE id = ?', [id]);
+    await _api.rpc('relationships.delete', {'id': id});
   }
 
-  // ─── Gallery Images & Links ─────────────────────────────────────────
+  // Gallery
 
-  Future<List<GalleryImage>> galleryGetBySeries(int seriesId) async {
-    final res = await _turso.execute(
-      'SELECT * FROM gallery_images WHERE series_id = ? ORDER BY position, id',
-      [seriesId],
-    );
-    return res.rows.map((r) => GalleryImage.fromJson(r)).toList();
-  }
+  Future<List<GalleryImage>> galleryGetBySeries(int seriesId) async =>
+      (await _childList('gallery_images', seriesId)).map((r) => GalleryImage.fromJson(r)).toList();
 
-  Future<int> galleryAdd(GalleryImage img) async {
-    final res = await _turso.execute('''
-      INSERT INTO gallery_images (series_id, image_path, caption, position)
-      VALUES (?, ?, ?, ?)
-    ''', [img.seriesId, img.imagePath, img.caption, img.position]);
-    return res.lastInsertRowid ?? 0;
-  }
+  Future<int> galleryAdd(GalleryImage img) => _childCreate('gallery_images', img.seriesId, {
+        'image_path': img.imagePath,
+        'caption': img.caption,
+        'position': img.position,
+      });
 
-  Future<void> galleryDelete(int id) async {
-    await _turso.execute('DELETE FROM gallery_images WHERE id = ?', [id]);
-  }
+  Future<void> galleryDelete(int id) => _childDelete('gallery_images', id);
 
-  Future<List<LinkAttachment>> linksGetBySeries(int seriesId) async {
-    final res = await _turso.execute(
-      'SELECT * FROM link_attachments WHERE series_id = ? ORDER BY id DESC',
-      [seriesId],
-    );
-    return res.rows.map((r) => LinkAttachment.fromJson(r)).toList();
-  }
+  // Links
 
-  Future<int> linksAdd(LinkAttachment link) async {
-    final res = await _turso.execute('''
-      INSERT INTO link_attachments (series_id, url, label)
-      VALUES (?, ?, ?)
-    ''', [link.seriesId, link.url, link.label]);
-    return res.lastInsertRowid ?? 0;
-  }
+  Future<List<LinkAttachment>> linksGetBySeries(int seriesId) async =>
+      (await _childList('link_attachments', seriesId)).map((r) => LinkAttachment.fromJson(r)).toList();
 
-  Future<void> linksUpdate(LinkAttachment link) async {
-    await _turso.execute(
-      'UPDATE link_attachments SET url = ?, label = ? WHERE id = ?',
-      [link.url, link.label, link.id],
-    );
-  }
+  Future<int> linksAdd(LinkAttachment link) => _childCreate(
+      'link_attachments', link.seriesId, {'url': link.url, 'label': link.label});
 
-  Future<void> linksDelete(int id) async {
-    await _turso.execute('DELETE FROM link_attachments WHERE id = ?', [id]);
-  }
+  Future<void> linksUpdate(LinkAttachment link) =>
+      _childUpdate('link_attachments', link.id, {'url': link.url, 'label': link.label});
 
-  // ─── Attachments ───────────────────────────────────────────────────
+  Future<void> linksDelete(int id) => _childDelete('link_attachments', id);
 
-  Future<List<Attachment>> attachmentsGetBySeries(int seriesId) async {
-    final res = await _turso.execute(
-      'SELECT * FROM attachments WHERE series_id = ? ORDER BY created_at DESC, id DESC',
-      [seriesId],
-    );
-    return res.rows.map((r) => Attachment.fromJson(r)).toList();
-  }
+  // Attachments
 
-  Future<int> attachmentsAdd(Attachment attachment) async {
-    final res = await _turso.execute('''
-      INSERT INTO attachments (series_id, file_path, file_name, file_size)
-      VALUES (?, ?, ?, ?)
-    ''', [
-      attachment.seriesId,
-      attachment.filePath,
-      attachment.fileName,
-      attachment.fileSize,
-    ]);
-    return res.lastInsertRowid ?? 0;
-  }
+  Future<List<Attachment>> attachmentsGetBySeries(int seriesId) async =>
+      (await _childList('attachments', seriesId)).map((r) => Attachment.fromJson(r)).toList();
 
-  Future<void> attachmentsDelete(int id) async {
-    await _turso.execute('DELETE FROM attachments WHERE id = ?', [id]);
-  }
+  Future<int> attachmentsAdd(Attachment a) => _childCreate('attachments', a.seriesId, {
+        'file_path': a.filePath,
+        'file_name': a.fileName,
+        'file_size': a.fileSize,
+      });
 
-  // ─── Glossary ───────────────────────────────────────────────────────
+  Future<void> attachmentsDelete(int id) => _childDelete('attachments', id);
 
-  Future<List<GlossaryTerm>> glossaryGetBySeries(int seriesId) async {
-    final res = await _turso.execute(
-      'SELECT * FROM glossary_terms WHERE series_id = ? ORDER BY term COLLATE NOCASE',
-      [seriesId],
-    );
-    return res.rows.map((r) => GlossaryTerm.fromJson(r)).toList();
-  }
+  // Glossary
 
-  Future<int> glossaryAdd(GlossaryTerm term) async {
-    final res = await _turso.execute('''
-      INSERT INTO glossary_terms (series_id, term, definition)
-      VALUES (?, ?, ?)
-    ''', [term.seriesId, term.term, term.definition]);
-    return res.lastInsertRowid ?? 0;
-  }
+  Future<List<GlossaryTerm>> glossaryGetBySeries(int seriesId) async =>
+      (await _childList('glossary_terms', seriesId)).map((r) => GlossaryTerm.fromJson(r)).toList();
 
-  Future<void> glossaryUpdate(GlossaryTerm term) async {
-    await _turso.execute('''
-      UPDATE glossary_terms SET term = ?, definition = ? WHERE id = ?
-    ''', [term.term, term.definition, term.id]);
-  }
+  Future<int> glossaryAdd(GlossaryTerm t) => _childCreate(
+      'glossary_terms', t.seriesId, {'term': t.term, 'definition': t.definition});
 
-  Future<void> glossaryDelete(int id) async {
-    await _turso.execute('DELETE FROM glossary_terms WHERE id = ?', [id]);
-  }
+  Future<void> glossaryUpdate(GlossaryTerm t) =>
+      _childUpdate('glossary_terms', t.id, {'term': t.term, 'definition': t.definition});
 
-  // ─── Metadata Lists ─────────────────────────────────────────────────
+  Future<void> glossaryDelete(int id) => _childDelete('glossary_terms', id);
 
-  Future<List<Tag>> tagsGetAll(String ownerId) async {
-    final res = await _turso.execute(
-      'SELECT * FROM tags WHERE owner_id = ? ORDER BY name COLLATE NOCASE',
-      [ownerId],
-    );
-    return res.rows.map((r) => Tag.fromJson(r)).toList();
-  }
+  // ─── Metadata lists ─────────────────────────────────────────────────
 
-  /// Renames and/or recolors a tag. Since every use of the tag joins on
-  /// `tag_id`, no cascading update is needed elsewhere.
+  Future<List<Tag>> tagsGetAll(String ownerId) async =>
+      _rows(await _api.rpc('tags.getAll')).map((r) => Tag.fromJson(r)).toList();
+
   Future<void> tagsUpdate(Tag tag) async {
-    await _turso.execute(
-      'UPDATE tags SET name = ?, color = ? WHERE id = ?',
-      [tag.name, tag.color, tag.id],
-    );
+    await _api.rpc('tags.update', {'id': tag.id, 'name': tag.name, 'color': tag.color});
   }
 
-  /// Deletes a tag and removes it from every title currently using it.
+  /// Deletes a tag and removes it from every title using it.
   Future<void> tagsDelete(int id) async {
-    await _turso.batch([
-      MapEntry('DELETE FROM series_tags WHERE tag_id = ?', [id]),
-      MapEntry('DELETE FROM tags WHERE id = ?', [id]),
-    ]);
+    await _api.rpc('tags.delete', {'id': id});
   }
 
-  Future<List<Genre>> genresGetAll() async {
-    final res = await _turso.execute(
-      'SELECT * FROM genres ORDER BY name COLLATE NOCASE',
-    );
-    return res.rows.map((r) => Genre.fromJson(r)).toList();
-  }
+  Future<List<Genre>> genresGetAll() async =>
+      _rows(await _api.rpc('genres.getAll')).map((r) => Genre.fromJson(r)).toList();
 
-  Future<List<ContentWarning>> contentWarningsGetAll(String ownerId) async {
-    final res = await _turso.execute(
-      'SELECT * FROM content_warnings WHERE owner_id = ? ORDER BY name COLLATE NOCASE',
-      [ownerId],
-    );
-    return res.rows.map((r) => ContentWarning.fromJson(r)).toList();
-  }
+  Future<List<ContentWarning>> contentWarningsGetAll(String ownerId) async =>
+      _rows(await _api.rpc('warnings.getAll')).map((r) => ContentWarning.fromJson(r)).toList();
 
-  // ─── Reading Statuses ───────────────────────────────────────────────
-  //
-  // Backs Settings → "Manage Statuses". Statuses are per-user, seeded with
-  // the 5 defaults (Reading, Finished, On Hold, Planning, Dropped) the
-  // first time they're read — mirrors librariesGetAll's default library.
+  // ─── Reading statuses ───────────────────────────────────────────────
 
-  Future<List<ReadingStatusItem>> statusesGetAll(String ownerId) async {
-    final res = await _turso.execute(
-      'SELECT * FROM reading_statuses WHERE owner_id = ? ORDER BY position, id',
-      [ownerId],
-    );
+  /// Per-user statuses; the Worker seeds the five defaults on first read.
+  Future<List<ReadingStatusItem>> statusesGetAll(String ownerId) async =>
+      _rows(await _api.rpc('statuses.getAll')).map((r) => ReadingStatusItem.fromJson(r)).toList();
 
-    if (res.rows.isEmpty) {
-      for (int i = 0; i < _defaultStatuses.length; i++) {
-        await _turso.execute(
-          'INSERT OR IGNORE INTO reading_statuses (owner_id, name, color, position) VALUES (?, ?, ?, ?)',
-          [ownerId, _defaultStatuses[i][0], _defaultStatuses[i][1], i],
-        );
-      }
-      final seeded = await _turso.execute(
-        'SELECT * FROM reading_statuses WHERE owner_id = ? ORDER BY position, id',
-        [ownerId],
-      );
-      return seeded.rows.map((r) => ReadingStatusItem.fromJson(r)).toList();
-    }
+  Future<int> statusesCreate(String ownerId, String name, String color) async =>
+      _id(await _api.rpc('statuses.create', {'name': name, 'color': color}));
 
-    return res.rows.map((r) => ReadingStatusItem.fromJson(r)).toList();
-  }
-
-  Future<int> statusesCreate(String ownerId, String name, String color) async {
-    final maxRes = await _turso.execute(
-      'SELECT MAX(position) as maxPos FROM reading_statuses WHERE owner_id = ?',
-      [ownerId],
-    );
-    int pos = 0;
-    if (maxRes.rows.isNotEmpty && maxRes.rows.first['maxPos'] != null) {
-      pos = (maxRes.rows.first['maxPos'] as int) + 1;
-    }
-    final res = await _turso.execute(
-      'INSERT INTO reading_statuses (owner_id, name, color, position) VALUES (?, ?, ?, ?)',
-      [ownerId, name, color, pos],
-    );
-    return res.lastInsertRowid ?? 0;
-  }
-
-  /// Updates a status's name/color. If [previousName] differs from the new
-  /// name, cascades the rename onto every series currently using it so
-  /// existing entries keep their status instead of falling back to blank.
+  /// Renames/recolors a status; a rename cascades onto the caller's own
+  /// titles only. [previousName] is accepted for compatibility — the Worker
+  /// reads the stored name itself.
   Future<void> statusesUpdate(
     ReadingStatusItem status, {
     String? previousName,
   }) async {
-    await _turso.execute(
-      'UPDATE reading_statuses SET name = ?, color = ? WHERE id = ?',
-      [status.name, status.color, status.id],
-    );
-    if (previousName != null && previousName != status.name) {
-      await _turso.execute(
-        'UPDATE series SET status = ? WHERE status = ?',
-        [status.name, previousName],
-      );
-    }
+    await _api.rpc('statuses.update', {
+      'id': status.id,
+      'name': status.name,
+      'color': status.color,
+    });
   }
 
-  /// Deletes a status. Any series currently using it fall back to
-  /// [fallbackName] ("Planning" by default) rather than being left blank.
   Future<void> statusesDelete(
     int id,
     String name,
     String ownerId, {
     String fallbackName = 'Planning',
   }) async {
-    await _turso.execute('''
-      UPDATE series SET status = ?
-      WHERE status = ? AND library_id IN (SELECT id FROM libraries WHERE owner_id = ?)
-    ''', [fallbackName, name, ownerId]);
-    await _turso.execute('DELETE FROM reading_statuses WHERE id = ?', [id]);
+    await _api.rpc('statuses.delete', {'id': id, 'fallbackName': fallbackName});
   }
 
-  // ─── App Settings ───────────────────────────────────────────────────
+  // ─── App settings ───────────────────────────────────────────────────
 
   Future<Map<String, String>> settingsGetAll(String ownerId) async {
-    final res = await _turso.execute(
-      'SELECT key, value FROM app_settings WHERE owner_id = ?',
-      [ownerId],
-    );
+    final res = await _api.rpc('settings.getAll');
     final map = <String, String>{};
-    for (final r in res.rows) {
+    for (final r in _rows(res)) {
       if (r['key'] != null && r['value'] != null) {
         map[r['key'].toString()] = r['value'].toString();
       }
@@ -1594,9 +533,6 @@ class DataLayer {
   }
 
   Future<void> settingsSet(String ownerId, String key, String value) async {
-    await _turso.execute('''
-      INSERT INTO app_settings (owner_id, key, value) VALUES (?, ?, ?)
-      ON CONFLICT(owner_id, key) DO UPDATE SET value = excluded.value
-    ''', [ownerId, key, value]);
+    await _api.rpc('settings.set', {'key': key, 'value': value});
   }
 }

@@ -3,8 +3,8 @@ import { cors } from 'hono/cors';
 import { Env } from './types';
 import { authRouter } from './routes/auth';
 import { assetsRouter } from './routes/assets';
-import { proxyRouter } from './routes/proxy';
 import { dataRouter } from './routes/data';
+import { rpcRouter } from './routes/rpc';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -29,11 +29,11 @@ app.get('/api/ping', (c) => {
   });
 });
 
-// Mount modular sub-routers
+// Mount modular sub-routers (the arbitrary-SQL proxy was removed: it could not enforce row ownership)
 app.route('/api/auth', authRouter);
 app.route('/api/assets', assetsRouter);
-app.route('/api/db', proxyRouter);
 app.route('/api/data', dataRouter);
+app.route('/api/rpc', rpcRouter);
 
 // Global 404 handler
 app.notFound((c) => {
