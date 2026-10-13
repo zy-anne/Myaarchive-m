@@ -312,15 +312,21 @@ export function ensureSchema(db: TursoClient): Promise<void> {
 }
 
 async function runMigrations(db: TursoClient): Promise<void> {
-  await db.execute(
-    `CREATE TABLE IF NOT EXISTS schema_migrations (
-       version INTEGER PRIMARY KEY,
-       name TEXT NOT NULL,
-       applied_at TEXT NOT NULL DEFAULT (datetime('now'))
-     )`
-  );
-  const done = await db.execute('SELECT MAX(version) AS v FROM schema_migrations');
-  const current = Number(done.rows[0]?.v ?? 0);
+  // Fast path: one round trip to Turso when the schema is already current.
+  // The table only goes missing on a brand-new database, so create it on error.
+  let current = 0;
+  try {
+    const done = await db.execute('SELECT MAX(version) AS v FROM schema_migrations');
+    current = Number(done.rows[0]?.v ?? 0);
+  } catch {
+    await db.execute(
+      `CREATE TABLE IF NOT EXISTS schema_migrations (
+         version INTEGER PRIMARY KEY,
+         name TEXT NOT NULL,
+         applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+       )`
+    );
+  }
   for (const m of MIGRATIONS) {
     if (m.version <= current) continue;
     await m.up(db);
