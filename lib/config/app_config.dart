@@ -16,6 +16,6 @@ class AppConfig {
   ///   flutter run --dart-define=WORKER_BASE_URL=http://localhost:8787
   static const String workerBaseUrl = String.fromEnvironment(
     'WORKER_BASE_URL',
-    defaultValue: 'https://myaarchive-api.maomao.workers.dev',
+    defaultValue: 'https://myaarchive-api.myaarchive.workers.dev',
   );
 }
