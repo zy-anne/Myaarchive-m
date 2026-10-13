@@ -3,6 +3,10 @@ main = "src/index.ts"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 
+# Run the Worker close to the Turso database (many sequential DB calls per request)
+[placement]
+mode = "smart"
+
 [vars]
 TURSO_DB_URL = "libsql://myaarchive-maomao.aws-ap-northeast-1.turso.io"
 
