@@ -11,5 +11,11 @@ class AppConfig {
   /// Local development: 'http://10.0.2.2:8787' (Android emulator)
   ///                     'http://localhost:8787' (iOS simulator / web)
   /// Production: 'https://myaarchive-api.`<your-subdomain>`.workers.dev'
-  static const String workerBaseUrl = 'https://myaarchive-api.maomao.workers.dev';
+  ///
+  /// Override at build/run time without editing code:
+  ///   flutter run --dart-define=WORKER_BASE_URL=http://localhost:8787
+  static const String workerBaseUrl = String.fromEnvironment(
+    'WORKER_BASE_URL',
+    defaultValue: 'https://myaarchive-api.myaarchive.workers.dev',
+  );
 }

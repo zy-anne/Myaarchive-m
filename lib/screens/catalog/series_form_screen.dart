@@ -300,7 +300,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
   Future<void> _handleSave() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final user = ref.read(authStateProvider).value;
+    final user = ref.read(authStateProvider).valueOrNull;
     if (user == null) return;
 
     setState(() => _isLoading = true);

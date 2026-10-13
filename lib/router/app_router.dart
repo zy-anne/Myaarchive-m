@@ -19,7 +19,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (BuildContext context, GoRouterState state) {
       if (authState.isLoading) return null;
 
-      final user = authState.value;
+      final user = authState.valueOrNull;
       final isAuthRoute = state.uri.path == '/sign-in' ||
           state.uri.path == '/sign-up' ||
           state.uri.path == '/forgot-password';

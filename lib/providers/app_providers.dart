@@ -96,7 +96,7 @@ final autoOpenDetailAfterAddProvider = StateProvider<bool>((ref) => false);
 /// Watch this anywhere early in the widget tree — e.g. at the root app or
 /// Settings screen — so it fires as soon as a user is available.
 final themeInitProvider = FutureProvider<void>((ref) async {
-  final user = ref.watch(authStateProvider).value;
+  final user = ref.watch(authStateProvider).valueOrNull;
   if (user == null) return;
   final dataLayer = ref.watch(dataLayerProvider);
   final settings = await dataLayer.settingsGetAll(user.id);
@@ -234,7 +234,7 @@ final authStateProvider =
 
 final librariesProvider = FutureProvider<List<Library>>((ref) async {
   final authState = ref.watch(authStateProvider);
-  final user = authState.value;
+  final user = authState.valueOrNull;
   if (user == null) return [];
 
   final dataLayer = ref.watch(dataLayerProvider);
@@ -409,7 +409,7 @@ final seriesFilterProvider =
 // ─── Series List Provider ────────────────────────────────────────────
 
 final seriesListProvider = FutureProvider<List<Series>>((ref) async {
-  final user = ref.watch(authStateProvider).value;
+  final user = ref.watch(authStateProvider).valueOrNull;
   if (user == null) return [];
 
   final dataLayer = ref.watch(dataLayerProvider);
@@ -512,7 +512,7 @@ final seriesGroupsProvider =
 // ─── Metadata Lists Providers ────────────────────────────────────────
 
 final userTagsProvider = FutureProvider<List<Tag>>((ref) async {
-  final user = ref.watch(authStateProvider).value;
+  final user = ref.watch(authStateProvider).valueOrNull;
   if (user == null) return [];
   final dataLayer = ref.watch(dataLayerProvider);
   return dataLayer.tagsGetAll(user.id);
@@ -525,7 +525,7 @@ final allGenresProvider = FutureProvider<List<Genre>>((ref) async {
 
 final userContentWarningsProvider =
     FutureProvider<List<ContentWarning>>((ref) async {
-  final user = ref.watch(authStateProvider).value;
+  final user = ref.watch(authStateProvider).valueOrNull;
   if (user == null) return [];
   final dataLayer = ref.watch(dataLayerProvider);
   return dataLayer.contentWarningsGetAll(user.id);
@@ -540,7 +540,7 @@ final userContentWarningsProvider =
 
 final readingStatusesProvider =
     FutureProvider<List<ReadingStatusItem>>((ref) async {
-  final user = ref.watch(authStateProvider).value;
+  final user = ref.watch(authStateProvider).valueOrNull;
   if (user == null) return [];
   final dataLayer = ref.watch(dataLayerProvider);
   return dataLayer.statusesGetAll(user.id);
@@ -549,7 +549,7 @@ final readingStatusesProvider =
 // ─── Stats & Global Settings Providers ───────────────────────────────
 
 final allSeriesForStatsProvider = FutureProvider<List<Series>>((ref) async {
-  final user = ref.watch(authStateProvider).value;
+  final user = ref.watch(authStateProvider).valueOrNull;
   if (user == null) return [];
   final dataLayer = ref.watch(dataLayerProvider);
   final showNsfw = ref.watch(showNsfwProvider);
@@ -558,7 +558,7 @@ final allSeriesForStatsProvider = FutureProvider<List<Series>>((ref) async {
 
 final appSettingsProvider =
     FutureProvider<Map<String, String>>((ref) async {
-  final user = ref.watch(authStateProvider).value;
+  final user = ref.watch(authStateProvider).valueOrNull;
   if (user == null) return {};
   final dataLayer = ref.watch(dataLayerProvider);
   return dataLayer.settingsGetAll(user.id);

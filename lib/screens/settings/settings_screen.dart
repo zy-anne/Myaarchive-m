@@ -79,7 +79,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onPressed: () async {
               final name = nameCtrl.text.trim();
               if (name.isEmpty) return;
-              final user = ref.read(authStateProvider).value;
+              final user = ref.read(authStateProvider).valueOrNull;
               final navigator = Navigator.of(ctx);
               if (user != null) {
                 await ref
@@ -292,7 +292,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('myaarchive_theme_mode', modeStr);
-      final user = ref.read(authStateProvider).value;
+      final user = ref.read(authStateProvider).valueOrNull;
       if (user != null) {
         await ref
             .read(dataLayerProvider)
@@ -308,7 +308,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('myaarchive_color_palette_id', palette.id);
-      final user = ref.read(authStateProvider).value;
+      final user = ref.read(authStateProvider).valueOrNull;
       if (user != null) {
         await ref
             .read(dataLayerProvider)
@@ -321,7 +321,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _toggleNsfw(bool val) async {
     ref.read(showNsfwProvider.notifier).state = val;
-    final user = ref.read(authStateProvider).value;
+    final user = ref.read(authStateProvider).valueOrNull;
     if (user != null) {
       await ref
           .read(dataLayerProvider)
@@ -338,7 +338,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('myaarchive_default_start_tab', index.toString());
-      final user = ref.read(authStateProvider).value;
+      final user = ref.read(authStateProvider).valueOrNull;
       if (user != null) {
         await ref
             .read(dataLayerProvider)
@@ -356,7 +356,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
           'myaarchive_auto_open_detail_after_add', val ? 'true' : 'false');
-      final user = ref.read(authStateProvider).value;
+      final user = ref.read(authStateProvider).valueOrNull;
       if (user != null) {
         await ref.read(dataLayerProvider).settingsSet(
             user.id, 'autoOpenDetailAfterAdd', val ? 'true' : 'false');
@@ -377,7 +377,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     final palette = context.palette;
 
-    final user = ref.watch(authStateProvider).value;
+    final user = ref.watch(authStateProvider).valueOrNull;
     final themeMode = ref.watch(themeModeProvider);
     final selectedPaletteId = ref.watch(colorPaletteIdProvider);
     final showNsfw = ref.watch(showNsfwProvider);

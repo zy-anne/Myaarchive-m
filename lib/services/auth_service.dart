@@ -78,9 +78,7 @@ class AuthService {
       await saveSessionUser(user, token: token);
       return user;
     } on DioException catch (e) {
-      final msg = e.response?.data?['error']?.toString() ??
-          e.message ??
-          'Sign up failed';
+      final msg = _errorMessage(e, 'Sign up failed');
       throw AuthException(msg);
     }
   }
@@ -115,9 +113,7 @@ class AuthService {
       }
       return user;
     } on DioException catch (e) {
-      final msg = e.response?.data?['error']?.toString() ??
-          e.message ??
-          'Invalid username or password';
+      final msg = _errorMessage(e, 'Invalid username or password');
       throw AuthException(msg);
     }
   }
@@ -236,9 +232,7 @@ class AuthService {
         ),
       );
     } on DioException catch (e) {
-      final msg = e.response?.data?['error']?.toString() ??
-          e.message ??
-          'Failed to change password';
+      final msg = _errorMessage(e, 'Failed to change password');
       throw AuthException(msg);
     }
   }
@@ -282,9 +276,7 @@ class AuthService {
         },
       );
     } on DioException catch (e) {
-      final msg = e.response?.data?['error']?.toString() ??
-          e.message ??
-          'Failed to reset password';
+      final msg = _errorMessage(e, 'Failed to reset password');
       throw AuthException(msg);
     }
   }
@@ -309,11 +301,24 @@ class AuthService {
       );
       await signOut();
     } on DioException catch (e) {
-      final msg = e.response?.data?['error']?.toString() ??
-          e.message ??
-          'Failed to delete account';
+      final msg = _errorMessage(e, 'Failed to delete account');
       throw AuthException(msg);
     }
+  }
+
+  /// Turns a failed request into a message the user can act on. Prefers the
+  /// server's own `error` text; when there was no response at all (offline,
+  /// wrong Worker URL, blocked by CORS) says so and names the host, instead of
+  /// surfacing Dio's raw XMLHttpRequest text.
+  String _errorMessage(DioException e, String fallback) {
+    final data = e.response?.data;
+    if (data is Map && data['error'] != null) return data['error'].toString();
+    if (e.response == null) {
+      final host = Uri.tryParse(_workerBaseUrl)?.host ?? _workerBaseUrl;
+      return "Can't reach the server ($host). Check your connection and that "
+          'the Worker is deployed at this address.';
+    }
+    return fallback;
   }
 
   void dispose() {
