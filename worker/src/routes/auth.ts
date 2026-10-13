@@ -2,8 +2,27 @@ import { Hono } from 'hono';
 import { Env, UserSession } from '../types';
 import { TursoClient } from '../db';
 import { AuthUtil } from '../auth';
+import { ensureSchema } from '../schema';
+import {
+  LimitKey,
+  clearFailures,
+  ipKey,
+  recordFailure,
+  retryAfter,
+  tooManyMessage,
+  userKey,
+} from '../ratelimit';
 
 export const authRouter = new Hono<{ Bindings: Env }>();
+
+/** 429 with Retry-After when any key is over its failure limit, else null. */
+async function throttled(c: any, db: TursoClient, keys: LimitKey[]) {
+  await ensureSchema(db);
+  const wait = await retryAfter(db, keys);
+  if (wait <= 0) return null;
+  c.header('Retry-After', String(wait));
+  return c.json({ error: tooManyMessage(wait) }, 429);
+}
 
 const DEFAULT_STATUSES: [string, string][] = [
   ['Reading', '#9B7EDE'],
@@ -113,18 +132,27 @@ authRouter.post('/signin', async (c) => {
     return c.json({ error: 'Username and password are required' }, 400);
   }
 
+  const ip = c.req.header('CF-Connecting-IP');
+  const acct = userKey('signin', username);
+  const keys = [acct, ...ipKey('signin', ip)];
+  const blocked = await throttled(c, db, keys);
+  if (blocked) return blocked;
+
   await ensureUsersSchema(db);
 
   const res = await db.execute('SELECT * FROM users WHERE username = ?', [username]);
   if (res.rows.length === 0) {
+    await recordFailure(db, keys);
     return c.json({ error: 'Invalid username or password' }, 401);
   }
 
   const row = res.rows[0];
   const isMatch = AuthUtil.comparePassword(password, row.password_hash || '');
   if (!isMatch) {
+    await recordFailure(db, keys);
     return c.json({ error: 'Invalid username or password' }, 401);
   }
+  await clearFailures(db, [acct]);
 
   const user: UserSession = {
     id: row.id,
@@ -183,6 +211,10 @@ authRouter.post('/change-password', async (c) => {
   }
 
   const db = new TursoClient(c.env);
+  const pwKeys = [userKey('pw', authPayload.sub)];
+  const blocked = await throttled(c, db, pwKeys);
+  if (blocked) return blocked;
+
   const res = await db.execute('SELECT password_hash FROM users WHERE id = ?', [authPayload.sub]);
   if (res.rows.length === 0) {
     return c.json({ error: 'User not found' }, 404);
@@ -190,8 +222,10 @@ authRouter.post('/change-password', async (c) => {
 
   const currentHash = res.rows[0].password_hash || '';
   if (!AuthUtil.comparePassword(body.currentPassword, currentHash)) {
+    await recordFailure(db, pwKeys);
     return c.json({ error: 'Current password is incorrect' }, 403);
   }
+  await clearFailures(db, pwKeys);
 
   const newHash = AuthUtil.hashPassword(body.newPassword);
   await db.execute('UPDATE users SET password_hash = ? WHERE id = ?', [newHash, authPayload.sub]);
@@ -215,12 +249,18 @@ authRouter.post('/verify-password', async (c) => {
   }
 
   const db = new TursoClient(c.env);
+  const pwKeys = [userKey('pw', authPayload.sub)];
+  const blocked = await throttled(c, db, pwKeys);
+  if (blocked) return blocked;
+
   const res = await db.execute('SELECT password_hash FROM users WHERE id = ?', [authPayload.sub]);
   if (res.rows.length === 0) {
     return c.json({ valid: false }, 404);
   }
 
   const valid = AuthUtil.comparePassword(body.password, res.rows[0].password_hash || '');
+  if (valid) await clearFailures(db, pwKeys);
+  else await recordFailure(db, pwKeys);
   return c.json({ valid });
 });
 
@@ -267,19 +307,27 @@ authRouter.post('/reset-password', async (c) => {
   }
 
   const db = new TursoClient(c.env);
+  const acct = userKey('reset', username);
+  const keys = [acct, ...ipKey('reset', c.req.header('CF-Connecting-IP'), 15)];
+  const blocked = await throttled(c, db, keys);
+  if (blocked) return blocked;
+
   const res = await db.execute(
     'SELECT id, security_answer_hash FROM users WHERE username = ?',
     [username]
   );
   if (res.rows.length === 0) {
+    await recordFailure(db, keys);
     return c.json({ error: 'No account found with that username' }, 404);
   }
 
   const row = res.rows[0];
   const answerHash = row.security_answer_hash || '';
   if (!answerHash || !AuthUtil.comparePassword(answer.toLowerCase(), answerHash)) {
+    await recordFailure(db, keys);
     return c.json({ error: "That answer doesn't match our records" }, 403);
   }
+  await clearFailures(db, [acct]);
 
   const newHash = AuthUtil.hashPassword(newPassword);
   await db.execute('UPDATE users SET password_hash = ? WHERE id = ?', [newHash, row.id]);
@@ -303,14 +351,20 @@ authRouter.post('/delete-account', async (c) => {
   }
 
   const db = new TursoClient(c.env);
+  const pwKeys = [userKey('pw', authPayload.sub)];
+  const blocked = await throttled(c, db, pwKeys);
+  if (blocked) return blocked;
+
   const res = await db.execute('SELECT password_hash FROM users WHERE id = ?', [authPayload.sub]);
   if (res.rows.length === 0) {
     return c.json({ error: 'User not found' }, 404);
   }
 
   if (!AuthUtil.comparePassword(body.password, res.rows[0].password_hash || '')) {
+    await recordFailure(db, pwKeys);
     return c.json({ error: 'Password is incorrect' }, 403);
   }
+  await clearFailures(db, pwKeys);
 
   const userId = authPayload.sub;
 
