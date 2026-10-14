@@ -40,7 +40,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       final turso = ref.read(tursoClientProvider);
       // Authenticated round trip through the Worker to the database.
       await turso.rpc('settings.getAll');
-      _tursoPingResult = 'Connected (Worker + database)';
+      // A saved copy answering means the Worker was not actually reachable.
+      _tursoPingResult = turso.offline.value
+          ? "Offline: can't reach the server (showing saved data)"
+          : 'Connected (Worker + database)';
     } catch (e) {
       _tursoPingResult = 'Turso error: $e';
     }

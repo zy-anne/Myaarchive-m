@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
+import 'rpc_cache.dart';
 import 'turso_client.dart';
 
 /// Authentication service communicating with the Myaarchive Cloudflare Worker API.
@@ -163,6 +164,7 @@ class AuthService {
   /// Sign out and clear the local session.
   Future<void> signOut() async {
     turso.setSessionToken('');
+    await RpcCache.clear();
     await _clearPersistedSession();
   }
 
