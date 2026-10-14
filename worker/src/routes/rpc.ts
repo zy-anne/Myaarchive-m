@@ -939,6 +939,22 @@ const ops: Record<string, Handler> = {
     return { rows: r.rows };
   },
 
+  // Persist a drag-to-reorder of a title's gallery. Ids that don't belong to
+  // the title are ignored by the series_id guard.
+  async 'gallery.reorder'(ctx) {
+    const seriesId = int(ctx.a.seriesId, 'seriesId');
+    await requireSeries(ctx, seriesId);
+    const ids = intList(ctx.a.ids);
+    if (ids.length === 0) return { success: true };
+    await ctx.db.transaction(
+      ids.map((id, i) => ({
+        sql: 'UPDATE gallery_images SET position = ? WHERE id = ? AND series_id = ?',
+        args: [i, id, seriesId],
+      }))
+    );
+    return { success: true };
+  },
+
   // Reading statuses
   async 'statuses.getAll'(ctx) {
     return { rows: await listStatuses(ctx) };

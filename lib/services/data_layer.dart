@@ -458,6 +458,12 @@ class DataLayer {
 
   Future<void> galleryDelete(int id) => _childDelete('gallery_images', id);
 
+  /// Saves the full display order of a title's gallery ([orderedIds] first to last).
+  Future<void> galleryReorder(int seriesId, List<int> orderedIds) async {
+    if (orderedIds.isEmpty) return;
+    await _api.rpc('gallery.reorder', {'seriesId': seriesId, 'ids': orderedIds});
+  }
+
   // Links
 
   Future<List<LinkAttachment>> linksGetBySeries(int seriesId) async =>
