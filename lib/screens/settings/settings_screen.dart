@@ -1,8 +1,13 @@
+import 'dart:convert';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../services/file_transfer.dart';
+import '../../services/turso_client.dart';
 import '../../theme/app_color_palette.dart';
 import '../../providers/app_providers.dart';
 import '../../theme/app_palette.dart';
@@ -20,6 +25,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String? _tursoPingResult;
   String? _r2PingResult;
   bool _isTestingSync = false;
+  bool _isBackupBusy = false;
 
   static const List<String> _startTabLabels = ['LIBRARY', 'STATS', 'SETTINGS'];
 
@@ -316,6 +322,106 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       }
     } catch (e) {
       debugPrint('Error saving color palette: $e');
+    }
+  }
+
+  // ─── Backup ──────────────────────────────────────────────────────────
+
+  String _errorText(Object e) => e is TursoException ? e.message : '$e';
+
+  void _snack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _exportBackup() async {
+    if (_isBackupBusy) return;
+    setState(() => _isBackupBusy = true);
+    try {
+      final backup = await ref.read(dataLayerProvider).exportBackup();
+      final day = DateTime.now().toIso8601String().substring(0, 10);
+      await saveTextFile(
+        'myaarchive-backup-$day.json',
+        const JsonEncoder.withIndent('  ').convert(backup),
+      );
+      final n = (backup['series'] as List?)?.length ?? 0;
+      _snack('Exported $n ${n == 1 ? 'title' : 'titles'}');
+    } catch (e) {
+      _snack('Export failed: ${_errorText(e)}');
+    } finally {
+      if (mounted) setState(() => _isBackupBusy = false);
+    }
+  }
+
+  Future<void> _restoreBackup() async {
+    if (_isBackupBusy) return;
+    final picked = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['json'],
+      withData: true,
+    );
+    final bytes = picked?.files.single.bytes;
+    if (bytes == null) return;
+
+    Map<String, dynamic> data;
+    try {
+      final decoded = jsonDecode(utf8.decode(bytes));
+      if (decoded is! Map) throw const FormatException('Not a backup file');
+      data = Map<String, dynamic>.from(decoded);
+    } catch (_) {
+      _snack("That file isn't a valid Myaarchive backup.");
+      return;
+    }
+    final titles = (data['series'] as List?)?.length ?? 0;
+    final libs = (data['libraries'] as List?)?.length ?? 0;
+    if (!mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Restore from backup?'),
+        content: Text(
+          'This adds $libs ${libs == 1 ? 'library' : 'libraries'} and '
+          '$titles ${titles == 1 ? 'title' : 'titles'} from the file as new '
+          'libraries. Nothing you already have is changed or replaced, so '
+          'restoring into an account that still has this data creates '
+          'copies.\n\nImages and attached files are re-linked, not '
+          'uploaded again, so they only show up in the account that '
+          'originally uploaded them.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Restore'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _isBackupBusy = true);
+    try {
+      final result = await ref.read(dataLayerProvider).importBackup(data);
+      ref.invalidate(librariesProvider);
+      ref.invalidate(seriesListProvider);
+      ref.invalidate(allSeriesForStatsProvider);
+      ref.invalidate(readingStatusesProvider);
+      ref.invalidate(userTagsProvider);
+      final skipped = result['skipped'] ?? 0;
+      _snack(
+        'Restored ${result['series'] ?? 0} titles into '
+        '${result['libraries'] ?? 0} new '
+        '${result['libraries'] == 1 ? 'library' : 'libraries'}'
+        '${skipped == 0 ? '' : ' ($skipped entries skipped)'}',
+      );
+    } catch (e) {
+      _snack('Restore failed: ${_errorText(e)}');
+    } finally {
+      if (mounted) setState(() => _isBackupBusy = false);
     }
   }
 
@@ -759,6 +865,54 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 20),
+
+          // ── Backup ───────────────────────────────────────────────────
+          _buildSectionHeader('BACKUP', palette),
+          const SizedBox(height: 8),
+          Card(
+            color: palette.surfaceLight,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: BorderSide(color: palette.border),
+            ),
+            child: Column(
+              children: [
+                ListTile(
+                  enabled: !_isBackupBusy,
+                  leading:
+                      Icon(Icons.file_download_outlined, color: palette.accent),
+                  title: const Text('Export Library'),
+                  subtitle: const Text(
+                    'Save every library, title, character and note as a JSON '
+                    'file. Images stay in your cloud storage.',
+                  ),
+                  trailing: _isBackupBusy
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                  onTap: _exportBackup,
+                ),
+                Divider(height: 1, color: palette.border),
+                ListTile(
+                  enabled: !_isBackupBusy,
+                  leading:
+                      Icon(Icons.file_upload_outlined, color: palette.accent),
+                  title: const Text('Restore from Backup'),
+                  subtitle: const Text(
+                    'Add the contents of an exported file as new libraries. '
+                    'Nothing existing is overwritten.',
+                  ),
+                  trailing:
+                      const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                  onTap: _restoreBackup,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
 
           // Account Actions
           _buildSectionHeader('ACCOUNT & SECURITY', palette),

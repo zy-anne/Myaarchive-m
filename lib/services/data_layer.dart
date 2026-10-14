@@ -565,4 +565,18 @@ class DataLayer {
   Future<void> settingsSet(String ownerId, String key, String value) async {
     await _api.rpc('settings.set', {'key': key, 'value': value});
   }
+
+  // ─── Backup ─────────────────────────────────────────────────────────
+
+  /// Everything the signed-in user owns, as a JSON-ready map.
+  Future<Map<String, dynamic>> exportBackup() async {
+    final res = await _api.rpc('data.export', null, const Duration(minutes: 2));
+    final backup = res['backup'];
+    if (backup is! Map) throw TursoException('Export returned no data');
+    return Map<String, dynamic>.from(backup);
+  }
+
+  /// Additive restore; returns {libraries, series, skipped}.
+  Future<Map<String, dynamic>> importBackup(Map<String, dynamic> data) =>
+      _api.rpc('data.import', {'data': data}, const Duration(minutes: 5));
 }

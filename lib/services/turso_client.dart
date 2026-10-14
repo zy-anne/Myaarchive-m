@@ -33,12 +33,15 @@ class TursoClient {
   ///
   /// The Worker identifies the user from the session token and verifies
   /// ownership of every row itself, so callers never send a user id or SQL.
-  Future<Map<String, dynamic>> rpc(String op, [Map<String, dynamic>? args]) async {
+  Future<Map<String, dynamic>> rpc(String op,
+      [Map<String, dynamic>? args, Duration? timeout]) async {
     try {
       final response = await _dio.post(
         '$_workerBaseUrl/api/rpc/$op',
         data: args ?? <String, dynamic>{},
         options: Options(
+          receiveTimeout: timeout,
+          sendTimeout: timeout,
           headers: {
             if (sessionToken.isNotEmpty) 'Authorization': 'Bearer $sessionToken',
             'Content-Type': 'application/json',
