@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../services/image_upload.dart';
 import '../../models/attachment.dart';
 import '../../models/character.dart';
 import '../../models/gallery_image.dart';
@@ -1087,21 +1088,75 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     );
   }
 
+  /// A "choose a picture from the device" row used by the volume and
+  /// character dialogs. [path] is the already-chosen storage key, if any.
+  Widget _pickPhotoRow({
+    required String label,
+    required String? path,
+    required bool busy,
+    required VoidCallback onPick,
+    required AppPalette palette,
+  }) {
+    final has = path != null && path.isNotEmpty;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(
+            has ? Icons.check_circle_outline : Icons.image_outlined,
+            size: 20,
+            color: has ? palette.accent : palette.textSecondary,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              busy ? 'Uploading…' : (has ? '$label added' : 'No $label yet'),
+              style: TextStyle(fontSize: 13, color: palette.textSecondary),
+            ),
+          ),
+          TextButton(
+            onPressed: busy ? null : onPick,
+            child: Text(has ? 'Change' : 'Choose'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showAddVolumeDialog(int seriesId, AppPalette palette) {
     final numberCtrl = TextEditingController(text: '1');
     final titleCtrl = TextEditingController();
     final chaptersCtrl = TextEditingController();
     final thoughtsCtrl = TextEditingController();
+    String? coverKey;
+    var uploading = false;
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setDialog) => AlertDialog(
         backgroundColor: palette.surfaceLight,
         title: const Text('Add Volume'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              _pickPhotoRow(
+                label: 'cover',
+                path: coverKey,
+                busy: uploading,
+                palette: palette,
+                onPick: () async {
+                  final messenger = ScaffoldMessenger.of(context);
+                  setDialog(() => uploading = true);
+                  final res = await ImageUploader.pickAndUpload(ref, prefix: 'volumes');
+                  if (res.keys.isNotEmpty) coverKey = res.keys.first;
+                  if (res.error != null) {
+                    messenger.showSnackBar(
+                        SnackBar(content: Text("Couldn't upload: ${res.error}")));
+                  }
+                  if (ctx.mounted) setDialog(() => uploading = false);
+                },
+              ),
               TextField(
                 controller: numberCtrl,
                 keyboardType: TextInputType.number,
@@ -1125,11 +1180,11 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: uploading ? null : () => Navigator.pop(ctx),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () async {
+            onPressed: uploading ? null : () async {
               final volNum = int.tryParse(numberCtrl.text) ?? 1;
               final navigator = Navigator.of(ctx);
               final newVol = Volume(
@@ -1139,6 +1194,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                 title: titleCtrl.text.isEmpty ? null : titleCtrl.text,
                 chapterRange: chaptersCtrl.text.isEmpty ? null : chaptersCtrl.text,
                 thoughts: thoughtsCtrl.text.isEmpty ? null : thoughtsCtrl.text,
+                coverImagePath: coverKey,
               );
               await ref.read(dataLayerProvider).volumesCreate(newVol);
               ref.invalidate(seriesVolumesProvider(seriesId));
@@ -1147,7 +1203,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
             child: const Text('Save'),
           ),
         ],
-      ),
+      )),
     );
   }
 
@@ -1917,10 +1973,12 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     final appearsTextCtrl = TextEditingController(text: existingCharacter?.appearsText ?? '');
     final realityTextCtrl = TextEditingController(text: existingCharacter?.realityText ?? '');
     final notesCtrl = TextEditingController(text: existingCharacter?.notes ?? '');
+    String? photoKey = existingCharacter?.profileImagePath;
+    var uploading = false;
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setDialog) => AlertDialog(
         backgroundColor: palette.surfaceLight,
         title: Text(existingCharacter == null ? 'Add Character' : 'Edit Character'),
         content: SizedBox(
@@ -1929,6 +1987,27 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                _pickPhotoRow(
+                  label: 'photo',
+                  path: photoKey,
+                  busy: uploading,
+                  palette: palette,
+                  onPick: () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    setDialog(() => uploading = true);
+                    final res = await ImageUploader.pickAndUpload(
+                      ref,
+                      prefix: 'characters',
+                      maxWidth: 1000,
+                    );
+                    if (res.keys.isNotEmpty) photoKey = res.keys.first;
+                    if (res.error != null) {
+                      messenger.showSnackBar(
+                          SnackBar(content: Text("Couldn't upload: ${res.error}")));
+                    }
+                    if (ctx.mounted) setDialog(() => uploading = false);
+                  },
+                ),
                 TextField(
                   controller: nameCtrl,
                   decoration: const InputDecoration(labelText: 'Character Name'),
@@ -1998,11 +2077,11 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: uploading ? null : () => Navigator.pop(ctx),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () async {
+            onPressed: uploading ? null : () async {
               if (nameCtrl.text.trim().isEmpty) return;
               final navigator = Navigator.of(ctx);
               String? orNull(String s) => s.trim().isEmpty ? null : s.trim();
@@ -2022,6 +2101,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                   appearsText: orNull(appearsTextCtrl.text),
                   realityText: orNull(realityTextCtrl.text),
                   notes: orNull(notesCtrl.text),
+                  profileImagePath: photoKey,
                 );
                 await ref.read(dataLayerProvider).charactersCreate(newChar);
               } else {
@@ -2037,6 +2117,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                   appearsText: orNull(appearsTextCtrl.text),
                   realityText: orNull(realityTextCtrl.text),
                   notes: orNull(notesCtrl.text),
+                  profileImagePath: photoKey,
                 );
                 await ref.read(dataLayerProvider).charactersUpdate(updated);
               }
@@ -2046,7 +2127,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
             child: const Text('Save'),
           ),
         ],
-      ),
+      )),
     );
   }
 
@@ -2333,54 +2414,139 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
   void _showAddGalleryDialog(int seriesId, AppPalette palette) {
     final pathCtrl = TextEditingController();
     final captionCtrl = TextEditingController();
+    var busy = false;
+    var status = '';
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: palette.surfaceLight,
-        title: const Text('Add Gallery Picture'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: pathCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Image URL or R2 Key',
-                hintText: 'https://... or gallery/...',
-              ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialog) => AlertDialog(
+          backgroundColor: palette.surfaceLight,
+          title: const Text('Add Gallery Pictures'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                FilledButton.icon(
+                  onPressed: busy
+                      ? null
+                      : () async {
+                          final navigator = Navigator.of(ctx);
+                          final messenger = ScaffoldMessenger.of(context);
+                          setDialog(() {
+                            busy = true;
+                            status = 'Choosing…';
+                          });
+                          final res = await ImageUploader.pickAndUpload(
+                            ref,
+                            prefix: 'gallery',
+                            multiple: true,
+                            onProgress: (done, total) {
+                              if (ctx.mounted) {
+                                setDialog(() => status = 'Uploading $done of $total…');
+                              }
+                            },
+                          );
+                          if (res.cancelled) {
+                            if (ctx.mounted) setDialog(() => busy = false);
+                            return;
+                          }
+                          var position =
+                              ref.read(seriesGalleryProvider(seriesId)).valueOrNull?.length ?? 0;
+                          Object? saveError;
+                          var added = 0;
+                          for (final key in res.keys) {
+                            try {
+                              await ref.read(dataLayerProvider).galleryAdd(
+                                    GalleryImage(
+                                      id: 0,
+                                      seriesId: seriesId,
+                                      imagePath: key,
+                                      position: position++,
+                                    ),
+                                  );
+                              added++;
+                            } catch (e) {
+                              saveError = e;
+                              break;
+                            }
+                          }
+                          ref.invalidate(seriesGalleryProvider(seriesId));
+                          final failed = res.picked - added;
+                          if (failed == 0) {
+                            messenger.showSnackBar(SnackBar(
+                              content: Text('Added $added ${added == 1 ? 'picture' : 'pictures'}'),
+                            ));
+                            if (ctx.mounted) navigator.pop();
+                          } else {
+                            messenger.showSnackBar(SnackBar(
+                              content: Text(
+                                'Added $added of ${res.picked}. '
+                                "The rest couldn't be saved: ${res.error ?? saveError}",
+                              ),
+                            ));
+                            if (ctx.mounted) setDialog(() => busy = false);
+                          }
+                        },
+                  icon: busy
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.photo_library_outlined),
+                  label: Text(busy ? status : 'Choose from device'),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Or add one by link',
+                  style: TextStyle(fontSize: 12, color: palette.textSecondary),
+                ),
+                TextField(
+                  controller: pathCtrl,
+                  enabled: !busy,
+                  decoration: const InputDecoration(
+                    labelText: 'Image URL or R2 Key',
+                    hintText: 'https://... or gallery/...',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: captionCtrl,
+                  enabled: !busy,
+                  decoration: const InputDecoration(labelText: 'Caption (Optional)'),
+                ),
+              ],
             ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: captionCtrl,
-              decoration: const InputDecoration(labelText: 'Caption (Optional)'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: busy ? null : () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: busy
+                  ? null
+                  : () async {
+                      if (pathCtrl.text.trim().isEmpty) return;
+                      final navigator = Navigator.of(ctx);
+                      final img = GalleryImage(
+                        id: 0,
+                        seriesId: seriesId,
+                        imagePath: pathCtrl.text.trim(),
+                        caption: captionCtrl.text.isEmpty ? null : captionCtrl.text,
+                        // Append, so a previously saved order isn't disturbed.
+                        position: ref.read(seriesGalleryProvider(seriesId)).valueOrNull?.length ?? 0,
+                      );
+                      await ref.read(dataLayerProvider).galleryAdd(img);
+                      ref.invalidate(seriesGalleryProvider(seriesId));
+                      if (mounted) navigator.pop();
+                    },
+              child: const Text('Add'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (pathCtrl.text.trim().isEmpty) return;
-              final navigator = Navigator.of(ctx);
-              final img = GalleryImage(
-                id: 0,
-                seriesId: seriesId,
-                imagePath: pathCtrl.text.trim(),
-                caption: captionCtrl.text.isEmpty ? null : captionCtrl.text,
-                // Append, so a previously saved order isn't disturbed.
-                position:
-                    ref.read(seriesGalleryProvider(seriesId)).valueOrNull?.length ?? 0,
-              );
-              await ref.read(dataLayerProvider).galleryAdd(img);
-              ref.invalidate(seriesGalleryProvider(seriesId));
-              if (mounted) navigator.pop();
-            },
-            child: const Text('Add'),
-          ),
-        ],
       ),
     );
   }
