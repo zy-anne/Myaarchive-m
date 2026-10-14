@@ -41,9 +41,46 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final palette = context.palette;
 
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
+      body: Column(
+        children: [
+          ValueListenableBuilder<bool>(
+            valueListenable: ref.read(tursoClientProvider).offline,
+            builder: (context, offline, _) => offline
+                ? Material(
+                    color: palette.surfaceLight,
+                    child: SafeArea(
+                      bottom: false,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 6),
+                        child: Row(
+                          children: [
+                            Icon(Icons.cloud_off_rounded,
+                                size: 16, color: palette.textSecondary),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Offline — showing saved data. Changes need a connection.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: palette.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+          Expanded(
+            child: IndexedStack(
+              index: _currentIndex,
+              children: _screens,
+            ),
+          ),
+        ],
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
