@@ -296,6 +296,19 @@ const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    version: 4,
+    name: 'rate_limits for failed-login throttling',
+    async up(db) {
+      await db.execute(
+        `CREATE TABLE IF NOT EXISTS rate_limits (
+           key TEXT PRIMARY KEY,
+           count INTEGER NOT NULL,
+           window_start INTEGER NOT NULL
+         )`
+      );
+    },
+  },
 ];
 
 let ensured: Promise<void> | null = null;
