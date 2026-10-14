@@ -14,18 +14,51 @@ class SeriesCard extends StatelessWidget {
   final VoidCallback? onLongPress;
   final bool isGrid;
 
+  /// Highlighted with a check mark while the library is in multi-select mode.
+  final bool selected;
+
   const SeriesCard({
     super.key,
     required this.series,
     required this.onTap,
     this.onLongPress,
     this.isGrid = true,
+    this.selected = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return isGrid ? _buildGridCard(context, palette) : _buildListCard(context, palette);
+    final card =
+        isGrid ? _buildGridCard(context, palette) : _buildListCard(context, palette);
+    if (!selected) return card;
+    return Stack(
+      children: [
+        card,
+        Positioned.fill(
+          child: IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                color: palette.accent.withValues(alpha: 0.14),
+                border: Border.all(color: palette.accent, width: 2.5),
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          top: 8,
+          right: 8,
+          child: IgnorePointer(
+            child: CircleAvatar(
+              radius: 12,
+              backgroundColor: palette.accent,
+              child: const Icon(Icons.check_rounded, size: 16, color: Colors.white),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildGridCard(BuildContext context, AppPalette palette) {

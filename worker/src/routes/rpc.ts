@@ -142,18 +142,18 @@ const ASSET_COLUMNS: Array<[string, string]> = [
 async function sweepAssets(ctx: Ctx, candidates: Array<string | null | undefined>): Promise<void> {
   const prefix = `u/${ctx.userId}/`;
   const keys = [...new Set(candidates.filter((k): k is string => !!k && k.startsWith(prefix)))];
-  for (const key of keys) {
-    const checks = ASSET_COLUMNS.map(([t, col]) => `SELECT 1 FROM ${t} WHERE ${col} = ?`);
-    const r = await ctx.db.execute(
-      `SELECT 1 AS x FROM (${checks.join(' UNION ALL ')}) LIMIT 1`,
-      ASSET_COLUMNS.map(() => key)
-    );
-    if (r.rows.length === 0) {
-      try {
-        await ctx.env.BUCKET.delete(key);
-      } catch (err) {
-        console.error('R2 sweep failed for', key, err);
-      }
+  if (keys.length === 0) return;
+  const checks = ASSET_COLUMNS.map(([t, col]) => `SELECT 1 FROM ${t} WHERE ${col} = ?`);
+  const sql = `SELECT 1 AS x FROM (${checks.join(' UNION ALL ')}) LIMIT 1`;
+  // One database round trip for all keys, and one R2 call per 1000 deletes,
+  // so removing many titles at once stays within Worker subrequest limits.
+  const results = await ctx.db.batch(keys.map((k) => ({ sql, args: ASSET_COLUMNS.map(() => k) })));
+  const unused = keys.filter((_, i) => results[i].rows.length === 0);
+  for (let i = 0; i < unused.length; i += 1000) {
+    try {
+      await ctx.env.BUCKET.delete(unused.slice(i, i + 1000));
+    } catch (err) {
+      console.error('R2 sweep failed', err);
     }
   }
 }
@@ -629,12 +629,98 @@ const ops: Record<string, Handler> = {
     return { success: true };
   },
 
+  // Apply one action to many titles at once. Ids the caller doesn't own are
+  // silently dropped (the response says how many were affected).
+  async 'series.bulk'(ctx) {
+    const ids = intList(ctx.a.ids, 500);
+    if (ids.length === 0) throw bad('No titles selected');
+    const action = str(ctx.a.action, 'action', 30);
+    const owned = (
+      await ctx.db.execute(
+        `SELECT s.id FROM series s JOIN libraries l ON l.id = s.library_id
+         WHERE l.owner_id = ? AND s.id IN (${ids.map(() => '?').join(',')})`,
+        [ctx.userId, ...ids]
+      )
+    ).rows.map((r) => r.id as number);
+    if (owned.length === 0) throw notFound('Titles not found');
+    const inList = owned.map(() => '?').join(',');
+
+    switch (action) {
+      case 'status': {
+        const status = str(ctx.a.status, 'status', 100).trim();
+        if (!status) throw bad('Status required');
+        await ctx.db.execute(`UPDATE series SET status = ? WHERE id IN (${inList})`, [status, ...owned]);
+        break;
+      }
+      case 'move': {
+        const target = int(ctx.a.targetLibraryId, 'targetLibraryId');
+        await requireLibrary(ctx, target);
+        await ctx.db.transaction([
+          {
+            sql: `DELETE FROM series_group_items WHERE series_id IN
+                  (SELECT id FROM series WHERE id IN (${inList}) AND library_id != ?)`,
+            args: [...owned, target],
+          },
+          { sql: `UPDATE series SET library_id = ? WHERE id IN (${inList})`, args: [target, ...owned] },
+        ]);
+        break;
+      }
+      case 'addTags':
+      case 'removeTags': {
+        const tags = strList(ctx.a.tags, 10);
+        if (tags.length === 0) throw bad('Tags required');
+        const stmts: Array<{ sql: string; args?: any[] }> = [];
+        if (action === 'addTags') {
+          for (const t of tags) {
+            stmts.push({
+              sql: 'INSERT OR IGNORE INTO tags (owner_id, name, color) VALUES (?, ?, ?)',
+              args: [ctx.userId, t, colorForTagName(t)],
+            });
+            stmts.push({
+              sql: `INSERT OR IGNORE INTO series_tags (series_id, tag_id)
+                    SELECT s.id, (SELECT id FROM tags WHERE owner_id = ? AND name = ?)
+                    FROM series s WHERE s.id IN (${inList})`,
+              args: [ctx.userId, t, ...owned],
+            });
+          }
+        } else {
+          stmts.push({
+            sql: `DELETE FROM series_tags WHERE series_id IN (${inList}) AND tag_id IN
+                  (SELECT id FROM tags WHERE owner_id = ? AND name IN (${tags.map(() => '?').join(',')}))`,
+            args: [...owned, ctx.userId, ...tags],
+          });
+        }
+        await ctx.db.transaction(stmts);
+        break;
+      }
+      case 'delete': {
+        const keys = await assetKeysForSeries(ctx, inList, owned);
+        await ctx.db.transaction([
+          ...seriesChildDeletes(inList, owned),
+          { sql: `DELETE FROM series WHERE id IN (${inList})`, args: owned },
+        ]);
+        await sweepAssets(ctx, keys);
+        break;
+      }
+      default:
+        throw bad('Unknown bulk action');
+    }
+    return { affected: owned.length };
+  },
+
   async 'series.transfer'(ctx) {
     const id = int(ctx.a.id, 'id');
     const target = int(ctx.a.targetLibraryId, 'targetLibraryId');
     await requireSeries(ctx, id);
     await requireLibrary(ctx, target);
-    await ctx.db.execute('UPDATE series SET library_id = ? WHERE id = ?', [target, id]);
+    await ctx.db.transaction([
+      // Groups are library-scoped, so a title moving elsewhere leaves them.
+      {
+        sql: 'DELETE FROM series_group_items WHERE series_id = ? AND series_id IN (SELECT id FROM series WHERE id = ? AND library_id != ?)',
+        args: [id, id, target],
+      },
+      { sql: 'UPDATE series SET library_id = ? WHERE id = ?', args: [target, id] },
+    ]);
     return { success: true };
   },
 
