@@ -254,6 +254,29 @@ class DataLayer {
     await _api.rpc('series.delete', {'id': id});
   }
 
+  /// Applies one action to many titles. [action] is one of `status`, `move`,
+  /// `addTags`, `removeTags`, `delete`; [extra] carries its argument
+  /// (`status`, `targetLibraryId` or `tags`). Sent in batches of 200 ids.
+  /// Returns how many titles were affected.
+  Future<int> seriesBulk(
+    String action,
+    List<int> ids, {
+    Map<String, dynamic> extra = const {},
+  }) async {
+    var affected = 0;
+    for (var i = 0; i < ids.length; i += 200) {
+      final chunk = ids.sublist(i, i + 200 > ids.length ? ids.length : i + 200);
+      final res = await _api.rpc('series.bulk', {
+        'action': action,
+        'ids': chunk,
+        ...extra,
+      });
+      final n = res['affected'];
+      affected += n is int ? n : int.tryParse('$n') ?? 0;
+    }
+    return affected;
+  }
+
   /// Moves a title to another library in place; children move with it.
   Future<void> seriesTransferTo(int seriesId, int targetLibraryId) async {
     await _api.rpc('series.transfer', {

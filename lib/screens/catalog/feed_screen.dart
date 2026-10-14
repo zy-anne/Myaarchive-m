@@ -28,6 +28,11 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
   bool _groupsSectionCollapsed = false;
   final Set<int> _expandedGroupIds = {};
 
+  // Multi-select ("bulk actions"): long-press a title to start selecting.
+  final Set<int> _selected = {};
+  bool _bulkBusy = false;
+  bool get _selecting => _selected.isNotEmpty;
+
   static const List<String> _bookTypeOptions = [
     'Manga',
     'Light Novel',
@@ -717,6 +722,13 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
     final seriesAsync = ref.watch(seriesListProvider);
     final librariesAsync = ref.watch(librariesProvider);
     final selectedLibId = ref.watch(selectedLibraryIdProvider);
+
+    // Bulk actions only ever apply to titles currently on screen: drop any
+    // selected id that a library switch, search or filter has hidden.
+    final visibleIds = seriesAsync.valueOrNull?.map((s) => s.id).toSet();
+    if (visibleIds != null) {
+      _selected.removeWhere((id) => !visibleIds.contains(id));
+    }
     final filter = ref.watch(seriesFilterProvider);
     final viewMode = ref.watch(viewModeProvider);
 
@@ -743,7 +755,12 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
 
     return Scaffold(
       backgroundColor: palette.bg,
-      floatingActionButton: FloatingActionButton(
+      bottomNavigationBar: _selecting
+          ? _buildSelectionBar(seriesAsync.valueOrNull ?? const [], palette)
+          : null,
+      floatingActionButton: _selecting
+          ? null
+          : FloatingActionButton(
         onPressed: () => context.push('/series/add'),
         backgroundColor: palette.primary,
         foregroundColor: palette.onSolid,
@@ -1020,9 +1037,11 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                             return SeriesCard(
                               series: item,
                               isGrid: false,
-                              onTap: () => context.push('/series/${item.id}'),
-                              onLongPress: () =>
-                                  showTransferCopyDialog(context, ref, item, palette),
+                              selected: _selected.contains(item.id),
+                              onTap: () => _selecting
+                                  ? _toggleSelected(item.id)
+                                  : context.push('/series/${item.id}'),
+                              onLongPress: () => _toggleSelected(item.id),
                             );
                           },
                           childCount: items.length,
@@ -1047,9 +1066,11 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                           return SeriesCard(
                             series: item,
                             isGrid: true,
-                            onTap: () => context.push('/series/${item.id}'),
-                            onLongPress: () =>
-                                showTransferCopyDialog(context, ref, item, palette),
+                            selected: _selected.contains(item.id),
+                            onTap: () => _selecting
+                                ? _toggleSelected(item.id)
+                                : context.push('/series/${item.id}'),
+                            onLongPress: () => _toggleSelected(item.id),
                           );
                         },
                         childCount: items.length,
@@ -1082,6 +1103,269 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  // ── Bulk actions ──────────────────────────────────────────────────────
+
+  void _toggleSelected(int id) {
+    setState(() {
+      if (!_selected.remove(id)) _selected.add(id);
+    });
+  }
+
+  void _clearSelection() => setState(_selected.clear);
+
+  void _snack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Widget _buildSelectionBar(List<Series> visible, AppPalette palette) {
+    Widget action(IconData icon, String tip, VoidCallback? onTap, {Color? color}) =>
+        IconButton(
+          tooltip: tip,
+          icon: Icon(icon, color: color ?? palette.textMain),
+          onPressed: _bulkBusy ? null : onTap,
+        );
+    return Material(
+      color: palette.surfaceLight,
+      elevation: 8,
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 56,
+          child: Row(
+            children: [
+              IconButton(
+                tooltip: 'Cancel selection',
+                icon: const Icon(Icons.close_rounded),
+                onPressed: _bulkBusy ? null : _clearSelection,
+              ),
+              Expanded(
+                child: Text(
+                  '${_selected.length} selected',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: palette.textMain,
+                  ),
+                ),
+              ),
+              if (_bulkBusy)
+                const Padding(
+                  padding: EdgeInsets.only(right: 16),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              else ...[
+                action(Icons.select_all_rounded, 'Select all', () {
+                  setState(() => _selected.addAll(visible.map((s) => s.id)));
+                }),
+                action(Icons.flag_outlined, 'Set status', () => _bulkSetStatus(palette)),
+                action(Icons.sell_outlined, 'Tags', () => _bulkTags(palette)),
+                action(Icons.drive_file_move_outlined, 'Move to library',
+                    () => _bulkMove(palette)),
+                if (_selected.length == 1)
+                  action(Icons.copy_rounded, 'Copy or move…', () {
+                    final id = _selected.first;
+                    final matches = visible.where((s) => s.id == id);
+                    if (matches.isNotEmpty) {
+                      showTransferCopyDialog(context, ref, matches.first, palette);
+                      _clearSelection();
+                    }
+                  }),
+                action(Icons.delete_outline_rounded, 'Delete', () => _bulkDelete(palette),
+                    color: palette.danger),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Runs [work], then refreshes everything a bulk change can affect.
+  Future<void> _runBulk(Future<int> Function() work, String Function(int) done) async {
+    setState(() => _bulkBusy = true);
+    try {
+      final n = await work();
+      _selected.clear();
+      ref.invalidate(seriesListProvider);
+      ref.invalidate(allSeriesForStatsProvider);
+      ref.invalidate(librariesProvider);
+      ref.invalidate(userTagsProvider);
+      final selectedLib = ref.read(selectedLibraryIdProvider);
+      if (selectedLib != null) ref.invalidate(seriesGroupsProvider(selectedLib));
+      _snack(done(n));
+    } catch (e) {
+      _snack('Could not update titles: $e');
+    } finally {
+      if (mounted) setState(() => _bulkBusy = false);
+    }
+  }
+
+  String _titles(int n) => '$n ${n == 1 ? 'title' : 'titles'}';
+
+  Future<void> _bulkSetStatus(AppPalette palette) async {
+    final statuses = ref.read(readingStatusesProvider).valueOrNull;
+    final names = (statuses == null || statuses.isEmpty)
+        ? ReadingStatus.all
+        : statuses.map((s) => s.name).toList();
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: palette.surfaceLight,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text(
+                'Set status for ${_titles(_selected.length)}',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: palette.textMain,
+                ),
+              ),
+            ),
+            for (final name in names)
+              ListTile(
+                title: Text(name),
+                onTap: () => Navigator.pop(ctx, name),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null) return;
+    final ids = _selected.toList();
+    await _runBulk(
+      () => ref.read(dataLayerProvider).seriesBulk('status', ids, extra: {'status': picked}),
+      (n) => 'Set ${_titles(n)} to $picked',
+    );
+  }
+
+  Future<void> _bulkTags(AppPalette palette) async {
+    final controller = TextEditingController();
+    var adding = true;
+    final result = await showDialog<({bool add, List<String> tags})>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialog) => AlertDialog(
+          title: Text('Tags for ${_titles(_selected.length)}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SegmentedButton<bool>(
+                segments: const [
+                  ButtonSegment(value: true, label: Text('Add')),
+                  ButtonSegment(value: false, label: Text('Remove')),
+                ],
+                selected: {adding},
+                onSelectionChanged: (v) => setDialog(() => adding = v.first),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'Tags, separated by commas',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final tags = controller.text
+                    .split(',')
+                    .map((t) => t.trim())
+                    .where((t) => t.isNotEmpty)
+                    .take(10)
+                    .toList();
+                if (tags.isEmpty) return;
+                Navigator.pop(ctx, (add: adding, tags: tags));
+              },
+              child: const Text('Apply'),
+            ),
+          ],
+        ),
+      ),
+    );
+    controller.dispose();
+    if (result == null) return;
+    final ids = _selected.toList();
+    await _runBulk(
+      () => ref.read(dataLayerProvider).seriesBulk(
+            result.add ? 'addTags' : 'removeTags',
+            ids,
+            extra: {'tags': result.tags},
+          ),
+      (n) => '${result.add ? 'Added' : 'Removed'} tags on ${_titles(n)}',
+    );
+  }
+
+  Future<void> _bulkMove(AppPalette palette) async {
+    final libraries = ref.read(librariesProvider).valueOrNull ?? const <Library>[];
+    if (libraries.isEmpty) return;
+    final target = await showDialog<Library>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text('Move ${_titles(_selected.length)} to…'),
+        children: [
+          for (final lib in libraries)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, lib),
+              child: Text(lib.name),
+            ),
+        ],
+      ),
+    );
+    if (target == null) return;
+    final ids = _selected.toList();
+    await _runBulk(
+      () => ref
+          .read(dataLayerProvider)
+          .seriesBulk('move', ids, extra: {'targetLibraryId': target.id}),
+      (n) => 'Moved ${_titles(n)} to ${target.name}',
+    );
+  }
+
+  Future<void> _bulkDelete(AppPalette palette) async {
+    final count = _selected.length;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete ${_titles(count)}?'),
+        content: const Text(
+          'This also deletes their volumes, characters, gallery pictures, '
+          'files and notes. It cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: palette.danger),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    final ids = _selected.toList();
+    await _runBulk(
+      () => ref.read(dataLayerProvider).seriesBulk('delete', ids),
+      (n) => 'Deleted ${_titles(n)}',
     );
   }
 
