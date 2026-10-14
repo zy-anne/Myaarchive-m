@@ -43,6 +43,36 @@ class DataLayer {
 
   // ─── helpers ────────────────────────────────────────────────────────
 
+  // One-shot prefetch of libraries + statuses + settings (a single Worker
+  // request instead of three). Each key is handed out once per sign-in;
+  // later reads (pull-to-refresh, invalidate) go to the normal endpoints.
+  Future<Map<String, dynamic>>? _boot;
+  String _bootToken = '';
+  DateTime _bootAt = DateTime.fromMillisecondsSinceEpoch(0);
+
+  Future<Map<String, dynamic>?> _takeBootstrapped(String key) async {
+    final token = _api.sessionToken;
+    if (token.isEmpty) return null;
+    // Start one prefetch per sign-in; stale or already-taken data falls
+    // through to the regular endpoint.
+    if (_boot == null || _bootToken != token) {
+      _bootToken = token;
+      // An older Worker without the op (or any failure) just means each
+      // caller falls back to its own request.
+      _boot = _api
+          .rpc('app.bootstrap')
+          .catchError((_) => <String, dynamic>{})
+          .then((d) {
+        _bootAt = DateTime.now(); // freshness counts from arrival
+        return d;
+      });
+    }
+    final data = await _boot!;
+    if (DateTime.now().difference(_bootAt) > const Duration(seconds: 20)) return null;
+    final rows = data.remove(key);
+    return rows is List ? {'rows': rows} : null;
+  }
+
   List<Map<String, dynamic>> _rows(Map<String, dynamic> res, [String key = 'rows']) =>
       ((res[key] as List?) ?? const [])
           .map((e) => Map<String, dynamic>.from(e as Map))
@@ -57,7 +87,7 @@ class DataLayer {
   // ─── Libraries ──────────────────────────────────────────────────────
 
   Future<List<Library>> librariesGetAll(String ownerId) async {
-    final res = await _api.rpc('libraries.getAll');
+    final res = await _takeBootstrapped('libraries') ?? await _api.rpc('libraries.getAll');
     return _rows(res).map((r) => Library.fromJson(r)).toList();
   }
 
@@ -491,7 +521,7 @@ class DataLayer {
 
   /// Per-user statuses; the Worker seeds the five defaults on first read.
   Future<List<ReadingStatusItem>> statusesGetAll(String ownerId) async =>
-      _rows(await _api.rpc('statuses.getAll')).map((r) => ReadingStatusItem.fromJson(r)).toList();
+      _rows(await _takeBootstrapped('statuses') ?? await _api.rpc('statuses.getAll')).map((r) => ReadingStatusItem.fromJson(r)).toList();
 
   Future<int> statusesCreate(String ownerId, String name, String color) async =>
       _id(await _api.rpc('statuses.create', {'name': name, 'color': color}));
@@ -522,7 +552,7 @@ class DataLayer {
   // ─── App settings ───────────────────────────────────────────────────
 
   Future<Map<String, String>> settingsGetAll(String ownerId) async {
-    final res = await _api.rpc('settings.getAll');
+    final res = await _takeBootstrapped('settings') ?? await _api.rpc('settings.getAll');
     final map = <String, String>{};
     for (final r in _rows(res)) {
       if (r['key'] != null && r['value'] != null) {

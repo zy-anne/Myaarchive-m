@@ -994,6 +994,18 @@ const ops: Record<string, Handler> = {
   },
 
   // Settings
+  // One request for everything the app needs before first paint. The three
+  // lookups run concurrently, so sign-in costs one Worker round trip instead
+  // of three (each of which can land on a cold Worker instance).
+  async 'app.bootstrap'(ctx) {
+    const [libraries, statuses, settings] = await Promise.all([
+      ops['libraries.getAll'](ctx) as Promise<{ rows: unknown[] }>,
+      ops['statuses.getAll'](ctx) as Promise<{ rows: unknown[] }>,
+      ops['settings.getAll'](ctx) as Promise<{ rows: unknown[] }>,
+    ]);
+    return { libraries: libraries.rows, statuses: statuses.rows, settings: settings.rows };
+  },
+
   async 'settings.getAll'(ctx) {
     const r = await ctx.db.execute('SELECT key, value FROM app_settings WHERE owner_id = ?', [ctx.userId]);
     return { rows: r.rows };

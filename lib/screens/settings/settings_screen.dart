@@ -321,6 +321,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _toggleNsfw(bool val) async {
     ref.read(showNsfwProvider.notifier).state = val;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('myaarchive_show_nsfw', val ? 'true' : 'false');
+    } catch (_) {}
     final user = ref.read(authStateProvider).valueOrNull;
     if (user != null) {
       await ref
