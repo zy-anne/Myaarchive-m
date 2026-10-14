@@ -2055,11 +2055,29 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
   Widget _buildGalleryTab(Series series, List<GalleryImage> images, AppPalette palette) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton: FloatingActionButton.small(
-        backgroundColor: palette.primary,
-        foregroundColor: Colors.white,
-        onPressed: () => _showAddGalleryDialog(series.id, palette),
-        child: const Icon(Icons.add_photo_alternate_rounded),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (images.length > 1) ...[
+            FloatingActionButton.small(
+              heroTag: null,
+              tooltip: 'Reorder pictures',
+              backgroundColor: palette.surfaceLight,
+              foregroundColor: palette.accent,
+              onPressed: () =>
+                  _showGalleryReorderSheet(series.id, images, palette),
+              child: const Icon(Icons.swap_vert_rounded),
+            ),
+            const SizedBox(height: 10),
+          ],
+          FloatingActionButton.small(
+            heroTag: null,
+            backgroundColor: palette.primary,
+            foregroundColor: Colors.white,
+            onPressed: () => _showAddGalleryDialog(series.id, palette),
+            child: const Icon(Icons.add_photo_alternate_rounded),
+          ),
+        ],
       ),
       body: images.isEmpty
           ? Center(
@@ -2125,6 +2143,135 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                 );
               },
             ),
+    );
+  }
+
+  /// Drag-to-reorder for a title's gallery. Saves the whole order at once.
+  void _showGalleryReorderSheet(
+      int seriesId, List<GalleryImage> images, AppPalette palette) {
+    final order = List<GalleryImage>.from(images);
+    var saving = false;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: palette.surfaceLight,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => SafeArea(
+          child: SizedBox(
+            height: MediaQuery.of(ctx).size.height * 0.8,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 8, 2),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Reorder pictures',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: palette.textMain,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: saving ? null : () => Navigator.pop(ctx),
+                        child: const Text('Cancel'),
+                      ),
+                      FilledButton(
+                        onPressed: saving
+                            ? null
+                            : () async {
+                                setSheet(() => saving = true);
+                                final navigator = Navigator.of(ctx);
+                                final messenger = ScaffoldMessenger.of(context);
+                                try {
+                                  await ref
+                                      .read(dataLayerProvider)
+                                      .galleryReorder(
+                                        seriesId,
+                                        order.map((e) => e.id).toList(),
+                                      );
+                                  ref.invalidate(
+                                      seriesGalleryProvider(seriesId));
+                                  navigator.pop();
+                                } catch (e) {
+                                  setSheet(() => saving = false);
+                                  messenger.showSnackBar(
+                                    SnackBar(
+                                      content:
+                                          Text('Could not save the order: $e'),
+                                    ),
+                                  );
+                                }
+                              },
+                        child: const Text('Save'),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Drag the handle to move a picture.',
+                      style: TextStyle(
+                          fontSize: 12, color: palette.textSecondary),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: ReorderableListView.builder(
+                    buildDefaultDragHandles: false,
+                    itemCount: order.length,
+                    onReorder: (oldIndex, newIndex) {
+                      setSheet(() {
+                        if (newIndex > oldIndex) newIndex -= 1;
+                        final moved = order.removeAt(oldIndex);
+                        order.insert(newIndex, moved);
+                      });
+                    },
+                    itemBuilder: (context, i) {
+                      final img = order[i];
+                      final caption = img.caption;
+                      return ListTile(
+                        key: ValueKey(img.id),
+                        leading: SizedBox(
+                          width: 56,
+                          height: 56,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: CoverImage(
+                              imagePath: img.imagePath,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
+                        title: Text(
+                          (caption != null && caption.isNotEmpty)
+                              ? caption
+                              : 'Picture ${i + 1}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: ReorderableDragStartListener(
+                          index: i,
+                          child: const Icon(Icons.drag_handle_rounded),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -2223,6 +2370,9 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                 seriesId: seriesId,
                 imagePath: pathCtrl.text.trim(),
                 caption: captionCtrl.text.isEmpty ? null : captionCtrl.text,
+                // Append, so a previously saved order isn't disturbed.
+                position:
+                    ref.read(seriesGalleryProvider(seriesId)).valueOrNull?.length ?? 0,
               );
               await ref.read(dataLayerProvider).galleryAdd(img);
               ref.invalidate(seriesGalleryProvider(seriesId));
