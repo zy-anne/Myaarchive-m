@@ -24,6 +24,7 @@ void main() async {
   final savedStartTab = prefs.getString('myaarchive_default_start_tab');
   final savedAutoOpenDetail =
       prefs.getString('myaarchive_auto_open_detail_after_add');
+  final savedShowNsfw = prefs.getString('myaarchive_show_nsfw');
 
   runApp(
     ProviderScope(
@@ -32,6 +33,9 @@ void main() async {
           themeModeProvider.overrideWith((ref) => initialThemeMode),
         if (savedPaletteId != null)
           colorPaletteIdProvider.overrideWith((ref) => savedPaletteId),
+        if (savedShowNsfw != null)
+          showNsfwProvider.overrideWith(
+              (ref) => savedShowNsfw == 'true' || savedShowNsfw == '1'),
         if (savedStartTab != null)
           defaultStartTabProvider.overrideWith(
               (ref) => int.tryParse(savedStartTab) ?? 0),

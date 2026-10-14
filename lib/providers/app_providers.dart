@@ -129,6 +129,9 @@ final themeInitProvider = FutureProvider<void>((ref) async {
   if (storedNsfw != null) {
     ref.read(showNsfwProvider.notifier).state =
         storedNsfw.toLowerCase() == 'true' || storedNsfw == '1';
+    // Cached so the next launch starts with the right value and the series
+    // list isn't fetched twice (once with the default, once after settings).
+    await prefs.setString('myaarchive_show_nsfw', storedNsfw);
   }
 
   final storedStartTab = settings['defaultStartTab'];
