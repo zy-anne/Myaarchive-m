@@ -2310,9 +2310,10 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                   child: ReorderableListView.builder(
                     buildDefaultDragHandles: false,
                     itemCount: order.length,
-                    onReorder: (oldIndex, newIndex) {
+                    // onReorderItem's newIndex already accounts for the
+                    // removed item (unlike the deprecated onReorder).
+                    onReorderItem: (oldIndex, newIndex) {
                       setSheet(() {
-                        if (newIndex > oldIndex) newIndex -= 1;
                         final moved = order.removeAt(oldIndex);
                         order.insert(newIndex, moved);
                       });
