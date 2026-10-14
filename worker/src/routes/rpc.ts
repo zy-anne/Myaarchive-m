@@ -994,6 +994,368 @@ const ops: Record<string, Handler> = {
   },
 
   // Settings
+  // ─── Backup: export everything the caller owns / additive restore ────
+  async 'data.export'(ctx) {
+    const u = [ctx.userId];
+    const childTables = Object.keys(CHILD);
+    const res = await ctx.db.batch([
+      { sql: 'SELECT id, name, icon, icon_image, position FROM libraries WHERE owner_id = ? ORDER BY position, id', args: u },
+      {
+        sql: `SELECT s.id, s.created_at, ${SERIES_COLS.map((c) => `s.${c}`).join(', ')}
+              FROM series s JOIN libraries l ON l.id = s.library_id WHERE l.owner_id = ? ORDER BY s.id`,
+        args: u,
+      },
+      ...childTables.map((t) => ({
+        sql: `SELECT id, series_id, ${CHILD[t].cols.join(', ')} FROM ${t}
+              WHERE series_id IN (${OWNED_SERIES}) ORDER BY id`,
+        args: u,
+      })),
+      {
+        sql: `SELECT r.from_character_id, r.to_character_id, r.type, r.label, r.is_bidirectional, r.notes
+              FROM relationships r JOIN characters c ON c.id = r.from_character_id
+              WHERE c.series_id IN (${OWNED_SERIES}) ORDER BY r.id`,
+        args: u,
+      },
+      {
+        sql: `SELECT st.series_id, t.name, t.color FROM series_tags st JOIN tags t ON t.id = st.tag_id
+              WHERE st.series_id IN (${OWNED_SERIES})`,
+        args: u,
+      },
+      {
+        sql: `SELECT sg.series_id, g.name, g.color FROM series_genres sg JOIN genres g ON g.id = sg.genre_id
+              WHERE sg.series_id IN (${OWNED_SERIES})`,
+        args: u,
+      },
+      {
+        sql: `SELECT sw.series_id, w.name FROM series_content_warnings sw
+              JOIN content_warnings w ON w.id = sw.warning_id WHERE sw.series_id IN (${OWNED_SERIES})`,
+        args: u,
+      },
+      {
+        sql: `SELECT g.id, g.library_id, g.name, g.group_type, g.description, g.position
+              FROM series_groups g JOIN libraries l ON l.id = g.library_id WHERE l.owner_id = ? ORDER BY g.id`,
+        args: u,
+      },
+      {
+        sql: `SELECT i.group_id, i.series_id, i.group_role, i.position FROM series_group_items i
+              JOIN series_groups g ON g.id = i.group_id JOIN libraries l ON l.id = g.library_id
+              WHERE l.owner_id = ?`,
+        args: u,
+      },
+      { sql: 'SELECT name, color, position FROM reading_statuses WHERE owner_id = ? ORDER BY position, id', args: u },
+    ]);
+
+    const [libraries, series] = [res[0].rows, res[1].rows];
+    const child: Record<string, any[]> = {};
+    childTables.forEach((t, i) => (child[t] = res[2 + i].rows));
+    const at = 2 + childTables.length;
+    const [relationships, tagRows, genreRows, warnRows, groups, groupItems, statuses] = [
+      res[at].rows, res[at + 1].rows, res[at + 2].rows, res[at + 3].rows,
+      res[at + 4].rows, res[at + 5].rows, res[at + 6].rows,
+    ];
+
+    const bySeries = (rows: any[], pick: (r: any) => any) => {
+      const m = new Map<number, any[]>();
+      for (const r of rows) {
+        const list = m.get(r.series_id) ?? [];
+        list.push(pick(r));
+        m.set(r.series_id, list);
+      }
+      return m;
+    };
+    const tags = bySeries(tagRows, (r) => ({ name: r.name, color: r.color }));
+    const genres = bySeries(genreRows, (r) => ({ name: r.name, color: r.color }));
+    const warnings = bySeries(warnRows, (r) => r.name);
+
+    return {
+      backup: {
+        app: 'myaarchive',
+        version: 3,
+        exportedAt: new Date().toISOString(),
+        libraries,
+        series: series.map((s) => ({
+          ...s,
+          tags: tags.get(s.id) ?? [],
+          genres: genres.get(s.id) ?? [],
+          warnings: warnings.get(s.id) ?? [],
+        })),
+        volumes: child.volumes,
+        characters: child.characters,
+        relationships,
+        gallery_images: child.gallery_images,
+        link_attachments: child.link_attachments,
+        attachments: child.attachments,
+        glossary_terms: child.glossary_terms,
+        series_groups: groups,
+        series_group_items: groupItems,
+        reading_statuses: statuses,
+      },
+    };
+  },
+
+  /**
+   * Additive restore: every library in the file becomes a NEW library under
+   * the caller (nothing existing is overwritten or merged). Accepts the v3
+   * format above and the older desktop export (v2). Image/file keys are
+   * re-linked, not re-uploaded, so they only resolve for the account that
+   * owns those objects.
+   */
+  async 'data.import'(ctx) {
+    const d = ctx.a.data;
+    if (!d || typeof d !== 'object' || Array.isArray(d)) throw bad('Missing backup data');
+    const rows = (key: string, max = 100_000): Args[] => {
+      const v = (d as Args)[key];
+      if (v === undefined || v === null) return [];
+      if (!Array.isArray(v) || v.length > max) throw bad(`Invalid or too many ${key}`);
+      return v.filter((x) => x && typeof x === 'object' && !Array.isArray(x));
+    };
+    const libs = rows('libraries', 500);
+    const seriesIn = rows('series', 5000);
+    if (libs.length === 0 && seriesIn.length === 0) throw bad('Nothing to import');
+    const characters = rows('characters');
+    const relationships = rows('relationships');
+    const groups = rows('series_groups', 5000);
+    const groupItems = rows('series_group_items');
+    const statusesIn = rows('reading_statuses', 500);
+    const childIn: Record<string, Args[]> = {};
+    for (const t of Object.keys(CHILD)) childIn[t] = t === 'characters' ? characters : rows(t);
+
+    // Allocate ids above the current maximum so the whole restore can be
+    // sent as a few batched transactions instead of one round trip per row.
+    const idTables = [
+      'libraries', 'series', 'volumes', 'characters', 'relationships',
+      'gallery_images', 'link_attachments', 'attachments', 'glossary_terms', 'series_groups',
+    ];
+    const maxRes = await ctx.db.batch([
+      ...idTables.map((t) => ({ sql: `SELECT COALESCE(MAX(id), 0) AS m FROM ${t}` })),
+      { sql: 'SELECT name FROM libraries WHERE owner_id = ?', args: [ctx.userId] },
+    ]);
+    const next: Record<string, number> = {};
+    idTables.forEach((t, i) => (next[t] = Number(maxRes[i].rows[0]?.m ?? 0) + 1));
+    const alloc = (t: string) => next[t]++;
+    const existingNames = new Set<string>(maxRes[idTables.length].rows.map((r) => String(r.name).toLowerCase()));
+    const basePos = maxRes[idTables.length].rows.length;
+
+    const u = ctx.userId;
+    const libStmts: Array<{ sql: string; args?: any[] }> = [];
+    const libMap = new Map<number, number>();
+    const newLibIds: number[] = [];
+    const addLibrary = (name: string, icon: string | null, iconImage: string | null) => {
+      let finalName = name;
+      if (existingNames.has(finalName.toLowerCase())) finalName = `${name} (imported)`;
+      let n = 2;
+      while (existingNames.has(finalName.toLowerCase())) finalName = `${name} (imported ${n++})`;
+      existingNames.add(finalName.toLowerCase());
+      const id = alloc('libraries');
+      newLibIds.push(id);
+      libStmts.push({
+        sql: 'INSERT INTO libraries (id, owner_id, name, icon, icon_image, position) VALUES (?, ?, ?, ?, ?, ?)',
+        args: [id, u, finalName, icon || 'grid', iconImage, basePos + newLibIds.length - 1],
+      });
+      return id;
+    };
+    for (const l of libs) {
+      const oldId = optInt(l.id);
+      const id = addLibrary(
+        (optStr(l.name, 200) || 'Library').trim() || 'Library',
+        optStr(l.icon, 100),
+        optStr(l.icon_image, 500)
+      );
+      if (oldId !== null) libMap.set(oldId, id);
+    }
+    let fallbackLib: number | null = null;
+    const libraryFor = (oldId: unknown): number => {
+      const m = libMap.get(optInt(oldId) ?? -1);
+      if (m) return m;
+      if (fallbackLib === null) fallbackLib = addLibrary('Imported', 'book', null);
+      return fallbackLib;
+    };
+
+    const stmts: Array<{ sql: string; args?: any[] }> = [];
+    let skipped = 0;
+
+    // Labels (tags/genres/warnings) are created once, then linked by name.
+    const color = (v: unknown): string | null =>
+      typeof v === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(v) ? v : null;
+    type Label = { name: string; color: string | null };
+    const labelList = (arr: unknown, legacy: unknown): Label[] => {
+      const out: Label[] = [];
+      if (Array.isArray(arr)) {
+        for (const x of arr.slice(0, 100)) {
+          if (typeof x === 'string') out.push({ name: x.trim(), color: null });
+          else if (x && typeof x === 'object') out.push({ name: String((x as Args).name ?? '').trim(), color: color((x as Args).color) });
+        }
+      } else if (typeof legacy === 'string') {
+        for (const part of legacy.split('||').slice(0, 100)) {
+          const bits = part.split('::'); // id::name::color (desktop v2)
+          if (bits.length >= 2) out.push({ name: bits[1].trim(), color: color(bits[2]) });
+        }
+      }
+      return out.filter((l) => l.name.length > 0 && l.name.length <= 200);
+    };
+    const tagSet = new Map<string, Label>();
+    const genreSet = new Map<string, Label>();
+    const warnSet = new Map<string, Label>();
+    const links: Array<{ sql: string; args: any[] }> = [];
+
+    const seriesMap = new Map<number, number>();
+    for (const s of seriesIn) {
+      const title = optStr(s.title);
+      if (!title || !title.trim()) { skipped++; continue; }
+      const newId = alloc('series');
+      const oldId = optInt(s.id);
+      if (oldId !== null) seriesMap.set(oldId, newId);
+      const values = seriesValues({ ...s, library_id: libraryFor(s.library_id) });
+      stmts.push({
+        sql: `INSERT INTO series (id, ${SERIES_COLS.join(', ')}, created_at)
+              VALUES (?, ${SERIES_COLS.map(() => '?').join(', ')}, COALESCE(?, datetime('now')))`,
+        args: [newId, ...values, optStr(s.created_at, 40)],
+      });
+      for (const t of labelList(s.tags, s.tag_data)) {
+        tagSet.set(t.name.toLowerCase(), t);
+        links.push({
+          sql: `INSERT OR IGNORE INTO series_tags (series_id, tag_id)
+                SELECT ?, id FROM tags WHERE owner_id = ? AND name = ?`,
+          args: [newId, u, t.name],
+        });
+      }
+      for (const g of labelList(s.genres, s.genre_data)) {
+        genreSet.set(g.name.toLowerCase(), g);
+        links.push({
+          sql: `INSERT OR IGNORE INTO series_genres (series_id, genre_id)
+                SELECT ?, id FROM genres WHERE name = ?`,
+          args: [newId, g.name],
+        });
+      }
+      for (const w of labelList(s.warnings, s.warning_data)) {
+        warnSet.set(w.name.toLowerCase(), w);
+        links.push({
+          sql: `INSERT OR IGNORE INTO series_content_warnings (series_id, warning_id)
+                SELECT ?, id FROM content_warnings WHERE owner_id = ? AND name = ?`,
+          args: [newId, u, w.name],
+        });
+      }
+    }
+
+    // Label rows must exist before the link statements that select them.
+    for (const t of tagSet.values()) {
+      stmts.push({
+        sql: 'INSERT OR IGNORE INTO tags (owner_id, name, color) VALUES (?, ?, ?)',
+        args: [u, t.name, t.color ?? colorForTagName(t.name)],
+      });
+    }
+    for (const g of genreSet.values()) {
+      stmts.push({
+        sql: "INSERT OR IGNORE INTO genres (name, color) VALUES (?, COALESCE(?, '#b2bec3'))",
+        args: [g.name, g.color],
+      });
+    }
+    for (const w of warnSet.values()) {
+      stmts.push({
+        sql: 'INSERT OR IGNORE INTO content_warnings (owner_id, name) VALUES (?, ?)',
+        args: [u, w.name],
+      });
+    }
+    stmts.push(...links);
+
+    // Required (NOT NULL) fields per child table; rows missing one are skipped.
+    const REQUIRED: Record<string, string[]> = {
+      volumes: ['volume_number'],
+      characters: ['name'],
+      gallery_images: ['image_path'],
+      link_attachments: ['url'],
+      attachments: ['file_path', 'file_name'],
+      glossary_terms: ['term'],
+    };
+    const charMap = new Map<number, number>();
+    for (const t of Object.keys(CHILD)) {
+      const def = CHILD[t];
+      childIn[t].forEach((row, index) => {
+        const sid = seriesMap.get(optInt(row.series_id) ?? -1);
+        if (!sid) { skipped++; return; }
+        const vals = childValues(def, row);
+        const missing = REQUIRED[t].some((c) => vals[def.cols.indexOf(c)] === null);
+        if (missing) { skipped++; return; }
+        if (t === 'gallery_images') {
+          const pi = def.cols.indexOf('position');
+          if (vals[pi] === null) vals[pi] = index;
+        }
+        const id = alloc(t);
+        const oldId = optInt(row.id);
+        if (t === 'characters' && oldId !== null) charMap.set(oldId, id);
+        stmts.push({
+          sql: `INSERT INTO ${t} (id, series_id, ${def.cols.join(', ')})
+                VALUES (?, ?, ${def.cols.map(() => '?').join(', ')})`,
+          args: [id, sid, ...vals],
+        });
+      });
+    }
+    for (const r of relationships) {
+      const from = charMap.get(optInt(r.from_character_id) ?? -1);
+      const to = charMap.get(optInt(r.to_character_id) ?? -1);
+      if (!from || !to) { skipped++; continue; }
+      stmts.push({
+        sql: `INSERT INTO relationships (id, from_character_id, to_character_id, type, label, is_bidirectional, notes)
+              VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        args: [
+          alloc('relationships'), from, to, optStr(r.type, 100) || 'Friend', optStr(r.label, 200),
+          optInt(r.is_bidirectional) === 0 ? 0 : 1, optStr(r.notes),
+        ],
+      });
+    }
+    const groupMap = new Map<number, number>();
+    groups.forEach((g, i) => {
+      const name = optStr(g.name, 200);
+      const oldId = optInt(g.id);
+      if (!name || !name.trim() || oldId === null) { skipped++; return; }
+      const id = alloc('series_groups');
+      groupMap.set(oldId, id);
+      stmts.push({
+        sql: `INSERT INTO series_groups (id, library_id, name, group_type, description, position)
+              VALUES (?, ?, ?, ?, ?, ?)`,
+        args: [
+          id, libraryFor(g.library_id), name.trim(), optStr(g.group_type, 100) || 'Series Group',
+          optStr(g.description), optInt(g.position) ?? i,
+        ],
+      });
+    });
+    for (const it of groupItems) {
+      const gid = groupMap.get(optInt(it.group_id) ?? -1);
+      const sid = seriesMap.get(optInt(it.series_id) ?? -1);
+      if (!gid || !sid) { skipped++; continue; }
+      stmts.push({
+        sql: `INSERT OR IGNORE INTO series_group_items (group_id, series_id, group_role, position)
+              VALUES (?, ?, ?, ?)`,
+        args: [gid, sid, optStr(it.group_role, 100) || 'Main Story', optInt(it.position) ?? 0],
+      });
+    }
+    statusesIn.forEach((st, i) => {
+      const name = optStr(st.name, 100);
+      if (!name || !name.trim()) return;
+      stmts.push({
+        sql: `INSERT OR IGNORE INTO reading_statuses (owner_id, name, color, position)
+              VALUES (?, ?, ?, (SELECT COALESCE(MAX(position), -1) + 1 FROM reading_statuses WHERE owner_id = ?))`,
+        args: [u, name.trim(), color(st.color) ?? '#B9BEC7', u],
+      });
+    });
+
+    // Libraries go first so a failure later can be undone by deleting them
+    // (which cascades to everything created under them).
+    try {
+      if (libStmts.length) await ctx.db.transaction(libStmts);
+      const CHUNK = 800;
+      for (let i = 0; i < stmts.length; i += CHUNK) {
+        await ctx.db.transaction(stmts.slice(i, i + CHUNK));
+      }
+    } catch (err) {
+      for (const id of newLibIds) {
+        await ops['libraries.delete']({ ...ctx, a: { id } }).catch(() => {});
+      }
+      throw err;
+    }
+    return { libraries: newLibIds.length, series: seriesMap.size, skipped };
+  },
+
   // One request for everything the app needs before first paint. The three
   // lookups run concurrently, so sign-in costs one Worker round trip instead
   // of three (each of which can land on a cold Worker instance).
@@ -1073,7 +1435,7 @@ rpcRouter.post('/:op', async (c) => {
   let a: Args = {};
   try {
     const text = await c.req.text();
-    if (text.length > 1_000_000) return c.json({ error: 'Request too large' }, 413);
+    if (text.length > (op === 'data.import' ? 12_000_000 : 1_000_000)) return c.json({ error: 'Request too large' }, 413);
     a = text ? JSON.parse(text) : {};
     if (a === null || typeof a !== 'object' || Array.isArray(a)) throw new Error('bad body');
   } catch {
