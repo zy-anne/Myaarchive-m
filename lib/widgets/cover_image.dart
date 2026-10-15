@@ -146,6 +146,7 @@ class _CoverImageState extends ConsumerState<CoverImage> {
         child: CachedNetworkImage(
           imageUrl: path,
           cacheKey: path,
+          imageRenderMethodForWeb: ImageRenderMethodForWeb.HttpGet,
           width: widget.width,
           height: widget.height,
           fit: widget.fit,
@@ -179,6 +180,7 @@ class _CoverImageState extends ConsumerState<CoverImage> {
           child: CachedNetworkImage(
             imageUrl: snapshot.data!,
             cacheKey: path,
+            imageRenderMethodForWeb: ImageRenderMethodForWeb.HttpGet,
             width: widget.width,
             height: widget.height,
             fit: widget.fit,
