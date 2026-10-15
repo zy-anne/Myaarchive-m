@@ -1,6 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
+// ignore: depend_on_referenced_packages
+import 'package:cached_network_image_platform_interface/cached_network_image_platform_interface.dart'
+    show ImageRenderMethodForWeb;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
