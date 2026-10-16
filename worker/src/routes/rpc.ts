@@ -1025,6 +1025,35 @@ const ops: Record<string, Handler> = {
     return { rows: r.rows };
   },
 
+  // Rename a content warning. Names are unique per user (case-insensitive),
+  // so renaming onto an existing one is refused rather than silently merged.
+  async 'warnings.update'(ctx) {
+    const id = int(ctx.a.id, 'id');
+    const name = str(ctx.a.name, 'name', 200).trim();
+    if (!name) throw bad('Name is required');
+    const own = await ctx.db.execute('SELECT id FROM content_warnings WHERE id = ? AND owner_id = ?', [id, ctx.userId]);
+    if (own.rows.length === 0) throw notFound('Warning not found');
+    const clash = await ctx.db.execute(
+      'SELECT id FROM content_warnings WHERE owner_id = ? AND name = ? AND id != ?',
+      [ctx.userId, name, id]
+    );
+    if (clash.rows.length > 0) throw bad('A warning with that name already exists');
+    await ctx.db.execute('UPDATE content_warnings SET name = ? WHERE id = ? AND owner_id = ?', [name, id, ctx.userId]);
+    return { success: true };
+  },
+
+  // Delete a warning and unlink it from every title that used it.
+  async 'warnings.delete'(ctx) {
+    const id = int(ctx.a.id, 'id');
+    const own = await ctx.db.execute('SELECT id FROM content_warnings WHERE id = ? AND owner_id = ?', [id, ctx.userId]);
+    if (own.rows.length === 0) throw notFound('Warning not found');
+    await ctx.db.transaction([
+      { sql: 'DELETE FROM series_content_warnings WHERE warning_id = ?', args: [id] },
+      { sql: 'DELETE FROM content_warnings WHERE id = ? AND owner_id = ?', args: [id, ctx.userId] },
+    ]);
+    return { success: true };
+  },
+
   // Persist a drag-to-reorder of a title's gallery. Ids that don't belong to
   // the title are ignored by the series_id guard.
   async 'gallery.reorder'(ctx) {

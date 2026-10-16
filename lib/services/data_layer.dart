@@ -546,6 +546,15 @@ class DataLayer {
   Future<List<ContentWarning>> contentWarningsGetAll(String ownerId) async =>
       _rows(await _api.rpc('warnings.getAll')).map((r) => ContentWarning.fromJson(r)).toList();
 
+  Future<void> contentWarningsRename(int id, String name) async {
+    await _api.rpc('warnings.update', {'id': id, 'name': name});
+  }
+
+  /// Deletes a warning and unlinks it from every title using it.
+  Future<void> contentWarningsDelete(int id) async {
+    await _api.rpc('warnings.delete', {'id': id});
+  }
+
   // ─── Reading statuses ───────────────────────────────────────────────
 
   /// Per-user statuses; the Worker seeds the five defaults on first read.

@@ -10,6 +10,7 @@ import '../screens/catalog/series_form_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/settings/manage_statuses_screen.dart';
 import '../screens/settings/manage_tags_screen.dart';
+import '../screens/settings/manage_warnings_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
@@ -74,6 +75,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/settings/tags',
         builder: (context, state) => const ManageTagsScreen(),
+      ),
+      GoRoute(
+        path: '/settings/warnings',
+        builder: (context, state) => const ManageWarningsScreen(),
       ),
       GoRoute(
         path: '/settings/statuses',
