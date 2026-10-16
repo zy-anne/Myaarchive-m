@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../services/image_upload.dart';
@@ -56,6 +58,31 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  /// Shares a short, non-private summary of the title (never your own
+  /// thoughts or notes). Falls back to copying it if sharing isn't available.
+  Future<void> _shareTitle(Series series) async {
+    final lines = <String>[
+      series.author != null && series.author!.trim().isNotEmpty
+          ? '${series.title} by ${series.author!.trim()}'
+          : series.title,
+      [
+        series.status,
+        if (series.rating != null && series.rating! > 0) '${series.rating}/5',
+      ].join(' · '),
+      if (series.genres.isNotEmpty) series.genres.map((g) => g.name).join(', '),
+      if (series.synopsis != null && series.synopsis!.trim().isNotEmpty)
+        '\n${series.synopsis!.trim()}',
+    ];
+    final text = lines.join('\n');
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await Share.share(text, subject: series.title);
+    } catch (_) {
+      await Clipboard.setData(ClipboardData(text: text));
+      messenger.showSnackBar(const SnackBar(content: Text('Copied to clipboard')));
+    }
   }
 
   Future<void> _handleDelete(Series series, AppPalette palette) async {
@@ -248,6 +275,11 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                     onPressed: () => context.pop(),
                   ),
                   actions: [
+                    IconButton(
+                      icon: const Icon(Icons.ios_share_rounded),
+                      tooltip: 'Share',
+                      onPressed: () => _shareTitle(series),
+                    ),
                     IconButton(
                       icon: const Icon(Icons.edit_outlined),
                       tooltip: 'Edit Title',
