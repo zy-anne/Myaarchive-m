@@ -8,9 +8,10 @@ import '../models/series.dart';
 /// - Dark charcoal/olive desk background
 /// - Open loose-leaf ring binder page with hole punches and left binder staples
 /// - Typewriter "FILE: 1234" stamp
-/// - Tilted Polaroid photo of the book cover with "TOP SECRET" black tape & paperclip
+/// - Tilted Polaroid photo of the book cover with paperclip (omitted when there is no cover)
 /// - Classified book specs table (Title, Author, Release, Chapters, Genre, Synopsis)
-/// - Authentic archival aesthetic with optional redaction markers and @myaarchive footer
+/// - Only the file number and the @username footer are blacked out; everything else is readable
+/// - Card height grows with the content so the full synopsis always shows
 class BookDossierCard extends StatelessWidget {
   final Series series;
   final Uint8List? coverBytes;
@@ -32,7 +33,6 @@ class BookDossierCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const cardWidth = 420.0;
-    const cardHeight = 560.0;
 
     final fileNumber = (series.id % 9000 + 1000).toString();
     final releaseYear = series.yearPublished != null && series.yearPublished!.trim().isNotEmpty
@@ -48,16 +48,22 @@ class BookDossierCard extends StatelessWidget {
         ? series.author!.trim().toUpperCase()
         : 'UNKNOWN';
 
-    String synopsisText = (series.synopsis != null && series.synopsis!.trim().isNotEmpty)
+    // Full synopsis, never truncated.
+    final synopsisText = (series.synopsis != null && series.synopsis!.trim().isNotEmpty)
         ? series.synopsis!.trim()
-        : 'THE FILE CONTAINS SENSITIVE ARCHIVAL MATERIAL ON RECORD UNDER CLASSIFIED PROTOCOLS.';
-    if (synopsisText.length > 180) {
-      synopsisText = '${synopsisText.substring(0, 175).trim()}…';
-    }
+        : 'The file contains sensitive archival material on record under classified protocols.';
+
+    final fileStyle = GoogleFonts.courierPrime(
+      fontSize: 13,
+      fontWeight: FontWeight.w900,
+      letterSpacing: 2.8,
+      color: inkColor,
+    );
+
+    final hasCover = coverBytes != null && coverBytes!.isNotEmpty;
 
     return Container(
       width: cardWidth,
-      height: cardHeight,
       color: deskColor,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Stack(
@@ -80,12 +86,9 @@ class BookDossierCard extends StatelessWidget {
             ),
           ),
 
-          // Main White/Cream Notebook Sheet
-          Positioned(
-            left: 20,
-            right: 0,
-            top: 0,
-            bottom: 0,
+          // Main White/Cream Notebook Sheet (its content decides the card height)
+          Padding(
+            padding: const EdgeInsets.only(left: 20),
             child: Container(
               decoration: BoxDecoration(
                 color: paperColor,
@@ -100,6 +103,92 @@ class BookDossierCard extends StatelessWidget {
               ),
               child: Stack(
                 children: [
+                  // Content Area
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(22, 38, 18, 12),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Top Section: FILE number (blacked out), plus polaroid only when a cover exists
+                        if (hasCover)
+                          SizedBox(
+                            height: 195,
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                Positioned(
+                                  left: 6,
+                                  top: 18,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text('FILE: ', style: fileStyle),
+                                      _redacted(fileNumber, fileStyle),
+                                    ],
+                                  ),
+                                ),
+                                Positioned(
+                                  right: 6,
+                                  top: 4,
+                                  child: Transform.rotate(
+                                    angle: 0.04,
+                                    child: _buildPolaroid(),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        else
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(6, 6, 6, 4),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text('FILE: ', style: fileStyle),
+                                _redacted(fileNumber, fileStyle),
+                              ],
+                            ),
+                          ),
+
+                        const SizedBox(height: 10),
+
+                        // Specs table
+                        Padding(
+                          padding: const EdgeInsets.only(left: 6, right: 6),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildSpecRow('NEW TITLE', series.title.toUpperCase()),
+                              _buildSpecRow('STATUS', series.status.toUpperCase()),
+                              _buildSpecRow('REF NO', '', redactedValue: 'A$fileNumber'),
+                              _buildSpecRow('AUTHOR', authorText),
+                              _buildSpecRow('RELEASE', releaseYear),
+                              _buildSpecRow('CHAPTERS', chaptersText),
+                              _buildSpecRow('GENRE', genresText),
+                              _buildSpecRow('NOTE', synopsisText, isParagraph: true),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 6),
+
+                        // Footer: @username (blacked out)
+                        Center(
+                          child: _redacted(
+                            '@myaarchive',
+                            GoogleFonts.cormorantGaramond(
+                              fontSize: 11,
+                              fontStyle: FontStyle.italic,
+                              letterSpacing: 0.5,
+                              color: inkMuted,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
                   // Row of binder punch holes along the top
                   Positioned(
                     top: 14,
@@ -108,103 +197,13 @@ class BookDossierCard extends StatelessWidget {
                     child: _buildPunchHoles(),
                   ),
 
-                  // Content Area
-                  Positioned.fill(
-                    top: 38,
-                    left: 22,
-                    right: 18,
-                    bottom: 12,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Top Section: FILE number on left, polaroid photo on right
-                        SizedBox(
-                          height: 195,
-                          child: Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              // FILE: 1234 Stamp
-                              Positioned(
-                                left: 6,
-                                top: 18,
-                                child: Text(
-                                  'FILE: $fileNumber',
-                                  style: GoogleFonts.courierPrime(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 2.8,
-                                    color: inkColor,
-                                  ),
-                                ),
-                              ),
-
-                              // Polaroid Photo of Book Cover with TOP SECRET tape & paperclip
-                              Positioned(
-                                right: 6,
-                                top: 4,
-                                child: Transform.rotate(
-                                  angle: 0.04,
-                                  child: _buildPolaroid(),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 10),
-
-                        // Bottom Section: Aligned Specs Table
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.only(left: 6, right: 6),
-                            child: ListView(
-                              physics: const NeverScrollableScrollPhysics(),
-                              padding: EdgeInsets.zero,
-                              children: [
-                                _buildSpecRow('NEW TITLE', series.title.toUpperCase(), hasRedact: false),
-                                _buildSpecRow('STATUS', series.status.toUpperCase(), hasRedact: false),
-                                _buildSpecRow('REF NO', 'A$fileNumber', hasRedact: false),
-                                _buildSpecRow('AUTHOR', authorText, hasRedact: false),
-                                _buildSpecRow('RELEASE', releaseYear, hasRedact: true),
-                                _buildSpecRow('CHAPTERS', chaptersText, hasRedact: false),
-                                _buildSpecRow('GENRE', genresText, hasRedact: false),
-                                _buildSpecRow(
-                                  'NOTE',
-                                  synopsisText.toUpperCase(),
-                                  isParagraph: true,
-                                  hasTrailingRedact: true,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-
-                        // Footer: @myaarchive watermark
-                        Center(
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 4, bottom: 2),
-                            child: Text(
-                              '@myaarchive',
-                              style: GoogleFonts.cormorantGaramond(
-                                fontSize: 11,
-                                fontStyle: FontStyle.italic,
-                                letterSpacing: 0.5,
-                                color: inkMuted,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
                   // Left edge page ring-binder clips / staples
-                  Positioned(
+                  const Positioned(
                     left: 0,
                     top: 0,
                     bottom: 0,
                     width: 8,
-                    child: const CustomPaint(
+                    child: CustomPaint(
                       painter: _BinderStaplesPainter(),
                     ),
                   ),
@@ -214,6 +213,15 @@ class BookDossierCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  /// Black bar sized to the text it hides (the text itself is not rendered).
+  Widget _redacted(String text, TextStyle style) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 3),
+      color: redactionColor,
+      child: Text(text, style: style.copyWith(color: redactionColor)),
     );
   }
 
@@ -242,7 +250,7 @@ class BookDossierCard extends StatelessWidget {
     );
   }
 
-  /// Polaroid Photo Card with Top Secret black banner tape and brass paperclip
+  /// Polaroid Photo Card with brass paperclip (only built when a cover exists)
   Widget _buildPolaroid() {
     return Stack(
       clipBehavior: Clip.none,
@@ -267,54 +275,9 @@ class BookDossierCard extends StatelessWidget {
               // Cover thumbnail
               AspectRatio(
                 aspectRatio: 0.88,
-                child: coverBytes != null
-                    ? Image.memory(
-                        coverBytes!,
-                        fit: BoxFit.cover,
-                      )
-                    : Container(
-                        color: const Color(0xFFDDD7C8),
-                        child: Center(
-                          child: Icon(
-                            Icons.auto_stories_rounded,
-                            size: 38,
-                            color: inkColor.withValues(alpha: 0.45),
-                          ),
-                        ),
-                      ),
-              ),
-
-              // "TOP SECRET" black tape strip across the cover
-              Positioned(
-                top: 42,
-                left: -14,
-                right: -14,
-                child: Transform.rotate(
-                  angle: -0.06,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 3.5),
-                    decoration: BoxDecoration(
-                      color: redactionColor,
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x55000000),
-                          blurRadius: 3,
-                          offset: Offset(1, 1.5),
-                        ),
-                      ],
-                    ),
-                    child: Center(
-                      child: Text(
-                        'TOP SECRET',
-                        style: GoogleFonts.courierPrime(
-                          color: Colors.white,
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 2.6,
-                        ),
-                      ),
-                    ),
-                  ),
+                child: Image.memory(
+                  coverBytes!,
+                  fit: BoxFit.cover,
                 ),
               ),
             ],
@@ -340,83 +303,58 @@ class BookDossierCard extends StatelessWidget {
     );
   }
 
-  /// Single spec line in the dossier spec table
+  /// Single spec line in the dossier spec table. Values wrap freely; a paragraph
+  /// (the synopsis) sits under its label at full width in sentence case.
+  /// [redactedValue] draws the value as a black bar instead of text.
   Widget _buildSpecRow(
     String label,
     String value, {
     bool isParagraph = false,
-    bool hasRedact = false,
-    bool hasTrailingRedact = false,
+    String? redactedValue,
   }) {
+    final labelStyle = GoogleFonts.cormorantGaramond(
+      fontSize: 13,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 1.2,
+      color: inkColor,
+    );
+    final valueStyle = GoogleFonts.cormorantGaramond(
+      fontSize: isParagraph ? 14 : 13,
+      fontWeight: FontWeight.w700,
+      letterSpacing: isParagraph ? 0.2 : 0.8,
+      height: isParagraph ? 1.5 : 1.3,
+      color: inkColor,
+    );
+
+    if (isParagraph) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 5),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('$label:', style: labelStyle),
+            const SizedBox(height: 3),
+            Text(value, style: valueStyle),
+          ],
+        ),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 5),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 82,
-            child: Text(
-              label,
-              style: GoogleFonts.cormorantGaramond(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.2,
-                color: inkColor,
-              ),
-            ),
-          ),
-          Text(
-            ':',
-            style: GoogleFonts.cormorantGaramond(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: inkColor,
-            ),
-          ),
+          SizedBox(width: 82, child: Text(label, style: labelStyle)),
+          Text(':', style: labelStyle),
           const SizedBox(width: 4),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        value,
-                        maxLines: isParagraph ? 4 : 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.cormorantGaramond(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.8,
-                          height: 1.3,
-                          color: inkColor,
-                        ),
-                      ),
-                    ),
-                    if (hasRedact) ...[
-                      const SizedBox(width: 4),
-                      Container(
-                        width: 32,
-                        height: 9,
-                        color: redactionColor,
-                      ),
-                    ],
-                  ],
-                ),
-                if (hasTrailingRedact)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: Container(
-                      margin: const EdgeInsets.only(top: 4, right: 18),
-                      width: 46,
-                      height: 10,
-                      color: redactionColor,
-                    ),
-                  ),
-              ],
-            ),
+            child: redactedValue != null
+                ? Align(
+                    alignment: Alignment.centerLeft,
+                    child: _redacted(redactedValue, valueStyle),
+                  )
+                : Text(value, style: valueStyle),
           ),
         ],
       ),

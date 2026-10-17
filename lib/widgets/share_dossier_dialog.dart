@@ -163,9 +163,10 @@ class _ShareDossierDialogState extends ConsumerState<ShareDossierDialog> {
     final palette = context.palette;
     final screen = MediaQuery.of(context).size;
 
-    // Dimensions: card is 420 x 560
-    final maxPreviewHeight = (screen.height * 0.65).clamp(320.0, 560.0);
-    final previewScale = maxPreviewHeight / 560.0;
+    // Card is 420 wide; its height follows the content (full synopsis), so the
+    // preview scales to width and scrolls if it is taller than the screen.
+    final maxPreviewHeight = (screen.height * 0.6).clamp(320.0, 640.0);
+    final previewWidth = (screen.width - 64).clamp(240.0, 420.0);
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -245,15 +246,19 @@ class _ShareDossierDialogState extends ConsumerState<ShareDossierDialog> {
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: SizedBox(
-                            width: 420 * previewScale,
-                            height: 560 * previewScale,
-                            child: FittedBox(
-                              fit: BoxFit.contain,
-                              child: RepaintBoundary(
-                                key: _cardKey,
-                                child: BookDossierCard(
-                                  series: widget.series,
-                                  coverBytes: _coverBytes,
+                            width: previewWidth,
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(maxHeight: maxPreviewHeight),
+                              child: SingleChildScrollView(
+                                child: FittedBox(
+                                  fit: BoxFit.fitWidth,
+                                  child: RepaintBoundary(
+                                    key: _cardKey,
+                                    child: BookDossierCard(
+                                      series: widget.series,
+                                      coverBytes: _coverBytes,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
