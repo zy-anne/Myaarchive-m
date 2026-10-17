@@ -867,6 +867,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
           ),
+          const SizedBox(height: 8),
+          Card(
+            color: palette.surfaceLight,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: BorderSide(color: palette.border),
+            ),
+            child: ListTile(
+              leading: Icon(Icons.report_gmailerrorred_outlined, color: palette.accent),
+              title: const Text('Manage Content Warnings'),
+              subtitle: const Text(
+                'Rename or delete content warnings. Deleting one removes it '
+                'from every title currently using it.',
+              ),
+              trailing: OutlinedButton(
+                onPressed: () => context.push('/settings/warnings'),
+                child: const Text('Manage...'),
+              ),
+            ),
+          ),
           const SizedBox(height: 20),
 
           // ── Backup ───────────────────────────────────────────────────
