@@ -1,3 +1,4 @@
+import 'dart:ui' show FontFeature;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../models/series.dart';
@@ -29,11 +30,11 @@ class SeriesTableView extends StatelessWidget {
     _ColumnDef('Status', null),
     _ColumnDef('Rating', 'rating'),
     _ColumnDef('Format', null),
-    _ColumnDef('Year', 'year'),
-    _ColumnDef('Vols', null),
+    _ColumnDef('Year', 'year', numeric: true),
+    _ColumnDef('Vols', null, numeric: true),
     _ColumnDef('Started', 'date_started'),
     _ColumnDef('Finished', 'date_finished'),
-    _ColumnDef('Added', 'id'),
+    _ColumnDef('Added', 'id', numeric: true),
   ];
 
   int? get _sortColumnIndex {
@@ -56,7 +57,7 @@ class SeriesTableView extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: palette.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: palette.border),
       ),
       clipBehavior: Clip.antiAlias,
@@ -80,6 +81,7 @@ class SeriesTableView extends StatelessWidget {
                         color: palette.textMain,
                       ),
                     ),
+                    numeric: c.numeric,
                     onSort: c.sortKey == null
                         ? null
                         : (columnIndex, _) => _onSort(columnIndex),
@@ -94,7 +96,7 @@ class SeriesTableView extends StatelessWidget {
                     width: 160,
                     child: Text(
                       s.title,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
@@ -109,7 +111,7 @@ class SeriesTableView extends StatelessWidget {
                     width: 110,
                     child: Text(
                       s.author ?? '—',
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(color: palette.textSecondary, fontSize: 12),
                     ),
@@ -123,11 +125,11 @@ class SeriesTableView extends StatelessWidget {
                 )),
                 DataCell(Text(
                   s.yearPublished ?? '—',
-                  style: TextStyle(color: palette.textSecondary, fontSize: 12),
+                  style: TextStyle(color: palette.textSecondary, fontSize: 12, fontFeatures: const [FontFeature.tabularFigures()]),
                 )),
                 DataCell(Text(
                   '${s.volumeCount}',
-                  style: TextStyle(color: palette.textSecondary, fontSize: 12),
+                  style: TextStyle(color: palette.textSecondary, fontSize: 12, fontFeatures: const [FontFeature.tabularFigures()]),
                 )),
                 DataCell(Text(
                   s.dateStarted ?? '—',
@@ -139,7 +141,7 @@ class SeriesTableView extends StatelessWidget {
                 )),
                 DataCell(Text(
                   '#${s.id}',
-                  style: TextStyle(color: palette.textSecondary, fontSize: 12),
+                  style: TextStyle(color: palette.textSecondary, fontSize: 12, fontFeatures: const [FontFeature.tabularFigures()]),
                 )),
               ],
             );
@@ -153,5 +155,6 @@ class SeriesTableView extends StatelessWidget {
 class _ColumnDef {
   final String label;
   final String? sortKey;
-  const _ColumnDef(this.label, this.sortKey);
+  final bool numeric;
+  const _ColumnDef(this.label, this.sortKey, {this.numeric = false});
 }

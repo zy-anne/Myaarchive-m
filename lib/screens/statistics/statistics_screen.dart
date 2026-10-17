@@ -1,3 +1,4 @@
+import 'dart:ui' show FontFeature;
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -348,14 +349,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: palette.primary.withValues(alpha: 0.35),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -387,7 +381,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                 ],
               ),
               IconButton(
-                icon: const Icon(Icons.edit_outlined, size: 20),
+                icon: const Icon(Icons.edit_rounded, size: 20),
                 color: Colors.white,
                 tooltip: 'Set Reading Goal',
                 onPressed: () => _showSetGoalDialog(goal?.toString(), palette),
@@ -398,9 +392,10 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
 
           if (goal != null && goal > 0) ...[
             // Numbers row
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.end,
+              spacing: 6,
+              runSpacing: 6,
               children: [
                 Text(
                   '$completedCount',
@@ -410,12 +405,10 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                     color: Colors.white,
                   ),
                 ),
-                const SizedBox(width: 6),
                 Text(
                   'of',
                   style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 14),
                 ),
-                const SizedBox(width: 6),
                 Text(
                   '$goal',
                   style: const TextStyle(
@@ -424,12 +417,10 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                     color: Colors.white,
                   ),
                 ),
-                const SizedBox(width: 6),
                 Text(
                   'works read',
                   style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 13),
                 ),
-                const Spacer(),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
@@ -500,7 +491,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.flag_outlined,
+                  const Icon(Icons.flag_rounded,
                       color: Colors.white, size: 24),
                   const SizedBox(width: 12),
                   Expanded(
@@ -584,13 +575,15 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
         ? (ratingSum / ratedCount).toStringAsFixed(1)
         : '—';
 
-    return GridView.count(
-      crossAxisCount: 2,
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 12,
+    return GridView(
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        mainAxisExtent: 124,
+      ),
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      childAspectRatio: 1.55,
       children: [
         _buildStatCard('Active', '$readingCount', 'Reading Now',
             palette.accent, Icons.menu_book_rounded, palette),
@@ -629,31 +622,44 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                label.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.6,
-                  color: palette.textSecondary,
+              Expanded(
+                child: Text(
+                  label.toUpperCase(),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.6,
+                    color: palette.textSecondary,
+                  ),
                 ),
               ),
+              const SizedBox(width: 8),
               Icon(icon, size: 16, color: accentColor),
             ],
           ),
           Text(
             value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
+              height: 1.15,
               color: accentColor,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
           Text(
             subtitle,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 11,
-              color: palette.textSecondary.withValues(alpha: 0.8),
+              height: 1.4,
+              fontWeight: FontWeight.w400,
+              color: palette.textSecondary,
             ),
           ),
         ],
@@ -798,7 +804,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(months[i], style: TextStyle(
-                            fontSize: 9,
+                            fontSize: 10,
                             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                             color: isSelected ? palette.accent : palette.textSecondary)),
                       ],
@@ -976,7 +982,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: TextStyle(fontSize: 9, letterSpacing: 0.5, color: palette.textSecondary)),
+          Text(label, style: TextStyle(fontSize: 10, letterSpacing: 0.5, color: palette.textSecondary)),
           const SizedBox(height: 4),
           Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: palette.textMain)),
         ],

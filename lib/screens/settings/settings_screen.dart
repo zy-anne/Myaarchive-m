@@ -511,7 +511,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             Card(
               color: palette.surfaceLight,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(14),
                 side: BorderSide(color: palette.border),
               ),
               child: Padding(
@@ -661,7 +661,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       children: [
                         if (libs.length > 1)
                           IconButton(
-                            icon: const Icon(Icons.delete_outline, size: 18),
+                            icon: const Icon(Icons.delete_outline_rounded, size: 18),
                             onPressed: () async {
                               await ref
                                   .read(dataLayerProvider)
@@ -854,7 +854,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               side: BorderSide(color: palette.border),
             ),
             child: ListTile(
-              leading: Icon(Icons.sell_outlined, color: palette.accent),
+              leading: Icon(Icons.sell_rounded, color: palette.accent),
               title: const Text('Manage Tags'),
               subtitle: const Text(
                 'Rename, recolor, or delete tags — fix typos or clean up '
@@ -903,7 +903,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ListTile(
                   enabled: !_isBackupBusy,
                   leading:
-                      Icon(Icons.file_download_outlined, color: palette.accent),
+                      Icon(Icons.file_download_rounded, color: palette.accent),
                   title: const Text('Export Library'),
                   subtitle: const Text(
                     'Save every library, title, character and note as a JSON '
@@ -922,7 +922,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ListTile(
                   enabled: !_isBackupBusy,
                   leading:
-                      Icon(Icons.file_upload_outlined, color: palette.accent),
+                      Icon(Icons.file_upload_rounded, color: palette.accent),
                   title: const Text('Restore from Backup'),
                   subtitle: const Text(
                     'Add the contents of an exported file as new libraries. '
@@ -1031,7 +1031,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         style: GoogleFonts.inter(
           fontSize: 12,
           color: palette.textSecondary,
-          height: 1.35,
+          height: 1.5,
         ),
       ),
     );

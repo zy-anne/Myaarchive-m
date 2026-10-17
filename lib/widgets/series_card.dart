@@ -1,3 +1,4 @@
+import 'dart:ui' show FontFeature;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/metadata.dart';
@@ -67,7 +68,6 @@ class SeriesCard extends StatelessWidget {
       (series.bookType != null && series.bookType!.trim().isNotEmpty)
           ? series.bookType!.trim().toUpperCase()
           : null;
-  final isDark = Theme.of(context).brightness == Brightness.dark;
 
   // Chapter or volume count label
   String? countLabel;
@@ -85,15 +85,7 @@ class SeriesCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: palette.surface,
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.35)
-                : Colors.black.withValues(alpha: 0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: palette.border),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -164,13 +156,13 @@ class SeriesCard extends StatelessWidget {
                     color: palette.textMain,
                     fontSize: 13.5,
                     fontWeight: FontWeight.bold,
-                    height: 1.2,
+                    height: 1.25,
                   ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   series.author ?? 'Unknown Author',
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.inter(
                     color: palette.textSecondary,
@@ -182,7 +174,8 @@ class SeriesCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Container(
+                    Flexible(
+                      child: Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
@@ -193,23 +186,30 @@ class SeriesCard extends StatelessWidget {
                       ),
                       child: Text(
                         series.status.toUpperCase(),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.inter(
                           color: statusColor,
-                          fontSize: 9,
+                          fontSize: 10,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 0.3,
                         ),
                       ),
                     ),
-                    if (countLabel != null)
+                    ),
+                    if (countLabel != null) ...[
+                      const SizedBox(width: 8),
                       Text(
                         countLabel,
+                        textAlign: TextAlign.end,
                         style: GoogleFonts.inter(
                           color: palette.accent,
                           fontSize: 10.5,
                           fontWeight: FontWeight.w600,
+                          fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
+                    ],
                   ],
                 ),
               ],
@@ -226,13 +226,13 @@ Widget _buildOverlayTag(String text, Color bg, Color fg) {
     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
     decoration: BoxDecoration(
       color: bg,
-      borderRadius: BorderRadius.circular(5),
+      borderRadius: BorderRadius.circular(6),
     ),
     child: Text(
       text,
       style: GoogleFonts.inter(
         color: fg,
-        fontSize: 9,
+        fontSize: 10,
         fontWeight: FontWeight.w700,
         letterSpacing: 0.4,
       ),

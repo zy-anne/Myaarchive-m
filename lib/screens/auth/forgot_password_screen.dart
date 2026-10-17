@@ -310,8 +310,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
               suffixIcon: IconButton(
                 icon: Icon(
                   _obscurePassword
-                      ? Icons.visibility_off_outlined
-                      : Icons.visibility_outlined,
+                      ? Icons.visibility_off_rounded
+                      : Icons.visibility_rounded,
                   color: palette.textSecondary,
                 ),
                 onPressed: () {

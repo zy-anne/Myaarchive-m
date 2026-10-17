@@ -1123,7 +1123,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
             ),
             const SizedBox(width: 8),
             IconButton(
-              icon: Icon(Icons.add_circle_outline,
+              icon: Icon(Icons.add_circle_outline_rounded,
                   color: palette.accent),
               onPressed: () {
                 final trimmed = controller.text.trim();

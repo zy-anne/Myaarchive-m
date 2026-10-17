@@ -82,13 +82,6 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                           end: Alignment.bottomRight,
                         ),
                         borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: palette.primary.withValues(alpha: 0.4),
-                            blurRadius: 20,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
                       ),
                       child: const Icon(
                         Icons.auto_stories_rounded,
@@ -169,8 +162,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscurePassword
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
+                              ? Icons.visibility_off_rounded
+                              : Icons.visibility_rounded,
                           color: palette.textSecondary,
                         ),
                         onPressed: () {
@@ -272,8 +265,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        elevation: 4,
-                        shadowColor: palette.primary.withValues(alpha: 0.5),
+                        elevation: 0,
                       ),
                       child: _isLoading
                           ? const SizedBox(

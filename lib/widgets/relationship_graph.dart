@@ -135,7 +135,7 @@ class _RelationshipGraphState extends State<RelationshipGraph> {
           '${hiddenCount > 0 ? ' · $hiddenCount character${hiddenCount == 1 ? '' : 's'} with no relationships not shown' : ''}',
           style: TextStyle(
             fontSize: 11,
-            height: 1.35,
+            height: 1.5,
             color: palette.textSecondary.withValues(alpha: 0.85),
           ),
         ),
@@ -220,7 +220,7 @@ class _RelationshipGraphState extends State<RelationshipGraph> {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: color),
+          Icon(icon, size: 14, color: color),
           const SizedBox(width: 4),
           Text(
             label,
