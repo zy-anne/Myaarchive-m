@@ -64,10 +64,6 @@ class BookDossierCard extends StatelessWidget {
       color: inkColor,
     );
 
-    final handle = (username != null && username!.trim().isNotEmpty)
-        ? '@${username!.trim()}'
-        : '@myaarchive';
-
     final hasCover = coverBytes != null && coverBytes!.isNotEmpty;
 
     return Container(
@@ -181,18 +177,8 @@ class BookDossierCard extends StatelessWidget {
 
                         const SizedBox(height: 6),
 
-                        // Footer: @username (blacked out)
-                        Center(
-                          child: _redacted(
-                            handle,
-                            GoogleFonts.cormorantGaramond(
-                              fontSize: 11,
-                              fontStyle: FontStyle.italic,
-                              letterSpacing: 0.5,
-                              color: inkMuted,
-                            ),
-                          ),
-                        ),
+                        // Footer: "Myaarchive: @us████" (username partially censored)
+                        Center(child: _buildFooter(username)),
                       ],
                     ),
                   ),
@@ -221,6 +207,33 @@ class BookDossierCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  /// "Myaarchive: @us" followed by a black bar over the rest of the username.
+  /// Shows the first 2 characters (1 if the name is very short); the hidden
+  /// part keeps its real width so the bar length doesn't give the name away
+  /// any less than the text would.
+  Widget _buildFooter(String? rawUsername) {
+    final name = (rawUsername ?? '').trim();
+    final visibleCount = name.length <= 2 ? (name.isEmpty ? 0 : 1) : 2;
+    final shown = name.substring(0, visibleCount);
+    final hidden = name.length > visibleCount ? name.substring(visibleCount) : '••••';
+
+    final style = GoogleFonts.cormorantGaramond(
+      fontSize: 12,
+      fontWeight: FontWeight.w700,
+      fontStyle: FontStyle.italic,
+      letterSpacing: 0.5,
+      color: inkMuted,
+    );
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('Myaarchive: @$shown', style: style),
+        _redacted(hidden, style),
+      ],
     );
   }
 
