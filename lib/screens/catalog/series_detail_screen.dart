@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../widgets/share_dossier_dialog.dart';
+
 import '../../services/image_upload.dart';
+import '../../services/file_upload.dart';
 import '../../models/attachment.dart';
 import '../../models/character.dart';
 import '../../models/gallery_image.dart';
@@ -60,29 +61,10 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     super.dispose();
   }
 
-  /// Shares a short, non-private summary of the title (never your own
-  /// thoughts or notes). Falls back to copying it if sharing isn't available.
+  /// Opens the classified dossier image card dialog with high-res download
+  /// and text copy options.
   Future<void> _shareTitle(Series series) async {
-    final lines = <String>[
-      series.author != null && series.author!.trim().isNotEmpty
-          ? '${series.title} by ${series.author!.trim()}'
-          : series.title,
-      [
-        series.status,
-        if (series.rating != null && series.rating! > 0) '${series.rating}/5',
-      ].join(' · '),
-      if (series.genres.isNotEmpty) series.genres.map((g) => g.name).join(', '),
-      if (series.synopsis != null && series.synopsis!.trim().isNotEmpty)
-        '\n${series.synopsis!.trim()}',
-    ];
-    final text = lines.join('\n');
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      await Share.share(text, subject: series.title);
-    } catch (_) {
-      await Clipboard.setData(ClipboardData(text: text));
-      messenger.showSnackBar(const SnackBar(content: Text('Copied to clipboard')));
-    }
+    await ShareDossierDialog.show(context, series);
   }
 
   Future<void> _handleDelete(Series series, AppPalette palette) async {
@@ -275,6 +257,11 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                     onPressed: () => context.pop(),
                   ),
                   actions: [
+                    IconButton(
+                      icon: const Icon(Icons.ios_share_rounded),
+                      tooltip: 'Share',
+                      onPressed: () => _shareTitle(series),
+                    ),
                     IconButton(
                       icon: const Icon(Icons.edit_rounded),
                       tooltip: 'Edit Title',
@@ -2761,6 +2748,18 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
     );
   }
 
+  Future<void> _openAttachment(Attachment f, AppPalette palette) async {
+    String toLaunch = f.filePath.trim();
+    if (!toLaunch.startsWith('http://') && !toLaunch.startsWith('https://')) {
+      // It's a cloud storage key: get a time-limited signed download link
+      final presigned = await ref.read(r2ServiceProvider).getDownloadUrl(toLaunch);
+      if (presigned.isNotEmpty) {
+        toLaunch = presigned;
+      }
+    }
+    await _launchExternalUrl(toLaunch, palette);
+  }
+
   Widget _buildAttachmentTile(Attachment f, int seriesId, AppPalette palette) {
     String formattedSize = '';
     if (f.fileSize != null) {
@@ -2771,6 +2770,27 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
       } else {
         formattedSize = '${(f.fileSize! / (1024 * 1024)).toStringAsFixed(1)} MB';
       }
+    }
+
+    IconData fileIcon = Icons.insert_drive_file_rounded;
+    Color fileIconColor = palette.accent;
+    final lower = f.fileName.toLowerCase();
+    if (lower.endsWith('.pdf')) {
+      fileIcon = Icons.picture_as_pdf_rounded;
+      fileIconColor = const Color(0xFFE53935);
+    } else if (lower.endsWith('.epub')) {
+      fileIcon = Icons.menu_book_rounded;
+      fileIconColor = const Color(0xFF8E24AA);
+    } else if (lower.endsWith('.txt') || lower.endsWith('.md')) {
+      fileIcon = Icons.description_rounded;
+      fileIconColor = const Color(0xFF3949AB);
+    } else if (lower.endsWith('.jpg') ||
+        lower.endsWith('.jpeg') ||
+        lower.endsWith('.png') ||
+        lower.endsWith('.webp') ||
+        lower.endsWith('.gif')) {
+      fileIcon = Icons.image_rounded;
+      fileIconColor = const Color(0xFF00897B);
     }
 
     return Container(
@@ -2786,10 +2806,10 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: palette.surfaceHigh,
+              color: fileIconColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(Icons.insert_drive_file_rounded, size: 20, color: palette.accent),
+            child: Icon(fileIcon, size: 20, color: fileIconColor),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -2816,13 +2836,18 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
             icon: const Icon(Icons.open_in_new_rounded, size: 18),
             color: palette.accent,
             tooltip: 'Open',
-            onPressed: () => _launchExternalUrl(f.filePath, palette),
+            onPressed: () => _openAttachment(f, palette),
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline_rounded, size: 18),
             color: palette.textSecondary,
             tooltip: 'Delete',
             onPressed: () async {
+              if (f.filePath.startsWith('u/') || f.filePath.startsWith('attachments/')) {
+                try {
+                  await ref.read(r2ServiceProvider).deleteObject(f.filePath);
+                } catch (_) {}
+              }
               await ref.read(dataLayerProvider).attachmentsDelete(f.id);
               ref.invalidate(seriesAttachmentsProvider(seriesId));
             },
@@ -2882,54 +2907,183 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
   }
 
   void _showAddFileDialog(int seriesId, AppPalette palette) {
-    final nameCtrl = TextEditingController();
-    final pathCtrl = TextEditingController();
-
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: palette.surfaceLight,
-        title: const Text('Add File Attachment'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameCtrl,
-              decoration: const InputDecoration(labelText: 'File Name (e.g. Map.pdf)'),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: pathCtrl,
-              decoration: const InputDecoration(
-                labelText: 'File URL or Storage Key',
-                hintText: 'https://... or files/...',
+      builder: (ctx) {
+        var isUploading = false;
+        String? uploadError;
+        var showManualInput = false;
+        final nameCtrl = TextEditingController();
+        final pathCtrl = TextEditingController();
+
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: palette.surfaceLight,
+              title: const Text('Add File Attachment'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Attach a PDF, EPUB, reading notes, or images (up to 10 MB).',
+                      style: TextStyle(fontSize: 13, color: palette.textSecondary),
+                    ),
+                    const SizedBox(height: 16),
+                    if (isUploading) ...[
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 24),
+                          child: Column(
+                            children: [
+                              CircularProgressIndicator(),
+                              SizedBox(height: 12),
+                              Text('Uploading attachment to cloud storage…'),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ] else ...[
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: palette.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        onPressed: () async {
+                          final messenger = ScaffoldMessenger.of(context);
+                          setDialogState(() {
+                            isUploading = true;
+                            uploadError = null;
+                          });
+
+                          final res = await FileAttachmentUploader.pickAndUpload(ref);
+
+                          if (res.cancelled) {
+                            if (ctx.mounted) {
+                              setDialogState(() => isUploading = false);
+                            }
+                            return;
+                          }
+
+                          if (!res.isSuccess) {
+                            if (ctx.mounted) {
+                              setDialogState(() {
+                                isUploading = false;
+                                uploadError = res.error?.toString() ?? 'Upload failed';
+                              });
+                            }
+                            return;
+                          }
+
+                          final attachment = Attachment(
+                            id: 0,
+                            seriesId: seriesId,
+                            filePath: res.key,
+                            fileName: res.fileName,
+                            fileSize: res.fileSize,
+                          );
+
+                          await ref.read(dataLayerProvider).attachmentsAdd(attachment);
+                          ref.invalidate(seriesAttachmentsProvider(seriesId));
+
+                          if (ctx.mounted) {
+                            Navigator.pop(ctx);
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text('Attached "${res.fileName}" successfully!'),
+                                backgroundColor: palette.accent,
+                              ),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.cloud_upload_rounded),
+                        label: const Text('Choose File & Upload'),
+                      ),
+                      if (uploadError != null) ...[
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: palette.danger.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: palette.danger.withValues(alpha: 0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.error_outline_rounded, size: 18, color: palette.danger),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  uploadError!,
+                                  style: TextStyle(fontSize: 12, color: palette.danger),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 14),
+                      Center(
+                        child: TextButton(
+                          onPressed: () {
+                            setDialogState(() => showManualInput = !showManualInput);
+                          },
+                          child: Text(
+                            showManualInput ? 'Hide manual URL input' : 'Or enter file URL / key manually',
+                            style: TextStyle(fontSize: 12, color: palette.accent),
+                          ),
+                        ),
+                      ),
+                      if (showManualInput) ...[
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: nameCtrl,
+                          decoration: const InputDecoration(labelText: 'File Name (e.g. Map.pdf)'),
+                        ),
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: pathCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'File URL or Storage Key',
+                            hintText: 'https://... or u/...',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        ElevatedButton(
+                          onPressed: () async {
+                            if (nameCtrl.text.trim().isEmpty || pathCtrl.text.trim().isEmpty) return;
+                            final attachment = Attachment(
+                              id: 0,
+                              seriesId: seriesId,
+                              filePath: pathCtrl.text.trim(),
+                              fileName: nameCtrl.text.trim(),
+                            );
+                            await ref.read(dataLayerProvider).attachmentsAdd(attachment);
+                            ref.invalidate(seriesAttachmentsProvider(seriesId));
+                            if (ctx.mounted) Navigator.pop(ctx);
+                          },
+                          child: const Text('Add Linked File'),
+                        ),
+                      ],
+                    ],
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (nameCtrl.text.trim().isEmpty || pathCtrl.text.trim().isEmpty) return;
-              final navigator = Navigator.of(ctx);
-              final attachment = Attachment(
-                id: 0,
-                seriesId: seriesId,
-                filePath: pathCtrl.text.trim(),
-                fileName: nameCtrl.text.trim(),
-              );
-              await ref.read(dataLayerProvider).attachmentsAdd(attachment);
-              ref.invalidate(seriesAttachmentsProvider(seriesId));
-              if (mounted) navigator.pop();
-            },
-            child: const Text('Add File'),
-          ),
-        ],
-      ),
+              actions: [
+                TextButton(
+                  onPressed: isUploading ? null : () => Navigator.pop(ctx),
+                  child: const Text('Cancel'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 

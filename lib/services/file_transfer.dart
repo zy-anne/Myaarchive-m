@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'file_transfer_io.dart'
     if (dart.library.js_interop) 'file_transfer_web.dart' as impl;
 
@@ -9,3 +11,12 @@ Future<void> saveTextFile(
   String mimeType = 'application/json',
 }) =>
     impl.saveTextFile(filename, content, mimeType);
+
+/// Hands a binary file (e.g. PNG image) to the user: the share sheet on mobile,
+/// a browser download on web.
+Future<void> saveBinaryFile(
+  String filename,
+  Uint8List bytes, {
+  String mimeType = 'image/png',
+}) =>
+    impl.saveBinaryFile(filename, bytes, mimeType);

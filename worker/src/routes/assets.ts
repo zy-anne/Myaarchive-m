@@ -10,16 +10,76 @@ export const assetsRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 // ─── Limits & validation ─────────────────────────────────────────────
 
 /** Folders under a user's scope that clients may upload into. */
-const ALLOWED_PREFIXES = new Set(['covers', 'avatars', 'gallery', 'characters', 'volumes', 'icons']);
+const ALLOWED_PREFIXES = new Set([
+  'covers',
+  'avatars',
+  'gallery',
+  'characters',
+  'volumes',
+  'icons',
+  'attachments',
+]);
 
 const CONTENT_TYPE_EXT: Record<string, string> = {
+  // Images
   'image/jpeg': '.jpg',
   'image/png': '.png',
   'image/webp': '.webp',
   'image/gif': '.gif',
+  // Reading & Document files
+  'application/pdf': '.pdf',
+  'application/epub+zip': '.epub',
+  'application/epub': '.epub',
+  'application/x-epub+zip': '.epub',
+  'text/plain': '.txt',
+  'text/markdown': '.md',
 };
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10 MB
+
+/**
+ * Validates file signature / magic bytes against the claimed extension
+ * to prevent disguised or malicious files from being uploaded.
+ */
+function isValidMagicBytes(bytes: Uint8Array, ext: string): boolean {
+  if (bytes.length < 4) return false;
+  if (ext === '.pdf') {
+    // %PDF- (0x25 0x50 0x44 0x46)
+    return bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46;
+  }
+  if (ext === '.epub') {
+    // PK\x03\x04 (0x50 0x4B 0x03 0x04)
+    return bytes[0] === 0x50 && bytes[1] === 0x4B && bytes[2] === 0x03 && bytes[3] === 0x04;
+  }
+  if (ext === '.jpg') {
+    // JPEG (0xFF 0xD8 0xFF)
+    return bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF;
+  }
+  if (ext === '.png') {
+    // PNG (0x89 0x50 0x4E 0x47)
+    return bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47;
+  }
+  if (ext === '.gif') {
+    // GIF (GIF8)
+    return bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x38;
+  }
+  if (ext === '.webp') {
+    return (
+      bytes.length >= 12 &&
+      bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+      bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50
+    );
+  }
+  if (ext === '.txt' || ext === '.md') {
+    // Text: disallow null bytes in the first 512 bytes to reject disguised binaries
+    const checkLen = Math.min(bytes.length, 512);
+    for (let i = 0; i < checkLen; i++) {
+      if (bytes[i] === 0) return false;
+    }
+    return true;
+  }
+  return true;
+}
 
 const DEFAULT_URL_TTL_SECONDS = 3600;
 const MIN_URL_TTL_SECONDS = 60;
@@ -126,7 +186,7 @@ assetsRouter.post('/upload', requireAuth, async (c) => {
   const contentType = (c.req.header('Content-Type') || '').split(';')[0].trim().toLowerCase();
   const ext = CONTENT_TYPE_EXT[contentType];
   if (!ext) {
-    return c.json({ error: 'Unsupported content type. Use JPEG, PNG, WebP or GIF.' }, 415);
+    return c.json({ error: 'Unsupported content type. Allowed: JPEG, PNG, WebP, GIF, PDF, EPUB, TXT, MD.' }, 415);
   }
 
   const declared = Number(c.req.header('Content-Length') || 0);
@@ -140,6 +200,10 @@ assetsRouter.post('/upload', requireAuth, async (c) => {
   }
   if (body.byteLength > MAX_UPLOAD_BYTES) {
     return c.json({ error: 'File too large (max 10 MB)' }, 413);
+  }
+
+  if (!isValidMagicBytes(new Uint8Array(body), ext)) {
+    return c.json({ error: 'File contents do not match the expected format' }, 400);
   }
 
   const key = `${USER_SCOPE}${userId}/${prefix}/${crypto.randomUUID()}${ext}`;
@@ -210,12 +274,26 @@ assetsRouter.get('/:key{.+}', async (c) => {
   // The link expires, so don't let shared caches keep serving it afterwards.
   headers.set('Cache-Control', 'private, max-age=3600');
   headers.set('X-Content-Type-Options', 'nosniff');
+  const lower = key.toLowerCase();
   if (!headers.has('Content-Type')) {
-    const lower = key.toLowerCase();
     if (lower.endsWith('.png')) headers.set('Content-Type', 'image/png');
     else if (lower.endsWith('.webp')) headers.set('Content-Type', 'image/webp');
     else if (lower.endsWith('.gif')) headers.set('Content-Type', 'image/gif');
+    else if (lower.endsWith('.pdf')) headers.set('Content-Type', 'application/pdf');
+    else if (lower.endsWith('.epub')) headers.set('Content-Type', 'application/epub+zip');
+    else if (lower.endsWith('.txt')) headers.set('Content-Type', 'text/plain; charset=utf-8');
+    else if (lower.endsWith('.md')) headers.set('Content-Type', 'text/markdown; charset=utf-8');
     else headers.set('Content-Type', 'image/jpeg');
+  }
+
+  // Safe Content-Disposition to prevent execution of files in browser context
+  const rawFilename = c.req.query('filename');
+  const safeFilename = rawFilename ? rawFilename.replace(/[^a-zA-Z0-9._-]/g, '_') : null;
+
+  if (lower.endsWith('.pdf')) {
+    headers.set('Content-Disposition', safeFilename ? `inline; filename="${safeFilename}"` : 'inline');
+  } else if (lower.endsWith('.epub') || lower.endsWith('.txt') || lower.endsWith('.md')) {
+    headers.set('Content-Disposition', safeFilename ? `attachment; filename="${safeFilename}"` : 'attachment');
   }
 
   return new Response(object.body, { headers });
