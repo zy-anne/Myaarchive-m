@@ -254,7 +254,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                                 ),
                                 child: Row(
                                   children: [
-                                    Icon(Icons.sell_outlined,
+                                    Icon(Icons.sell_rounded,
                                         size: 16, color: palette.textSecondary),
                                     const SizedBox(width: 8),
                                     Expanded(
@@ -764,7 +764,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
         onPressed: () => context.push('/series/add'),
         backgroundColor: palette.primary,
         foregroundColor: palette.onSolid,
-        elevation: 4,
+        elevation: 2,
         child: const Icon(Icons.add_rounded),
       ),
       body: SafeArea(
@@ -924,13 +924,6 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                         decoration: BoxDecoration(
                           color: palette.primary,
                           borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: palette.primary.withValues(alpha: 0.35),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
                         ),
                         child: Stack(
                           children: [
@@ -1130,7 +1123,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
         );
     return Material(
       color: palette.surfaceLight,
-      elevation: 8,
+      elevation: 2,
       child: SafeArea(
         top: false,
         child: SizedBox(
@@ -1164,9 +1157,9 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                 action(Icons.select_all_rounded, 'Select all', () {
                   setState(() => _selected.addAll(visible.map((s) => s.id)));
                 }),
-                action(Icons.flag_outlined, 'Set status', () => _bulkSetStatus(palette)),
-                action(Icons.sell_outlined, 'Tags', () => _bulkTags(palette)),
-                action(Icons.drive_file_move_outlined, 'Move to library',
+                action(Icons.flag_rounded, 'Set status', () => _bulkSetStatus(palette)),
+                action(Icons.sell_rounded, 'Tags', () => _bulkTags(palette)),
+                action(Icons.drive_file_move_rounded, 'Move to library',
                     () => _bulkMove(palette)),
                 if (_selected.length == 1)
                   action(Icons.copy_rounded, 'Copy or move…', () {
@@ -1575,7 +1568,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.edit_outlined, size: 16),
+                    icon: const Icon(Icons.edit_rounded, size: 16),
                     color: palette.textSecondary,
                     tooltip: 'Edit Group',
                     onPressed: () =>
@@ -1594,7 +1587,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   style: TextStyle(
                     fontSize: 12,
                     color: palette.textSecondary,
-                    height: 1.4,
+                    height: 1.5,
                   ),
                 ),
               ),
@@ -1654,7 +1647,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 8.5,
+                        fontSize: 10,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.3,
                         color: palette.accent,
@@ -1673,7 +1666,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                 fontSize: 11.5,
                 fontWeight: FontWeight.w600,
                 color: palette.textMain,
-                height: 1.2,
+                height: 1.25,
               ),
             ),
             const SizedBox(height: 3),
@@ -1685,7 +1678,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                   Text(
                     '${item.volumeCount}v',
                     style: TextStyle(
-                      fontSize: 9.5,
+                      fontSize: 10,
                       color: palette.textSecondary,
                     ),
                   ),
@@ -1883,7 +1876,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                           ),
                           const SizedBox(width: 8),
                           IconButton(
-                            icon: Icon(Icons.add_circle_outline,
+                            icon: Icon(Icons.add_circle_outline_rounded,
                                 color: palette.accent),
                             onPressed: () {
                               if (selectedToAdd == null) return;
@@ -2086,7 +2079,7 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
           color: isSelected
               ? palette.primary
               : palette.surface,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected
                 ? palette.accent

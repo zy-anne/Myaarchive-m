@@ -109,7 +109,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
     // a warm cream/tan, so the neutral surfaces stay a true cool-neutral
     // gray instead of tying the whole app to one hue family that only
     // matches some accent choices.
-    const textMain = Color(0xFF1A1E2B);
+    const textMain = Color(0xFF11131C);
     return AppPalette(
       bg: const Color(0xFFF7F7FA),
       surface: const Color(0xFFFFFFFF),
@@ -117,7 +117,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
       surfaceHigh: const Color(0xFFE4E6EE),
       border: const Color(0xFFE1E3EC),
       textMain: textMain,
-      textSecondary: textMain.withValues(alpha: 0.62),
+      textSecondary: textMain.withValues(alpha: 0.72),
       primary: p.primaryLight,
       accent: p.accent,
       secondary: BrandColors.twilight, // muted indigo-blue, neutral enough to pair with any accent
@@ -133,7 +133,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
 
   factory AppPalette.dark([AppColorPalette? colorPalette]) {
     final p = colorPalette ?? AppColorPalettes.twilightReadingRoom;
-    const textMain = Color(0xFFFAFBFE); // white + 8% Frost Fairy
+    const textMain = Color(0xFFFFFFFF);
 
     // Tint a dark neutral scale with the *selected* palette's accent hue
     // (accent is constant across light/dark, so it's a stable identity
@@ -159,7 +159,7 @@ class AppPalette extends ThemeExtension<AppPalette> {
       surfaceHigh: surfaceHigh,
       border: border,
       textMain: textMain,
-      textSecondary: textMain.withValues(alpha: 0.6),
+      textSecondary: textMain.withValues(alpha: 0.78),
       primary: p.primaryDark, // deliberate role-swap
       accent: p.accent, // stays constant across modes
       secondary: BrandColors.frostFairy, // soft lavender-blue against indigo

@@ -60,7 +60,7 @@ class TagChip extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(20),
       child: Container(
         padding: EdgeInsets.only(
           left: 10,
@@ -70,7 +70,7 @@ class TagChip extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           color: chipColor.withValues(alpha: bgOpacity),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: chipColor.withValues(alpha: borderOpacity),
             width: 1,
@@ -80,7 +80,7 @@ class TagChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (isWarning) ...[
-              Icon(Icons.warning_amber_rounded, size: 12, color: chipColor),
+              Icon(Icons.warning_amber_rounded, size: 14, color: chipColor),
               const SizedBox(width: 4),
             ],
             Text(

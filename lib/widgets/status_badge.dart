@@ -24,7 +24,7 @@ class StatusBadge extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: statusColor.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: statusColor.withValues(alpha: 0.4),
           width: 1,
@@ -39,24 +39,22 @@ class StatusBadge extends StatelessWidget {
             decoration: BoxDecoration(
               color: statusColor,
               shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: statusColor.withValues(alpha: 0.6),
-                  blurRadius: 4,
-                  spreadRadius: 1,
-                ),
-              ],
             ),
           ),
           SizedBox(width: compact ? 4 : 6),
-          Text(
+          Flexible(
+            child: Text(
             status,
+            softWrap: true,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.inter(
               color: statusColor,
-              fontSize: compact ? 10 : 12,
+              fontSize: compact ? 11 : 12,
               fontWeight: FontWeight.w600,
               letterSpacing: 0.2,
             ),
+          ),
           ),
         ],
       ),

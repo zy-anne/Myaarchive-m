@@ -148,8 +148,8 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscurePassword
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
+                              ? Icons.visibility_off_rounded
+                              : Icons.visibility_rounded,
                           color: palette.textSecondary,
                         ),
                         onPressed: () {
@@ -252,8 +252,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        elevation: 4,
-                        shadowColor: palette.primary.withValues(alpha: 0.5),
+                        elevation: 0,
                       ),
                       child: _isLoading
                           ? const SizedBox(

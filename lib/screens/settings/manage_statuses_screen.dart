@@ -207,7 +207,7 @@ class ManageStatusesScreen extends ConsumerWidget {
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.edit_outlined, size: 18),
+                            icon: const Icon(Icons.edit_rounded, size: 18),
                             color: palette.textSecondary,
                             onPressed: () => _showEditDialog(
                               context,
@@ -218,7 +218,7 @@ class ManageStatusesScreen extends ConsumerWidget {
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.delete_outline, size: 18),
+                            icon: const Icon(Icons.delete_outline_rounded, size: 18),
                             color: palette.textSecondary,
                             onPressed: () =>
                                 _confirmDelete(context, ref, user.id, status, palette),

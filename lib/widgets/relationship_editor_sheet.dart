@@ -405,7 +405,7 @@ class _RelationshipEditorSheetState extends State<_RelationshipEditorSheet> {
                       ),
                       child: Tooltip(
                         message: 'Delete relationship',
-                        child: Icon(Icons.delete_outline,
+                        child: Icon(Icons.delete_outline_rounded,
                             size: 20, color: palette.danger),
                       ),
                     ),
