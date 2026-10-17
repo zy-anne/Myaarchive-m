@@ -17,11 +17,15 @@ class BookDossierCard extends StatelessWidget {
   final Uint8List? coverBytes;
   final double scale;
 
+  /// Signed-in user's username, shown (blacked out) in the footer.
+  final String? username;
+
   const BookDossierCard({
     super.key,
     required this.series,
     this.coverBytes,
     this.scale = 1.0,
+    this.username,
   });
 
   static const Color deskColor = Color(0xFF383A33);
@@ -59,6 +63,10 @@ class BookDossierCard extends StatelessWidget {
       letterSpacing: 2.8,
       color: inkColor,
     );
+
+    final handle = (username != null && username!.trim().isNotEmpty)
+        ? '@${username!.trim()}'
+        : '@myaarchive';
 
     final hasCover = coverBytes != null && coverBytes!.isNotEmpty;
 
@@ -176,7 +184,7 @@ class BookDossierCard extends StatelessWidget {
                         // Footer: @username (blacked out)
                         Center(
                           child: _redacted(
-                            '@myaarchive',
+                            handle,
                             GoogleFonts.cormorantGaramond(
                               fontSize: 11,
                               fontStyle: FontStyle.italic,

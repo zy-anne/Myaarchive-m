@@ -257,6 +257,7 @@ class _ShareDossierDialogState extends ConsumerState<ShareDossierDialog> {
                                     child: BookDossierCard(
                                       series: widget.series,
                                       coverBytes: _coverBytes,
+                                      username: ref.watch(authStateProvider).valueOrNull?.username,
                                     ),
                                   ),
                                 ),
