@@ -316,6 +316,30 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
     final pctText = (progressPct * 100).toInt();
     final remaining = goal != null ? (goal - completedCount).clamp(0, goal) : 0;
 
+    // Pace: where you are versus where an even spread of the goal over the
+    // year would put you today. Only meaningful for the current year.
+    String? paceText;
+    final now = DateTime.now();
+    if (goal != null && goal > 0 && _selectedYear == now.year) {
+      final dayOfYear = now.difference(DateTime(now.year, 1, 1)).inDays + 1;
+      final daysInYear = DateTime(now.year, 12, 31).difference(DateTime(now.year, 1, 1)).inDays + 1;
+      final expected = goal * (dayOfYear / daysInYear);
+      final diff = (completedCount - expected).round();
+      paceText = diff > 0
+          ? '\u2197 +$diff ahead of pace'
+          : diff < 0
+              ? '\u2198 ${diff.abs()} behind pace'
+              : 'On pace';
+    }
+
+    // Monthly velocity: titles finished per month this year (Jan to now, or
+    // the whole year when looking back).
+    final monthsShown = _selectedYear == now.year ? now.month : 12;
+    final monthCounts = List<int>.generate(
+        monthsShown, (i) => _finishedIn(allSeries, _selectedYear, i + 1).length);
+    final totalFinished = monthCounts.fold<int>(0, (a, b) => a + b);
+    final perMonth = monthsShown > 0 ? totalFinished / monthsShown : 0.0;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -448,6 +472,24 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                 fontWeight: FontWeight.w500,
               ),
             ),
+            if (paceText != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.22),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  paceText,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
           ] else ...[
             // Goal unset prompt
             Container(
@@ -482,6 +524,36 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
               ),
             ),
           ],
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Text(
+                'MONTHLY VELOCITY',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.0,
+                  color: Colors.white.withValues(alpha: 0.85),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: SizedBox(
+                  height: 28,
+                  child: CustomPaint(painter: _SparklinePainter(monthCounts)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                '${perMonth.toStringAsFixed(1)} / mo',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -1332,4 +1404,39 @@ class _ConsistencyStats {
   final double consistencyPct;
   const _ConsistencyStats(this.currentStreak, this.longestStreak, this.longestBreak,
       this.totalActiveDays, this.consistencyPct);
+}
+
+/// A tiny white line chart of per-month counts, for the hero card.
+class _SparklinePainter extends CustomPainter {
+  final List<int> values;
+  const _SparklinePainter(this.values);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.isEmpty) return;
+    final maxV = math.max(1, values.reduce(math.max));
+    final dx = values.length > 1 ? size.width / (values.length - 1) : 0.0;
+    Offset pt(int i) => Offset(
+          values.length > 1 ? i * dx : size.width / 2,
+          size.height - 2 - (values[i] / maxV) * (size.height - 4),
+        );
+
+    final line = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final path = Path()..moveTo(pt(0).dx, pt(0).dy);
+    for (var i = 1; i < values.length; i++) {
+      path.lineTo(pt(i).dx, pt(i).dy);
+    }
+    canvas.drawPath(path, line);
+    canvas.drawCircle(pt(values.length - 1), 3, Paint()..color = Colors.white);
+  }
+
+  @override
+  bool shouldRepaint(_SparklinePainter old) =>
+      old.values.length != values.length ||
+      List.generate(values.length, (i) => values[i] != old.values[i]).any((d) => d);
 }
