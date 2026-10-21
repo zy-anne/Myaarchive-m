@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import '../../widgets/confirm_delete.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -663,6 +664,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           IconButton(
                             icon: const Icon(Icons.delete_outline_rounded, size: 18),
                             onPressed: () async {
+                              if (!await confirmDelete(
+                                context,
+                                title: 'Delete "${lib.name}"?',
+                                message:
+                                    'This permanently deletes the library and all ${lib.seriesCount} entries in it. This cannot be undone.',
+                              )) {
+                                return;
+                              }
                               await ref
                                   .read(dataLayerProvider)
                                   .librariesDelete(lib.id);

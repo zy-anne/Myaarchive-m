@@ -36,13 +36,16 @@ class GlossaryTerm {
     int? id,
     int? seriesId,
     String? term,
-    String? definition,
+    Object? definition = _unset,
   }) {
     return GlossaryTerm(
       id: id ?? this.id,
       seriesId: seriesId ?? this.seriesId,
       term: term ?? this.term,
-      definition: definition ?? this.definition,
+      definition: identical(definition, _unset) ? this.definition : definition as String?,
     );
   }
 }
+
+/// Sentinel so copyWith can distinguish "not passed" from an explicit null.
+const Object _unset = Object();
