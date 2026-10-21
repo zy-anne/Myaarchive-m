@@ -1727,6 +1727,9 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
 
     if (!mounted) return;
 
+    // Declared outside the builder so it survives setDialogState rebuilds.
+    int? selectedToAdd;
+
     await showDialog(
       context: context,
       builder: (ctx) {
@@ -1736,7 +1739,6 @@ class _FeedScreenState extends ConsumerState<FeedScreen> {
                 .where((s) =>
                     !draftItems.any((d) => d.seriesId == s.id))
                 .toList();
-            int? selectedToAdd;
 
             return AlertDialog(
               backgroundColor: palette.surfaceLight,

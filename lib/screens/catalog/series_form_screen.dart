@@ -599,9 +599,19 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
                   child: librariesAsync.when(
                     data: (libs) {
                       if (libs.isEmpty) return const SizedBox.shrink();
-                      final currentLibId = libs.any((l) => l.id == _selectedLibraryId)
-                          ? _selectedLibraryId
-                          : libs.first.id;
+                      // The default id (1) may not exist for this user, so
+                      // resolve to a real library and keep the field in sync;
+                      // otherwise saving would submit a stale/invalid id.
+                      if (!libs.any((l) => l.id == _selectedLibraryId)) {
+                        final preferred = widget.seriesId == null
+                            ? ref.read(selectedLibraryIdProvider)
+                            : null;
+                        _selectedLibraryId =
+                            libs.any((l) => l.id == preferred)
+                                ? preferred!
+                                : libs.first.id;
+                      }
+                      final currentLibId = _selectedLibraryId;
                       return DropdownButtonFormField<int>(
                         key: ValueKey('lib_$currentLibId'),
                         initialValue: currentLibId,

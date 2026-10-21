@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../widgets/share_dossier_dialog.dart';
+import '../../widgets/confirm_delete.dart';
 
 import '../../services/image_upload.dart';
 import '../../services/file_upload.dart';
@@ -900,6 +901,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                           icon: const Icon(Icons.delete_outline_rounded, size: 18),
                           color: palette.textSecondary,
                           onPressed: () async {
+                            if (!await confirmDelete(context, title: 'Delete volume?', message: 'This cannot be undone.')) return;
                             await ref.read(dataLayerProvider).volumesDelete(v.id);
                             ref.invalidate(seriesVolumesProvider(series.id));
                           },
@@ -1716,6 +1718,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                 icon: const Icon(Icons.delete_outline_rounded, size: 18),
                 color: palette.textSecondary,
                 onPressed: () async {
+                  if (!await confirmDelete(context, title: 'Delete character?', message: 'This cannot be undone.')) return;
                   await ref.read(dataLayerProvider).charactersDelete(c.id);
                   ref.invalidate(seriesCharactersProvider(seriesId));
                   ref.invalidate(seriesRelationshipsProvider(seriesId));
@@ -1889,6 +1892,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () async {
+                            if (!await confirmDelete(context, title: 'Delete character?', message: 'This cannot be undone.')) return;
                             final navigator = Navigator.of(ctx);
                             await ref.read(dataLayerProvider).charactersDelete(c.id);
                             ref.invalidate(seriesCharactersProvider(seriesId));
@@ -2404,6 +2408,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                   TextButton.icon(
                     style: TextButton.styleFrom(foregroundColor: palette.danger),
                     onPressed: () async {
+                      if (!await confirmDelete(context, title: 'Delete image?', message: 'This cannot be undone.')) return;
                       final navigator = Navigator.of(ctx);
                       await ref.read(dataLayerProvider).galleryDelete(img.id);
                       ref.invalidate(seriesGalleryProvider(seriesId));
@@ -2739,6 +2744,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
             color: palette.textSecondary,
             tooltip: 'Delete',
             onPressed: () async {
+              if (!await confirmDelete(context, title: 'Delete link?', message: 'This cannot be undone.')) return;
               await ref.read(dataLayerProvider).linksDelete(l.id);
               ref.invalidate(seriesLinksProvider(seriesId));
             },
@@ -2843,6 +2849,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
             color: palette.textSecondary,
             tooltip: 'Delete',
             onPressed: () async {
+              if (!await confirmDelete(context, title: 'Delete file?', message: 'This cannot be undone.')) return;
               if (f.filePath.startsWith('u/') || f.filePath.startsWith('attachments/')) {
                 try {
                   await ref.read(r2ServiceProvider).deleteObject(f.filePath);
@@ -3165,6 +3172,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                                   icon: const Icon(Icons.delete_outline_rounded, size: 18),
                                   color: palette.textSecondary,
                                   onPressed: () async {
+                                    if (!await confirmDelete(context, title: 'Delete term?', message: 'This cannot be undone.')) return;
                                     await ref.read(dataLayerProvider).glossaryDelete(t.id);
                                     ref.invalidate(seriesGlossaryProvider(series.id));
                                   },
