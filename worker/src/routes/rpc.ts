@@ -3,6 +3,7 @@ import { Env } from '../types';
 import { AuthUtil } from '../auth';
 import { TursoClient } from '../db';
 import { ensureSchema } from '../schema';
+import { retryAfter, recordFailure } from '../ratelimit';
 
 /**
  * Owner-checked data API.
@@ -67,6 +68,21 @@ function optStr(v: unknown, max = 20_000): string | null {
   const s = String(v);
   if (s.length > max) throw bad('Value too long');
   return s;
+}
+
+/**
+ * Stored asset references may be R2 keys, URLs or device paths, but a key in
+ * the shared `u/` scope must belong to the caller. Otherwise a user could
+ * point their own rows at someone else's object (or pin it from deletion).
+ * `lenient` (imports from backups) drops a foreign key instead of failing.
+ */
+function assetRef(v: unknown, userId: string, lenient = false): string | null {
+  const s = optStr(v, 2000);
+  if (s === null || s === '') return s;
+  if (!s.startsWith('u/')) return s;
+  if (s.startsWith(`u/${userId}/`) && !s.includes('..')) return s;
+  if (lenient) return null;
+  throw bad('Invalid file reference');
 }
 
 function strList(v: unknown, max = 100): string[] {
@@ -205,13 +221,13 @@ const SERIES_COLS = [
 
 const SERIES_INT_COLS = new Set(['library_id', 'rating', 'is_nsfw', 'standalone_chapter_count']);
 
-function seriesValues(raw: Args): any[] {
+function seriesValues(raw: Args, userId: string, lenient = false): any[] {
   if (!raw || typeof raw !== 'object') throw bad('Missing series');
   return SERIES_COLS.map((col) => {
     const v = raw[col];
     if (col === 'is_nsfw') return optInt(v) ? 1 : 0; // NOT NULL column
     if (SERIES_INT_COLS.has(col)) return optInt(v);
-    const out = optStr(v);
+    const out = col === 'cover_image_path' ? assetRef(v, userId, lenient) : optStr(v);
     if (out === null && col === 'kind') return 'series';
     if (out === null && col === 'status') return 'Planning';
     return out;
@@ -347,10 +363,13 @@ function childDef(table: unknown): ChildDef & { name: string } {
   return { ...CHILD[table], name: table };
 }
 
-function childValues(def: ChildDef, row: Args): any[] {
+function childValues(def: ChildDef, row: Args, userId: string, lenient = false): any[] {
   if (!row || typeof row !== 'object') throw bad('Missing row');
   const ints = new Set(def.intCols ?? []);
-  return def.cols.map((c) => (ints.has(c) ? optInt(row[c]) : optStr(row[c])));
+  const assetCols = new Set(Object.values(CHILD_ASSET_COL));
+  return def.cols.map((c) =>
+    ints.has(c) ? optInt(row[c]) : assetCols.has(c) ? assetRef(row[c], userId, lenient) : optStr(row[c])
+  );
 }
 
 /** Row id -> series id, proving the caller owns the parent title. */
@@ -434,7 +453,7 @@ const ops: Record<string, Handler> = {
     );
     const r = await ctx.db.execute(
       'INSERT INTO libraries (owner_id, name, icon, icon_image, position) VALUES (?, ?, ?, ?, ?)',
-      [ctx.userId, name, optStr(ctx.a.icon, 100) || 'grid', optStr(ctx.a.iconImage, 500), pos.rows[0].p]
+      [ctx.userId, name, optStr(ctx.a.icon, 100) || 'grid', assetRef(ctx.a.iconImage, ctx.userId), pos.rows[0].p]
     );
     return { id: r.lastInsertRowid };
   },
@@ -445,7 +464,7 @@ const ops: Record<string, Handler> = {
     const prev = await ctx.db.execute('SELECT icon_image AS k FROM libraries WHERE id = ?', [id]);
     await ctx.db.execute(
       'UPDATE libraries SET name = ?, icon = ?, icon_image = ? WHERE id = ? AND owner_id = ?',
-      [str(ctx.a.name, 'name', 200), optStr(ctx.a.icon, 100), optStr(ctx.a.iconImage, 500), id, ctx.userId]
+      [str(ctx.a.name, 'name', 200), optStr(ctx.a.icon, 100), assetRef(ctx.a.iconImage, ctx.userId), id, ctx.userId]
     );
     const prevIcon = prev.rows[0]?.k as string | null | undefined;
     if (prevIcon) await sweepAssets(ctx, [prevIcon]);
@@ -587,7 +606,7 @@ const ops: Record<string, Handler> = {
   },
 
   async 'series.create'(ctx) {
-    const values = seriesValues(ctx.a.series);
+    const values = seriesValues(ctx.a.series, ctx.userId);
     const libraryId = int(values[SERIES_COLS.indexOf('library_id')], 'library_id');
     await requireLibrary(ctx, libraryId);
     if (!values[0]) throw bad('Title required');
@@ -609,7 +628,7 @@ const ops: Record<string, Handler> = {
   async 'series.update'(ctx) {
     const id = int(ctx.a.id, 'id');
     await requireSeries(ctx, id);
-    const values = seriesValues(ctx.a.series);
+    const values = seriesValues(ctx.a.series, ctx.userId);
     // Moving a title is only allowed into a library the caller owns.
     await requireLibrary(ctx, int(values[SERIES_COLS.indexOf('library_id')], 'library_id'));
     const prev = await ctx.db.execute('SELECT cover_image_path AS k FROM series WHERE id = ?', [id]);
@@ -829,7 +848,7 @@ const ops: Record<string, Handler> = {
     await requireSeries(ctx, seriesId);
     const r = await ctx.db.execute(
       `INSERT INTO ${def.name} (series_id, ${def.cols.join(', ')}) VALUES (?, ${def.cols.map(() => '?').join(', ')})`,
-      [seriesId, ...childValues(def, ctx.a.row)]
+      [seriesId, ...childValues(def, ctx.a.row, ctx.userId)]
     );
     return { id: r.lastInsertRowid };
   },
@@ -844,7 +863,7 @@ const ops: Record<string, Handler> = {
       : null;
     await ctx.db.execute(
       `UPDATE ${def.name} SET ${def.cols.map((c) => `${c} = ?`).join(', ')} WHERE id = ?`,
-      [...childValues(def, ctx.a.row), id]
+      [...childValues(def, ctx.a.row, ctx.userId), id]
     );
     if (before) await sweepAssets(ctx, [before]);
     return { success: true };
@@ -1297,7 +1316,7 @@ const ops: Record<string, Handler> = {
       const id = addLibrary(
         (optStr(l.name, 200) || 'Library').trim() || 'Library',
         optStr(l.icon, 100),
-        optStr(l.icon_image, 500)
+        assetRef(l.icon_image, ctx.userId, true)
       );
       if (oldId !== null) libMap.set(oldId, id);
     }
@@ -1343,7 +1362,7 @@ const ops: Record<string, Handler> = {
       const newId = alloc('series');
       const oldId = optInt(s.id);
       if (oldId !== null) seriesMap.set(oldId, newId);
-      const values = seriesValues({ ...s, library_id: libraryFor(s.library_id) });
+      const values = seriesValues({ ...s, library_id: libraryFor(s.library_id) }, ctx.userId, true);
       stmts.push({
         sql: `INSERT INTO series (id, ${SERIES_COLS.join(', ')}, created_at)
               VALUES (?, ${SERIES_COLS.map(() => '?').join(', ')}, COALESCE(?, datetime('now')))`,
@@ -1411,7 +1430,7 @@ const ops: Record<string, Handler> = {
       childIn[t].forEach((row, index) => {
         const sid = seriesMap.get(optInt(row.series_id) ?? -1);
         if (!sid) { skipped++; return; }
-        const vals = childValues(def, row);
+        const vals = childValues(def, row, ctx.userId, true);
         const missing = REQUIRED[t].some((c) => vals[def.cols.indexOf(c)] === null);
         if (missing) { skipped++; return; }
         if (t === 'gallery_images') {
@@ -1583,6 +1602,16 @@ rpcRouter.post('/:op', async (c) => {
   try {
     const db = new TursoClient(c.env);
     await ensureSchema(db);
+    if (op === 'data.import') {
+      // Imports are heavy; allow a handful per window per account.
+      const limit = [{ key: `import:u:${auth.sub}`, max: 5 }];
+      const wait = await retryAfter(db, limit);
+      if (wait > 0) {
+        c.header('Retry-After', String(wait));
+        return c.json({ error: 'Too many imports. Please try again later.' }, 429);
+      }
+      await recordFailure(db, limit);
+    }
     const result = await ops[op]({ db, env: c.env, userId: auth.sub, a });
     return c.json(result ?? { success: true });
   } catch (err) {

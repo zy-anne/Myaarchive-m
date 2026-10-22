@@ -2,6 +2,9 @@ import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { Env } from '../types';
 import { AuthUtil } from '../auth';
+import { TursoClient } from '../db';
+import { ensureSchema } from '../schema';
+import { LimitKey, recordFailure, retryAfter } from '../ratelimit';
 
 type Variables = { userId: string };
 
@@ -182,6 +185,18 @@ assetsRouter.post('/upload', requireAuth, async (c) => {
   if (!ALLOWED_PREFIXES.has(prefix)) {
     return c.json({ error: 'Invalid upload prefix' }, 400);
   }
+
+  // Throttle by account: each attempt counts, so a script can't fill the
+  // bucket or run up storage cost. 200 uploads per 15-minute window.
+  const db = new TursoClient(c.env);
+  await ensureSchema(db);
+  const limit: LimitKey[] = [{ key: `upload:u:${userId}`, max: 200 }];
+  const wait = await retryAfter(db, limit);
+  if (wait > 0) {
+    c.header('Retry-After', String(wait));
+    return c.json({ error: 'Too many uploads. Please try again in a few minutes.' }, 429);
+  }
+  await recordFailure(db, limit);
 
   const contentType = (c.req.header('Content-Type') || '').split(';')[0].trim().toLowerCase();
   const ext = CONTENT_TYPE_EXT[contentType];
