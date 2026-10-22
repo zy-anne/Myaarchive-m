@@ -233,7 +233,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Cover uploaded to Cloudflare R2!'),
+            content: Text('Cover uploaded'),
             backgroundColor: palette.primary,
           ),
         );
@@ -411,6 +411,37 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
     }
   }
 
+  /// Opens a calendar and stores the pick as YYYY-MM-DD (the format used
+  /// everywhere else in the app, e.g. auto-filled start/finish dates).
+  Future<void> _pickDate(TextEditingController ctrl) async {
+    final now = DateTime.now();
+    final initial = DateTime.tryParse(ctrl.text.trim()) ?? now;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(1900),
+      lastDate: DateTime(now.year + 5),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      ctrl.text =
+          '${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+    });
+  }
+
+  InputDecoration _dateDecoration(String label, TextEditingController ctrl) {
+    return InputDecoration(
+      labelText: label,
+      suffixIcon: ctrl.text.isEmpty
+          ? const Icon(Icons.calendar_today_rounded, size: 18)
+          : IconButton(
+              icon: const Icon(Icons.close_rounded, size: 18),
+              tooltip: 'Clear',
+              onPressed: () => setState(() => ctrl.clear()),
+            ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
@@ -523,9 +554,9 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
             const SizedBox(height: 8),
             Center(
               child: Text(
-                'Tap camera icon to pick & upload cover image to R2',
+                'Tap the camera icon to add a cover image',
                 style: TextStyle(
-                  color: palette.textSecondary.withValues(alpha: 0.8),
+                  color: palette.textSecondary,
                   fontSize: 12,
                 ),
               ),
@@ -800,6 +831,9 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
             ),
             const SizedBox(height: 20),
 
+            // Reviews/reading log only matter once there is something to say,
+            // so a new title gets a short form; they stay editable here later.
+            if (widget.seriesId != null) ...[
             // Overall Thoughts
             TextFormField(
               controller: _overallThoughtsCtrl,
@@ -823,6 +857,7 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
               maxLines: 3,
             ),
             const SizedBox(height: 20),
+            ],
 
             // Extra Metadata Expansion tile
             ExpansionTile(
@@ -846,8 +881,10 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
                     Expanded(
                       child: TextFormField(
                         controller: _yearPublishedCtrl,
-                        decoration:
-                            const InputDecoration(labelText: 'Year Published'),
+                        keyboardType: TextInputType.number,
+                        maxLength: 4,
+                        decoration: const InputDecoration(
+                            labelText: 'Year Published', counterText: ''),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -867,16 +904,18 @@ class _SeriesFormScreenState extends ConsumerState<SeriesFormScreen> {
                     Expanded(
                       child: TextFormField(
                         controller: _dateStartedCtrl,
-                        decoration:
-                            const InputDecoration(labelText: 'Date Started'),
+                        readOnly: true,
+                        onTap: () => _pickDate(_dateStartedCtrl),
+                        decoration: _dateDecoration('Date Started', _dateStartedCtrl),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: TextFormField(
                         controller: _dateFinishedCtrl,
-                        decoration:
-                            const InputDecoration(labelText: 'Date Finished'),
+                        readOnly: true,
+                        onTap: () => _pickDate(_dateFinishedCtrl),
+                        decoration: _dateDecoration('Date Finished', _dateFinishedCtrl),
                       ),
                     ),
                   ],

@@ -2527,8 +2527,8 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                   controller: pathCtrl,
                   enabled: !busy,
                   decoration: const InputDecoration(
-                    labelText: 'Image URL or R2 Key',
-                    hintText: 'https://... or gallery/...',
+                    labelText: 'Image URL',
+                    hintText: 'https://...',
                   ),
                 ),
                 const SizedBox(height: 10),

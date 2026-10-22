@@ -188,7 +188,7 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
                           'Password Recovery (Optional)',
                           style: TextStyle(
                             fontSize: 12,
-                            color: palette.textSecondary.withValues(alpha: 0.8),
+                            color: palette.textSecondary,
                           ),
                         ),
                       ),

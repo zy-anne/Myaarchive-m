@@ -95,7 +95,7 @@ class AppTheme {
         ),
         hintStyle: GoogleFonts.inter(
           fontSize: 13,
-          color: palette.textSecondary.withValues(alpha: 0.85),
+          color: palette.textSecondary,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),

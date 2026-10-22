@@ -136,7 +136,7 @@ class _RelationshipGraphState extends State<RelationshipGraph> {
           style: TextStyle(
             fontSize: 11,
             height: 1.5,
-            color: palette.textSecondary.withValues(alpha: 0.85),
+            color: palette.textSecondary,
           ),
         ),
       ],
