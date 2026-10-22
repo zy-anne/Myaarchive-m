@@ -72,7 +72,7 @@ class Volume {
     String? thoughts,
     String? chapterNotes,
     String? coverImagePath,
-    String? dateRead,
+    Object? dateRead = _unset,
     String? publishedDate,
   }) {
     return Volume(
@@ -85,8 +85,11 @@ class Volume {
       thoughts: thoughts ?? this.thoughts,
       chapterNotes: chapterNotes ?? this.chapterNotes,
       coverImagePath: coverImagePath ?? this.coverImagePath,
-      dateRead: dateRead ?? this.dateRead,
+      dateRead: identical(dateRead, _unset) ? this.dateRead : dateRead as String?,
       publishedDate: publishedDate ?? this.publishedDate,
     );
   }
 }
+
+/// Lets copyWith tell "not passed" from an explicit null (marking unread).
+const Object _unset = Object();

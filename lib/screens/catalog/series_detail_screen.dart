@@ -819,9 +819,38 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
             )
           : ListView.builder(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-              itemCount: volumes.length,
+              itemCount: volumes.length + 1,
               itemBuilder: (context, index) {
-                final v = volumes[index];
+                if (index == 0) {
+                  final readCount =
+                      volumes.where((x) => (x.dateRead ?? '').isNotEmpty).length;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '$readCount of ${volumes.length} volumes read',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: palette.textMain,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: volumes.isEmpty ? 0 : readCount / volumes.length,
+                            minHeight: 6,
+                            backgroundColor: palette.border,
+                            color: palette.accent,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                final v = volumes[index - 1];
                 return Card(
                   color: palette.surfaceLight,
                   margin: const EdgeInsets.only(bottom: 12),
@@ -896,6 +925,30 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
                               ],
                             ],
                           ),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            (v.dateRead ?? '').isNotEmpty
+                                ? Icons.check_circle_rounded
+                                : Icons.radio_button_unchecked_rounded,
+                            size: 20,
+                          ),
+                          color: (v.dateRead ?? '').isNotEmpty
+                              ? palette.accent
+                              : palette.textSecondary,
+                          tooltip: (v.dateRead ?? '').isNotEmpty
+                              ? 'Mark as unread'
+                              : 'Mark as read today',
+                          onPressed: () async {
+                            final now = DateTime.now();
+                            final today =
+                                '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+                            final isRead = (v.dateRead ?? '').isNotEmpty;
+                            await ref.read(dataLayerProvider).volumesUpdate(
+                                  v.copyWith(dateRead: isRead ? null : today),
+                                );
+                            ref.invalidate(seriesVolumesProvider(series.id));
+                          },
                         ),
                         IconButton(
                           icon: const Icon(Icons.delete_outline_rounded, size: 18),
