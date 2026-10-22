@@ -4,6 +4,7 @@
 /// the Cloudflare Worker API (`/api/assets/*`). No R2 access keys or S3
 /// credentials ever touch the mobile client.
 library;
+import 'dart:async';
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:uuid/uuid.dart';
@@ -49,53 +50,84 @@ class R2Service {
     return '$prefix/${_uuid.v4()}$ext';
   }
 
+  // Requests made within one short window are sent to the Worker together.
+  final Map<String, Completer<String>> _pending = {};
+  Timer? _flushTimer;
+  int _batchExpiresIn = 3600;
+  static const _batchWindow = Duration(milliseconds: 40);
+  static const _maxBatch = 100;
+
   /// Get a signed download URL for an asset key.
   ///
   /// Caches the generated signed link in-memory until shortly before expiration
-  /// to minimize unnecessary network round-trips.
-  Future<String> getDownloadUrl(String key, {int expiresIn = 3600}) async {
-    if (key.isEmpty) return '';
+  /// to minimize unnecessary network round-trips. Lookups that happen close
+  /// together (a grid of covers) share a single `/presign-batch` request.
+  Future<String> getDownloadUrl(String key, {int expiresIn = 3600}) {
+    if (key.isEmpty) return Future.value('');
 
     final cached = _urlCache[key];
     if (cached != null && cached.isValid) {
-      return cached.url;
+      return Future.value(cached.url);
     }
 
+    final existing = _pending[key];
+    if (existing != null) return existing.future;
+
+    final completer = Completer<String>();
+    _pending[key] = completer;
+    _batchExpiresIn = expiresIn;
+    if (_pending.length >= _maxBatch) {
+      _flushTimer?.cancel();
+      _flush();
+    } else {
+      _flushTimer ??= Timer(_batchWindow, _flush);
+    }
+    return completer.future;
+  }
+
+  Future<void> _flush() async {
+    _flushTimer?.cancel();
+    _flushTimer = null;
+    final batch = Map<String, Completer<String>>.from(_pending);
+    _pending.clear();
+    if (batch.isEmpty) return;
+    final expiresIn = _batchExpiresIn;
+
     try {
-      final response = await _dio.get(
-        '$_workerBaseUrl/api/assets/presign-download',
-        queryParameters: {
-          'key': key,
-          'expiresIn': expiresIn,
-        },
+      final response = await _dio.post(
+        '$_workerBaseUrl/api/assets/presign-batch',
+        data: {'keys': batch.keys.toList(), 'expiresIn': expiresIn},
         options: Options(
           headers: {
             if (_token.isNotEmpty) 'Authorization': 'Bearer $_token',
+            'Content-Type': 'application/json',
           },
         ),
       );
-
       final data = response.data;
-      if (data is Map) {
-        final relativeUrl = data['downloadUrl'] as String?;
-        final expTimestamp = data['expiresAt'] as int?;
-
-        if (relativeUrl != null) {
-          final fullUrl = relativeUrl.startsWith('http')
+      final urls = data is Map && data['urls'] is Map ? data['urls'] as Map : const {};
+      batch.forEach((key, completer) {
+        var result = '';
+        final entry = urls[key];
+        if (entry is Map && entry['downloadUrl'] is String) {
+          final relativeUrl = entry['downloadUrl'] as String;
+          result = relativeUrl.startsWith('http')
               ? relativeUrl
               : '$_workerBaseUrl$relativeUrl';
-
-          final expiresAt = expTimestamp != null
-              ? DateTime.fromMillisecondsSinceEpoch(expTimestamp * 1000)
-              : DateTime.now().add(Duration(seconds: expiresIn));
-
-          _urlCache[key] = _CachedUrl(url: fullUrl, expiresAt: expiresAt);
-          return fullUrl;
+          final exp = entry['expiresAt'];
+          _urlCache[key] = _CachedUrl(
+            url: result,
+            expiresAt: exp is int
+                ? DateTime.fromMillisecondsSinceEpoch(exp * 1000)
+                : DateTime.now().add(Duration(seconds: expiresIn)),
+          );
         }
-      }
-      return '';
+        completer.complete(result);
+      });
     } catch (_) {
-      return '';
+      for (final c in batch.values) {
+        if (!c.isCompleted) c.complete('');
+      }
     }
   }
 
@@ -183,6 +215,7 @@ class R2Service {
   }
 
   void dispose() {
+    _flushTimer?.cancel();
     _dio.close();
   }
 }

@@ -259,6 +259,41 @@ assetsRouter.get('/presign-download', requireAuth, async (c) => {
 });
 
 /**
+ * Same as `/presign-download` for many keys in one request, so a grid of
+ * covers needs one round trip instead of one per image. Body:
+ * `{ keys: string[], expiresIn?: number }` (max 100 keys). Keys that are
+ * invalid or not the caller's are left out of `urls` rather than failing the
+ * whole batch.
+ */
+assetsRouter.post('/presign-batch', requireAuth, async (c) => {
+  const userId = c.get('userId');
+  let body: any;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: 'Invalid JSON body' }, 400);
+  }
+  const keys: unknown = body?.keys;
+  if (!Array.isArray(keys) || keys.length === 0 || keys.length > 100) {
+    return c.json({ error: 'keys must be an array of 1-100 items' }, 400);
+  }
+  const requested = Number(body?.expiresIn ?? DEFAULT_URL_TTL_SECONDS);
+  const ttl = Number.isFinite(requested)
+    ? Math.min(Math.max(Math.floor(requested), MIN_URL_TTL_SECONDS), MAX_URL_TTL_SECONDS)
+    : DEFAULT_URL_TTL_SECONDS;
+  const exp = Math.floor(Date.now() / 1000) + ttl;
+
+  const urls: Record<string, { downloadUrl: string; expiresAt: number }> = {};
+  for (const key of new Set(keys)) {
+    if (typeof key !== 'string' || !isValidKey(key)) continue;
+    if (!isOwnKey(key, userId) && !isLegacyKey(key)) continue;
+    const sig = await signAsset(c.env, key, exp);
+    urls[key] = { downloadUrl: `/api/assets/${key}?exp=${exp}&sig=${sig}`, expiresAt: exp };
+  }
+  return c.json({ urls });
+});
+
+/**
  * Serve an object. Requires a valid, unexpired signature from
  * `/presign-download`, so plain key guessing gets nothing.
  */
