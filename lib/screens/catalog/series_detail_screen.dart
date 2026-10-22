@@ -2850,11 +2850,7 @@ class _SeriesDetailScreenState extends ConsumerState<SeriesDetailScreen>
             tooltip: 'Delete',
             onPressed: () async {
               if (!await confirmDelete(context, title: 'Delete file?', message: 'This cannot be undone.')) return;
-              if (f.filePath.startsWith('u/') || f.filePath.startsWith('attachments/')) {
-                try {
-                  await ref.read(r2ServiceProvider).deleteObject(f.filePath);
-                } catch (_) {}
-              }
+              // The Worker removes the R2 object once nothing references it.
               await ref.read(dataLayerProvider).attachmentsDelete(f.id);
               ref.invalidate(seriesAttachmentsProvider(seriesId));
             },

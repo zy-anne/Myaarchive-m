@@ -230,7 +230,13 @@ class AuthStateNotifier extends StateNotifier<AsyncValue<User?>> {
 final authStateProvider =
     StateNotifierProvider<AuthStateNotifier, AsyncValue<User?>>((ref) {
   final auth = ref.watch(authServiceProvider);
-  return AuthStateNotifier(auth);
+  final notifier = AuthStateNotifier(auth);
+  // An expired/revoked session (HTTP 401) signs the user out, which sends the
+  // router back to the login screen instead of leaving every screen erroring.
+  final turso = ref.read(tursoClientProvider);
+  turso.onUnauthorized = () => notifier.signOut();
+  ref.onDispose(() => turso.onUnauthorized = null);
+  return notifier;
 });
 
 // ─── Library Providers ───────────────────────────────────────────────

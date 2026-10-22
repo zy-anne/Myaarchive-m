@@ -442,10 +442,13 @@ const ops: Record<string, Handler> = {
   async 'libraries.update'(ctx) {
     const id = int(ctx.a.id, 'id');
     await requireLibrary(ctx, id);
+    const prev = await ctx.db.execute('SELECT icon_image AS k FROM libraries WHERE id = ?', [id]);
     await ctx.db.execute(
       'UPDATE libraries SET name = ?, icon = ?, icon_image = ? WHERE id = ? AND owner_id = ?',
       [str(ctx.a.name, 'name', 200), optStr(ctx.a.icon, 100), optStr(ctx.a.iconImage, 500), id, ctx.userId]
     );
+    const prevIcon = prev.rows[0]?.k as string | null | undefined;
+    if (prevIcon) await sweepAssets(ctx, [prevIcon]);
     return { success: true };
   },
 
@@ -609,11 +612,15 @@ const ops: Record<string, Handler> = {
     const values = seriesValues(ctx.a.series);
     // Moving a title is only allowed into a library the caller owns.
     await requireLibrary(ctx, int(values[SERIES_COLS.indexOf('library_id')], 'library_id'));
+    const prev = await ctx.db.execute('SELECT cover_image_path AS k FROM series WHERE id = ?', [id]);
     await ctx.db.execute(
       `UPDATE series SET ${SERIES_COLS.map((c) => `${c} = ?`).join(', ')} WHERE id = ?`,
       [...values, id]
     );
     await syncLabels(ctx, id, strList(ctx.a.tagNames), strList(ctx.a.genreNames), strList(ctx.a.warningNames));
+    // A replaced or removed cover would otherwise stay in R2 forever.
+    const prevCover = prev.rows[0]?.k as string | null | undefined;
+    if (prevCover) await sweepAssets(ctx, [prevCover]);
     return { success: true };
   },
 

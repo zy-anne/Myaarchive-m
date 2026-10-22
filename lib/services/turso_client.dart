@@ -26,6 +26,10 @@ class TursoClient {
   /// the Worker couldn't be reached. The UI shows an "Offline" banner.
   final ValueNotifier<bool> offline = ValueNotifier<bool>(false);
 
+  /// Called once when the Worker rejects the session token (HTTP 401), e.g.
+  /// it expired. The app uses this to sign out and return to the login screen.
+  void Function()? onUnauthorized;
+
   TursoClient({
     required String workerBaseUrl,
     this.sessionToken = '',
@@ -133,6 +137,12 @@ class TursoClient {
         }
         throw const TursoException(
             "Can't reach the server, so changes can't be saved right now.");
+      }
+      if (e.response?.statusCode == 401 && sessionToken.isNotEmpty) {
+        // Clear first so a burst of failing requests only triggers one sign-out.
+        setSessionToken('');
+        onUnauthorized?.call();
+        throw const TursoException('Your session has expired. Please sign in again.');
       }
       final msg = e.response?.data is Map
           ? (e.response!.data['error']?.toString())
